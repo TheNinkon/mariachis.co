@@ -1,0 +1,24 @@
+{
+  "menu": [
+    {
+      "url": "/",
+      "name": "Inicio",
+      "icon": "menu-icon icon-base ti tabler-smart-home",
+      "slug": "home"
+    },
+    {
+      "url": "/admin/login",
+      "name": "Login Interno",
+      "icon": "menu-icon icon-base ti tabler-login",
+      "slug": "login",
+      "target": "_blank"
+    },
+    {
+      "url": "/auth/register-basic",
+      "name": "Registro Mariachi",
+      "icon": "menu-icon icon-base ti tabler-user",
+      "slug": "register",
+      "target": "_blank"
+    }
+  ]
+}

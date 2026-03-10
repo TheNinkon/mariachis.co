@@ -1,0 +1,12 @@
+:root,
+[data-bs-theme='light'],
+[data-bs-theme='dark'] {
+  --bs-primary: #00563b !important;
+  --bs-primary-rgb: 0, 86, 59 !important;
+  --bs-primary-bg-subtle: #d9ebe5 !important;
+  --bs-primary-border-subtle: #9abcae !important;
+  --bs-primary-text-emphasis: #00452f !important;
+  --bs-primary-contrast: #ffffff !important;
+  --bs-link-color: #00563b !important;
+  --bs-link-hover-color: #00452f !important;
+}

@@ -1,0 +1,54 @@
+{
+  "menu": [
+    {
+      "url": "/",
+      "name": "Inicio",
+      "icon": "menu-icon icon-base ti tabler-smart-home",
+      "slug": "home"
+    },
+    {
+      "url": "/admin/dashboard",
+      "icon": "menu-icon icon-base ti tabler-layout-dashboard",
+      "name": "Dashboard Admin",
+      "slug": "admin.dashboard"
+    },
+    {
+      "url": "/staff/dashboard",
+      "name": "Panel Interno",
+      "icon": "menu-icon icon-base ti tabler-users-group",
+      "slug": "staff.dashboard"
+    },
+    {
+      "url": "/mariachi/panel",
+      "name": "Panel Mariachi",
+      "icon": "menu-icon icon-base ti tabler-music",
+      "slug": "mariachi.panel"
+    },
+    {
+      "url": "/admin/mariachis",
+      "name": "Mariachis",
+      "icon": "menu-icon icon-base ti tabler-list-details",
+      "slug": "admin.mariachis.index"
+    },
+    {
+      "url": "/admin/internal-users",
+      "name": "Equipo Interno",
+      "icon": "menu-icon icon-base ti tabler-settings",
+      "slug": "admin.internal-users.index"
+    },
+    {
+      "url": "/admin/login",
+      "name": "Login Interno",
+      "icon": "menu-icon icon-base ti tabler-login",
+      "slug": "login",
+      "target": "_blank"
+    },
+    {
+      "url": "/auth/register-basic",
+      "name": "Registro Mariachi",
+      "icon": "menu-icon icon-base ti tabler-user",
+      "slug": "register",
+      "target": "_blank"
+    }
+  ]
+}
