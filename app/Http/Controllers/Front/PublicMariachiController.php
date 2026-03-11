@@ -11,6 +11,7 @@ use App\Models\MariachiReview;
 use App\Services\MariachiProfileStatsService;
 use App\Services\SubscriptionCapabilityService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -52,7 +53,7 @@ class PublicMariachiController extends Controller
             ->published()
             ->where('id', '!=', $profile->id)
             ->whereRaw('LOWER(city_name) = ?', [mb_strtolower($city)])
-            ->take(6)
+            ->take(10)
             ->get();
 
         $publicReviews = MariachiReview::query()
@@ -166,6 +167,9 @@ class PublicMariachiController extends Controller
             }
         }
 
+        $recentlyViewedListings = $this->recentlyViewedListings($request, $profile);
+        $seoHelpfulLinks = $this->buildHelpfulSeoLinks($profile, $relatedProfiles, $citySlug);
+
         $viewKey = 'mariachi_listing_viewed_'.$profile->id;
         $lastSeen = (int) $request->session()->get($viewKey, 0);
         if (($lastSeen === 0 || now()->timestamp - $lastSeen >= 1800) && $profile->mariachiProfile) {
@@ -224,6 +228,8 @@ class PublicMariachiController extends Controller
             'socialLinks' => $socialLinks,
             'youtubeEmbeds' => $youtubeEmbeds,
             'relatedProfiles' => $relatedProfiles,
+            'recentlyViewedListings' => $recentlyViewedListings,
+            'seoHelpfulLinks' => $seoHelpfulLinks,
             'mapEmbedUrl' => $this->buildMapEmbedUrl($profile),
             'whatsappUrl' => $normalizedWhatsApp
                 ? 'https://wa.me/'.$normalizedWhatsApp.'?text='.rawurlencode('Hola '.$name.', vi tu anuncio en mariachis.co y quiero cotizar mi evento.')
@@ -304,5 +310,72 @@ class PublicMariachiController extends Controller
         }
 
         return 'https://www.google.com/maps?q='.rawurlencode($query).'&output=embed';
+    }
+
+    private function recentlyViewedListings(Request $request, MariachiListing $currentListing): Collection
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isClient()) {
+            return collect();
+        }
+
+        return ClientRecentView::query()
+            ->with([
+                'mariachiListing.mariachiProfile.user:id,name,first_name,last_name',
+                'mariachiListing.photos',
+                'mariachiListing.eventTypes:id,name',
+            ])
+            ->where('user_id', $user->id)
+            ->where('mariachi_listing_id', '!=', $currentListing->id)
+            ->latest('last_viewed_at')
+            ->limit(12)
+            ->get()
+            ->map(fn (ClientRecentView $view): ?MariachiListing => $view->mariachiListing)
+            ->filter(fn (?MariachiListing $listing): bool => $listing instanceof MariachiListing && $listing->isApprovedForMarketplace())
+            ->unique('id')
+            ->values();
+    }
+
+    private function buildHelpfulSeoLinks(MariachiListing $profile, Collection $relatedProfiles, string $citySlug): Collection
+    {
+        $cityLabel = $profile->city_name ?: 'Colombia';
+        $cityLink = route('seo.landing.slug', ['slug' => $citySlug]);
+
+        return collect([
+            [
+                'label' => 'Mariachis en '.$cityLabel,
+                'url' => $cityLink,
+            ],
+            filled($profile->zone_name) ? [
+                'label' => 'Mariachis en '.$profile->zone_name,
+                'url' => route('seo.landing.city-category', [
+                    'citySlug' => $citySlug,
+                    'scopeSlug' => Str::slug((string) $profile->zone_name),
+                ]),
+            ] : null,
+        ])
+            ->filter()
+            ->concat(
+                $profile->eventTypes
+                    ->take(4)
+                    ->map(fn ($eventType): array => [
+                        'label' => $eventType->name.' en '.$cityLabel,
+                        'url' => route('seo.landing.city-category', [
+                            'citySlug' => $citySlug,
+                            'scopeSlug' => Str::slug($eventType->name),
+                        ]),
+                    ])
+            )
+            ->concat(
+                $relatedProfiles
+                    ->take(10)
+                    ->map(fn (MariachiListing $listing): array => [
+                        'label' => ($listing->business_name ?: $listing->user?->display_name ?: $listing->title).' en '.($listing->city_name ?: $cityLabel),
+                        'url' => route('mariachi.public.show', ['slug' => $listing->slug]),
+                    ])
+            )
+            ->unique('url')
+            ->take(20)
+            ->values();
     }
 }

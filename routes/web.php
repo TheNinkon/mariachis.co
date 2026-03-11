@@ -27,6 +27,7 @@ use App\Http\Controllers\Client\ClientDashboardController;
 use App\Http\Controllers\Front\BlogController;
 use App\Http\Controllers\Front\HomeController;
 use App\Http\Controllers\Front\ListingInfoRequestController;
+use App\Http\Controllers\Front\PublicListingCollectionController;
 use App\Http\Controllers\Front\PublicMariachiController;
 use App\Http\Controllers\Front\QuoteRequestController;
 use App\Http\Controllers\Front\SeoLandingController;
@@ -52,6 +53,9 @@ $seoLandingSlugPattern = $seoReservedPattern !== ''
 Route::get('/', HomeController::class)->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+Route::get('/lista-de-deseos', [PublicListingCollectionController::class, 'wishlist'])->name('public.collections.wishlist');
+Route::get('/vistos-recientemente', [PublicListingCollectionController::class, 'recentlyViewed'])->name('public.collections.recents');
+Route::get('/resolver-anuncios', [PublicListingCollectionController::class, 'resolve'])->name('public.listings.resolve');
 Route::get('/mariachis/{citySlug}/{scopeSlug}', [SeoLandingController::class, 'showCityCategory'])
     ->where(['citySlug' => $seoLandingSlugPattern, 'scopeSlug' => $seoLandingSlugPattern])
     ->name('seo.landing.city-category');
@@ -104,6 +108,8 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/auth/logout', [LoginController::class, 'destroy'])->name('logout');
+    Route::get('/completa-tu-cuenta', [ClientLoginController::class, 'showCompleteAccount'])->name('client.login.complete-account');
+    Route::patch('/completa-tu-cuenta', [ClientLoginController::class, 'completeAccount'])->name('client.login.complete-account.update');
 
     Route::prefix('/admin')->middleware('role:admin')->group(function (): void {
         Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('admin.panel');
@@ -134,6 +140,7 @@ Route::middleware('auth')->group(function (): void {
         Route::patch('/internal-users/{user}/toggle-status', [InternalUserController::class, 'toggleStatus'])->name('admin.internal-users.toggle-status');
         Route::get('/configuracion-sistema', [SystemSettingController::class, 'edit'])->name('admin.system-settings.edit');
         Route::patch('/configuracion-sistema', [SystemSettingController::class, 'update'])->name('admin.system-settings.update');
+        Route::post('/configuracion-sistema/smtp/test', [SystemSettingController::class, 'sendMailTest'])->name('admin.system-settings.smtp.test');
         Route::resource('/blog-posts', BlogPostController::class)
             ->except(['show'])
             ->names('admin.blog-posts');

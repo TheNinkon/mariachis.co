@@ -376,6 +376,12 @@
       navigateModal(1);
     });
 
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+
     document.addEventListener("keydown", function (event) {
       if (modal.classList.contains("hidden")) {
         return;

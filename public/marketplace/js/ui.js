@@ -946,7 +946,8 @@
               </button>
               <div data-header-account-menu class="absolute right-0 top-[calc(100%+0.6rem)] z-50 hidden w-[17rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_28px_42px_-28px_rgba(15,23,42,0.6)]">
                 <a href="/login" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Iniciar sesión / Registrarse</a>
-                <a href="/mi-cuenta/favoritos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Lista de deseos</a>
+                <a href="/lista-de-deseos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Lista de deseos</a>
+                <a href="/vistos-recientemente" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Vistos recientemente</a>
                 <a href="#" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Ayuda</a>
               </div>
             </div>
@@ -1921,6 +1922,7 @@
     if (!stickyShell) {
       return;
     }
+    const stickySentinel = document.querySelector("[data-listing-anchor-sentinel]");
     const budgetCard = document.querySelector(".listing-budget-card");
 
     const links = Array.from(nav.querySelectorAll('a[href^="#"]'));
@@ -1947,45 +1949,40 @@
       return;
     }
 
-    function syncAnchorLayout() {
+    function syncStickyVars() {
       const header = document.querySelector("header");
-      const topOffset = header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0;
+      const headerHeight = header ? Math.max(0, Math.round(header.getBoundingClientRect().height)) : 72;
+      const anchorHeight = stickyShell ? Math.max(0, Math.round(stickyShell.getBoundingClientRect().height)) : 56;
 
+      document.documentElement.style.setProperty("--listing-header-height", `${headerHeight}px`);
+      document.documentElement.style.setProperty("--listing-anchor-height", `${anchorHeight}px`);
+
+      return { header, headerHeight, anchorHeight };
+    }
+
+    function syncAnchorLayout() {
+      syncStickyVars();
       if (window.matchMedia("(max-width: 767px)").matches) {
         stickyShell.classList.remove("is-docked");
         document.body.classList.remove("listing-anchor-docked");
         if (budgetCard) {
           budgetCard.classList.remove("is-inline-form-active");
         }
-        stickyShell.style.removeProperty("--listing-anchor-bleed");
         return;
       }
 
-      const shellTop = stickyShell.getBoundingClientRect().top;
-      const docked = shellTop <= topOffset + 1;
+      const dockTrigger = stickySentinel || stickyShell;
+      const docked = dockTrigger.getBoundingClientRect().top <= 0;
       stickyShell.classList.toggle("is-docked", docked);
       document.body.classList.toggle("listing-anchor-docked", docked);
       if (budgetCard) {
         budgetCard.classList.toggle("is-inline-form-active", docked);
       }
-
-      if (!docked) {
-        stickyShell.style.removeProperty("--listing-anchor-bleed");
-        return;
-      }
-
-      const parent = stickyShell.parentElement;
-      const left = parent ? parent.getBoundingClientRect().left : stickyShell.getBoundingClientRect().left;
-      stickyShell.style.setProperty("--listing-anchor-bleed", `${Math.max(0, left)}px`);
     }
 
     function getScrollOffset() {
-      const header = document.querySelector("header");
-      const headerHeight = header ? Math.max(0, Math.round(header.getBoundingClientRect().height)) : 0;
-      const anchorHeight = stickyShell
-        ? stickyShell.getBoundingClientRect().height
-        : nav.getBoundingClientRect().height;
-      return headerHeight + anchorHeight + 12;
+      const { anchorHeight } = syncStickyVars();
+      return anchorHeight + 16;
     }
 
     function setActive(id) {
@@ -2710,57 +2707,62 @@
   }
 
   function initFeaturedCarousel() {
-    const track = document.querySelector("[data-featured-carousel]");
-    const leftButton = document.querySelector('[data-featured-scroll="left"]');
-    const rightButton = document.querySelector('[data-featured-scroll="right"]');
+    document.querySelectorAll("[data-featured-carousel-shell]").forEach((shell) => {
+      const track = shell.querySelector("[data-featured-carousel]");
+      const leftButton = shell.querySelector('[data-featured-scroll="left"]');
+      const rightButton = shell.querySelector('[data-featured-scroll="right"]');
 
-    if (!track || !leftButton || !rightButton) {
-      return;
-    }
-
-    function getStep() {
-      const firstVisible =
-        track.querySelector(".featured-promo-card:not(.hidden)") ||
-        track.querySelector(".featured-promo-card");
-      if (!firstVisible) {
-        return 300;
+      if (!track || !leftButton || !rightButton || shell.dataset.carouselReady === "true") {
+        return;
       }
-      return firstVisible.getBoundingClientRect().width + 16;
-    }
 
-    function updateButtons() {
-      const maxScroll = Math.max(track.scrollWidth - track.clientWidth, 0);
-      const current = track.scrollLeft;
-      leftButton.disabled = current <= 3;
-      rightButton.disabled = current >= maxScroll - 3;
-    }
+      shell.dataset.carouselReady = "true";
 
-    leftButton.addEventListener("click", function () {
-      track.scrollBy({
-        left: -getStep(),
-        behavior: "smooth",
+      function getStep() {
+        const firstVisible =
+          track.querySelector(".featured-promo-card:not(.hidden)") ||
+          track.querySelector(".featured-promo-card");
+        if (!firstVisible) {
+          return 300;
+        }
+        return firstVisible.getBoundingClientRect().width + 16;
+      }
+
+      function updateButtons() {
+        const maxScroll = Math.max(track.scrollWidth - track.clientWidth, 0);
+        const current = track.scrollLeft;
+        leftButton.disabled = current <= 3;
+        rightButton.disabled = current >= maxScroll - 3;
+      }
+
+      leftButton.addEventListener("click", function () {
+        track.scrollBy({
+          left: -getStep(),
+          behavior: "smooth",
+        });
       });
-    });
 
-    rightButton.addEventListener("click", function () {
-      track.scrollBy({
-        left: getStep(),
-        behavior: "smooth",
+      rightButton.addEventListener("click", function () {
+        track.scrollBy({
+          left: getStep(),
+          behavior: "smooth",
+        });
       });
-    });
 
-    const mutationObserver = new MutationObserver(function () {
-      window.requestAnimationFrame(updateButtons);
-    });
-    mutationObserver.observe(track, {
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["class"],
-    });
+      const mutationObserver = new MutationObserver(function () {
+        window.requestAnimationFrame(updateButtons);
+      });
+      mutationObserver.observe(track, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class"],
+      });
 
-    track.addEventListener("scroll", updateButtons, { passive: true });
-    window.addEventListener("resize", updateButtons);
-    updateButtons();
+      track.addEventListener("scroll", updateButtons, { passive: true });
+      window.addEventListener("resize", updateButtons);
+      updateButtons();
+    });
   }
 
   function updateFavoriteCount() {

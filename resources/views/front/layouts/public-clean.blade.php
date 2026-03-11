@@ -60,7 +60,7 @@
         </a>
 
         <nav class="public-clean-nav" aria-label="Navegación principal">
-          @if($isClientAuth)
+          @if($isClientAuth && ! $isClientAuthFlow)
             <a class="public-clean-inbox-btn" href="{{ route('client.dashboard') }}" aria-label="Solicitudes y mensajería">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 8.25v8.25a2.25 2.25 0 01-2.25 2.25h-15A2.25 2.25 0 012.25 16.5V8.25m19.5 0L15.75 3.75h-7.5L2.25 8.25m19.5 0v.75A2.25 2.25 0 0119.5 11.25h-3.621a2.25 2.25 0 00-2.122 1.5l-.27.81a2.25 2.25 0 01-2.122 1.5H8.636a2.25 2.25 0 01-2.122-1.5l-.27-.81a2.25 2.25 0 00-2.122-1.5H2.25A2.25 2.25 0 010 9V8.25" />

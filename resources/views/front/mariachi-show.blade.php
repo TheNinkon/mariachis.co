@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-listing-v3" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-listing-v8" />
     <script type="application/ld+json">{!! $schemaJson !!}</script>
   </head>
   <body data-page="listing" class="has-mobile-cta font-sans text-slate-900 antialiased">
@@ -136,6 +136,14 @@
       $favoriteDestroyUrl = auth()->user()?->role === \App\Models\User::ROLE_CLIENT
         ? route('client.favorites.destroy', ['slug' => $profile->slug])
         : null;
+      $currentListingPayload = [
+        'id' => $profile->id,
+        'slug' => $profile->slug,
+        'city' => $profile->city_name ?: 'Colombia',
+        'title' => $h1,
+        'image_url' => $mainPhotoUrl,
+        'price_label' => $basePriceLabel,
+      ];
 
       $reviewVerificationMap = [
         'basic' => 'Opinion basica',
@@ -347,6 +355,7 @@
           </aside>
 
           <div class="listing-page-content space-y-6 md:col-span-8">
+            <div class="listing-anchor-sentinel" data-listing-anchor-sentinel aria-hidden="true"></div>
             <div class="listing-anchor-shell" data-reveal data-listing-anchor-shell>
               <nav class="listing-anchor-nav" data-listing-anchor-nav>
                 <a href="#info" class="is-active">Informacion</a>
@@ -539,64 +548,6 @@
               @endif
             </section>
 
-            <section class="listing-suggest listing-flow-section" data-reveal>
-              <div class="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2>Mariachis que podrian gustarte</h2>
-                  <p class="mt-1 text-sm text-slate-600">Descubre otros grupos activos en {{ $profile->city_name ?: 'esta ciudad' }}.</p>
-                </div>
-                <a href="{{ $cityLandingUrl }}" class="text-sm font-bold text-brand-600 hover:text-brand-700">Ver todos</a>
-              </div>
-
-              @if($relatedProfiles->isNotEmpty())
-                <div class="featured-carousel-shell mt-4">
-                  <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar sugerencias a la izquierda">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar sugerencias a la derecha">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-
-                  <div data-featured-carousel class="featured-carousel-track">
-                    @foreach($relatedProfiles as $related)
-                      @php
-                        $relatedPhoto = $related->photos->firstWhere('is_featured', true) ?? $related->photos->first();
-                        $relatedPhotoUrl = $relatedPhoto ? asset('storage/'.$relatedPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
-                        $relatedName = $related->business_name ?: $related->user?->display_name;
-                      @endphp
-                      <article class="featured-promo-card">
-                        <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $related->slug]) }}">
-                          <img src="{{ $relatedPhotoUrl }}" alt="{{ $relatedName }}" />
-                          <span class="featured-promo-chip">{{ $related->city_name }}</span>
-                          <span class="featured-promo-score">{{ $related->profile_completion }}%</span>
-                        </a>
-                        <div class="featured-promo-body">
-                          <p class="featured-promo-kicker">{{ $related->eventTypes->pluck('name')->take(2)->join(' · ') ?: 'Disponible para eventos' }}</p>
-                          <h3 class="featured-promo-title">{{ $related->short_description ?: 'Perfil verificado y listo para cotizar.' }}</h3>
-                        </div>
-                        <div class="featured-promo-footer">
-                          <p class="featured-promo-artist">{{ $relatedName }}</p>
-                          <div class="featured-promo-bottom">
-                            <strong>{{ $related->base_price ? 'Desde $'.number_format((float) $related->base_price, 0, ',', '.') : 'Cotizacion directa' }}</strong>
-                            <a href="{{ route('mariachi.public.show', ['slug' => $related->slug]) }}">Ver anuncio</a>
-                          </div>
-                        </div>
-                      </article>
-                    @endforeach
-                  </div>
-                </div>
-              @else
-                <article class="listing-opinion-empty mt-4">
-                  <p class="text-sm font-bold text-slate-900">Pronto veras mas opciones en esta ciudad</p>
-                  <p class="mt-1 text-sm text-slate-600">Cuando se publiquen nuevos perfiles, apareceran aqui automaticamente.</p>
-                </article>
-              @endif
-            </section>
-
             <section id="mapa" class="listing-flow-section" data-reveal>
               <h2>Ubicacion</h2>
               <div class="listing-map-shell mt-4">
@@ -664,6 +615,158 @@
                   </div>
                 @endif
               </div>
+            </section>
+
+            <section class="listing-suggest listing-flow-section" data-reveal>
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2>Otros clientes tambien vieron</h2>
+                  <p class="mt-1 text-sm text-slate-600">Más opciones activas en {{ $profile->city_name ?: 'esta ciudad' }} con estilo y presupuesto similares.</p>
+                </div>
+                <a href="{{ $cityLandingUrl }}" class="text-sm font-bold text-brand-600 hover:text-brand-700">Ver toda la ciudad</a>
+              </div>
+
+              @if($relatedProfiles->isNotEmpty())
+                <div class="featured-carousel-shell mt-4" data-featured-carousel-shell>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar sugerencias a la izquierda">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar sugerencias a la derecha">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  <div data-featured-carousel class="featured-carousel-track">
+                    @foreach($relatedProfiles as $related)
+                      @php
+                        $relatedPhoto = $related->photos->firstWhere('is_featured', true) ?? $related->photos->first();
+                        $relatedPhotoUrl = $relatedPhoto ? asset('storage/'.$relatedPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
+                        $relatedName = $related->business_name ?: $related->user?->display_name;
+                      @endphp
+                      <article class="featured-promo-card">
+                        <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $related->slug]) }}">
+                          <img src="{{ $relatedPhotoUrl }}" alt="{{ $relatedName }}" loading="lazy" />
+                          <span class="featured-promo-chip">{{ $related->city_name }}</span>
+                          <span class="featured-promo-score">{{ $related->profile_completion }}%</span>
+                        </a>
+                        <div class="featured-promo-body">
+                          <p class="featured-promo-kicker">{{ $related->eventTypes->pluck('name')->take(2)->join(' · ') ?: 'Disponible para eventos' }}</p>
+                          <h3 class="featured-promo-title">{{ $related->short_description ?: 'Perfil verificado y listo para cotizar.' }}</h3>
+                        </div>
+                        <div class="featured-promo-footer">
+                          <p class="featured-promo-artist">{{ $relatedName }}</p>
+                          <div class="featured-promo-bottom">
+                            <strong>{{ $related->base_price ? 'Desde $'.number_format((float) $related->base_price, 0, ',', '.') : 'Cotizacion directa' }}</strong>
+                            <a href="{{ route('mariachi.public.show', ['slug' => $related->slug]) }}">Ver anuncio</a>
+                          </div>
+                        </div>
+                      </article>
+                    @endforeach
+                  </div>
+                </div>
+              @else
+                <article class="listing-opinion-empty mt-4">
+                  <p class="text-sm font-bold text-slate-900">Pronto veras mas opciones en esta ciudad</p>
+                  <p class="mt-1 text-sm text-slate-600">Cuando se publiquen nuevos perfiles, apareceran aqui automaticamente.</p>
+                </article>
+              @endif
+            </section>
+
+            @if($seoHelpfulLinks->isNotEmpty())
+              <section class="listing-seo-links-block" data-reveal>
+                <div class="listing-seo-links-head">
+                  <div>
+                    <p class="listing-seo-links-eyebrow">Explora más rutas útiles</p>
+                    <h2>Enlaces útiles para seguir comparando</h2>
+                    <p class="mt-2 text-sm text-slate-600">Navega por ciudad, zona, ocasión y anuncios relacionados sin salirte de {{ $listingCityLabel }}.</p>
+                  </div>
+                </div>
+
+                <div class="listing-seo-links-grid">
+                  @foreach($seoHelpfulLinks as $link)
+                    <a href="{{ $link['url'] }}" class="listing-seo-link">{{ $link['label'] }}</a>
+                  @endforeach
+                </div>
+              </section>
+            @endif
+
+            <section class="listing-recent-shell" data-reveal data-listing-recents-shell data-resolve-url="{{ route('public.listings.resolve') }}" data-current-listing-id="{{ $profile->id }}" data-account-url="{{ route('public.collections.recents') }}" data-has-server-items="{{ $recentlyViewedListings->isNotEmpty() ? 'true' : 'false' }}">
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2>Vistos recientemente</h2>
+                  <p class="mt-1 text-sm text-slate-600">Recupera los anuncios que estabas comparando para no perder el hilo.</p>
+                </div>
+                <a href="{{ route('public.collections.recents') }}" class="text-sm font-bold text-brand-600 hover:text-brand-700">Abrir historial</a>
+              </div>
+
+              @if($recentlyViewedListings->isNotEmpty())
+                <div class="featured-carousel-shell mt-4" data-featured-carousel-shell data-recent-carousel-wrap>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar vistos recientemente a la izquierda">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar vistos recientemente a la derecha">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  <div data-featured-carousel class="featured-carousel-track" data-recent-track>
+                    @foreach($recentlyViewedListings as $recentListing)
+                      @php
+                        $recentPhoto = $recentListing->photos->firstWhere('is_featured', true) ?? $recentListing->photos->first();
+                        $recentPhotoUrl = $recentPhoto ? asset('storage/'.$recentPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
+                        $recentName = $recentListing->business_name ?: $recentListing->user?->display_name;
+                      @endphp
+                      <article class="featured-promo-card">
+                        <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $recentListing->slug]) }}">
+                          <img src="{{ $recentPhotoUrl }}" alt="{{ $recentName }}" loading="lazy" />
+                          <span class="featured-promo-chip">{{ $recentListing->city_name }}</span>
+                          <span class="featured-promo-score">{{ $recentListing->profile_completion }}%</span>
+                        </a>
+                        <div class="featured-promo-body">
+                          <p class="featured-promo-kicker">{{ $recentListing->eventTypes->pluck('name')->take(2)->join(' · ') ?: 'Disponible para eventos' }}</p>
+                          <h3 class="featured-promo-title">{{ $recentListing->short_description ?: 'Perfil verificado y listo para cotizar.' }}</h3>
+                        </div>
+                        <div class="featured-promo-footer">
+                          <p class="featured-promo-artist">{{ $recentName }}</p>
+                          <div class="featured-promo-bottom">
+                            <strong>{{ $recentListing->base_price ? 'Desde $'.number_format((float) $recentListing->base_price, 0, ',', '.') : 'Cotizacion directa' }}</strong>
+                            <a href="{{ route('mariachi.public.show', ['slug' => $recentListing->slug]) }}">Ver anuncio</a>
+                          </div>
+                        </div>
+                      </article>
+                    @endforeach
+                  </div>
+                </div>
+                <article class="listing-opinion-empty mt-4 hidden" data-listing-recents-empty>
+                  <p class="text-sm font-bold text-slate-900">Aun no hay historial reciente en este navegador</p>
+                  <p class="mt-1 text-sm text-slate-600">Cuando visites otros anuncios activos, apareceran aqui automaticamente.</p>
+                </article>
+              @else
+                <div class="featured-carousel-shell mt-4 hidden" data-featured-carousel-shell data-recent-carousel-wrap>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar vistos recientemente a la izquierda">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar vistos recientemente a la derecha">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+
+                  <div data-featured-carousel class="featured-carousel-track" data-recent-track></div>
+                </div>
+                <article class="listing-opinion-empty mt-4" data-listing-recents-empty>
+                  <p class="text-sm font-bold text-slate-900">Aun no hay historial reciente en este navegador</p>
+                  <p class="mt-1 text-sm text-slate-600">Cuando visites otros anuncios activos, apareceran aqui automaticamente.</p>
+                </article>
+              @endif
             </section>
           </div>
         </div>
@@ -775,12 +878,14 @@
       </div>
     </div>
 
+    <script type="application/json" data-current-listing>@json($currentListingPayload)</script>
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-listing-v3"></script>
-    <script src="js/listing-gallery.js?v=20260311-listing-v2"></script>
+    <script src="js/ui.js?v=20260311-listing-v8"></script>
+    <script src="js/listing-gallery.js?v=20260311-listing-v3"></script>
     <script src="js/listing-lead-modal.js?v=20260311-listing-v1"></script>
     <script src="js/listing-favorites.js?v=20260311-listing-v1"></script>
+    <script src="js/public-listing-collections.js?v=20260311-listing-collections-v1"></script>
   </body>
 </html>

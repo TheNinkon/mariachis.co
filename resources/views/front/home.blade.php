@@ -549,6 +549,6 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
+    <script src="js/ui.js?v=20260311-brand-green-v2"></script>
   </body>
 </html>

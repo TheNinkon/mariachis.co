@@ -29,7 +29,10 @@ class ClientResetPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password): void {
-                $user->forceFill(['password' => $password])->save();
+                $user->forceFill([
+                    'password' => $password,
+                    'auth_provider' => 'email',
+                ])->save();
             }
         );
 

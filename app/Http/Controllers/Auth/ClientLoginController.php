@@ -12,12 +12,15 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Throwable;
 
 class ClientLoginController extends Controller
 {
+    private const AUTH_PROVIDER_EMAIL = 'email';
+    private const AUTH_PROVIDER_MAGIC_LINK = 'magic_link';
     private const LOGIN_EMAIL_SESSION_KEY = 'client_login.email';
     private const MAGIC_LINK_TTL_MINUTES = 20;
     private const MAGIC_LINK_EMAIL_MAX_ATTEMPTS = 4;
@@ -75,7 +78,7 @@ class ClientLoginController extends Controller
 
         return view('front.auth.client-login-options', [
             'email' => $email,
-            'canUsePassword' => $matchedUser?->isClient() === true,
+            'canUsePassword' => $matchedUser?->isClient() === true && $this->userHasPasswordAccess($matchedUser),
         ]);
     }
 
@@ -89,7 +92,7 @@ class ClientLoginController extends Controller
 
         $matchedUser = $this->findUserByEmail($email);
 
-        if (! $matchedUser || ! $matchedUser->isClient() || $matchedUser->status !== User::STATUS_ACTIVE) {
+        if (! $matchedUser || ! $matchedUser->isClient() || $matchedUser->status !== User::STATUS_ACTIVE || ! $this->userHasPasswordAccess($matchedUser)) {
             return redirect()
                 ->route('client.login.email.options')
                 ->withErrors([
@@ -204,9 +207,68 @@ class ClientLoginController extends Controller
         $request->session()->regenerate();
         $request->session()->forget(self::LOGIN_EMAIL_SESSION_KEY);
 
+        if ($this->needsAccountCompletion($user)) {
+            return redirect()
+                ->route('client.login.complete-account')
+                ->with('status', 'Correo confirmado. Completa tu cuenta para dejar listo tu acceso.');
+        }
+
         return redirect()
             ->intended(route('client.dashboard'))
             ->with('status', 'Acceso confirmado. Ya puedes continuar con tus solicitudes.');
+    }
+
+    public function showCompleteAccount(Request $request): RedirectResponse|View
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->isClient()) {
+            return redirect()->route('client.login');
+        }
+
+        if (! $this->needsAccountCompletion($user)) {
+            return redirect()->intended(route('client.dashboard'));
+        }
+
+        return view('front.auth.client-complete-account', [
+            'user' => $user,
+        ]);
+    }
+
+    public function completeAccount(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->isClient()) {
+            return redirect()->route('client.login');
+        }
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:120'],
+            'last_name' => ['required', 'string', 'max:120'],
+            'password' => ['nullable', 'confirmed', Password::defaults()],
+        ]);
+
+        $user->forceFill([
+            'first_name' => trim($validated['first_name']),
+            'last_name' => trim($validated['last_name']),
+            'name' => trim($validated['first_name'].' '.$validated['last_name']),
+        ]);
+
+        if (filled($validated['password'] ?? null)) {
+            $user->forceFill([
+                'password' => $validated['password'],
+                'auth_provider' => self::AUTH_PROVIDER_EMAIL,
+            ]);
+        }
+
+        $user->save();
+
+        return redirect()
+            ->intended(route('client.dashboard'))
+            ->with('status', filled($validated['password'] ?? null)
+                ? 'Cuenta completada. Ya puedes entrar con contraseña o enlace.'
+                : 'Cuenta completada. Podrás seguir entrando con enlace seguro.');
     }
 
     public function store(Request $request): RedirectResponse
@@ -241,6 +303,14 @@ class ClientLoginController extends Controller
 
             throw ValidationException::withMessages([
                 'email' => 'Tu cuenta está desactivada. Contacta a soporte.',
+            ]);
+        }
+
+        if (! $this->userHasPasswordAccess($user)) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Primero entra con enlace seguro y, si quieres, luego define una contraseña.',
             ]);
         }
 
@@ -343,6 +413,7 @@ class ClientLoginController extends Controller
             'email' => $email,
             'role' => User::ROLE_CLIENT,
             'status' => User::STATUS_ACTIVE,
+            'auth_provider' => self::AUTH_PROVIDER_MAGIC_LINK,
         ]);
     }
 
@@ -352,11 +423,11 @@ class ClientLoginController extends Controller
 
         $user = new User([
             'name' => $name,
-            'first_name' => $name,
             'email' => $email,
             'password' => Str::random(40),
             'role' => User::ROLE_CLIENT,
             'status' => User::STATUS_ACTIVE,
+            'auth_provider' => self::AUTH_PROVIDER_MAGIC_LINK,
         ]);
 
         $user->forceFill([
@@ -372,5 +443,16 @@ class ClientLoginController extends Controller
         $normalized = preg_replace('/[^a-z0-9]+/i', ' ', $localPart) ?: 'Cliente';
 
         return Str::title(trim($normalized));
+    }
+
+    private function needsAccountCompletion(User $user): bool
+    {
+        return trim((string) $user->first_name) === ''
+            || trim((string) $user->last_name) === '';
+    }
+
+    private function userHasPasswordAccess(User $user): bool
+    {
+        return in_array((string) $user->auth_provider, ['', self::AUTH_PROVIDER_EMAIL], true);
     }
 }
