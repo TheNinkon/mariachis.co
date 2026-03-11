@@ -3333,21 +3333,49 @@ body[data-page="client-auth"] {
   text-transform: uppercase;
 }
 
+body[data-page="client-auth"] {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+body[data-page="client-auth"] > main {
+  flex: 1 0 auto;
+}
+
+body[data-page="client-auth"] .public-clean-footer {
+  margin-top: 0;
+}
+
 .client-auth-shell {
-  width: min(1120px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 2.4rem 0 3.2rem;
+  width: 100%;
+  margin: 0;
+  padding: clamp(1.5rem, 3.5vw, 3rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .client-auth-shell.narrow {
-  width: min(640px, calc(100% - 2rem));
+  width: 100%;
 }
 
 .client-auth-grid {
+  width: min(34rem, 100%);
+  margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.25rem;
   align-items: start;
+}
+
+.client-auth-grid--split {
+  width: min(1120px, 100%);
+}
+
+.client-auth-grid--selector {
+  width: min(30rem, 100%);
 }
 
 .client-auth-hero {
@@ -3396,6 +3424,38 @@ body[data-page="client-auth"] {
   font-weight: 800;
 }
 
+.client-auth-stage {
+  width: 100%;
+  display: grid;
+  gap: 1rem;
+}
+
+.client-auth-stage--selector {
+  justify-items: center;
+  text-align: center;
+}
+
+.client-auth-stage--selector .client-auth-copy,
+.client-auth-stage--selector .client-auth-legal {
+  max-width: 28rem;
+}
+
+.client-auth-stage--selector .client-auth-footnote {
+  margin-top: 0;
+}
+
+.client-auth-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-700);
+}
+
 .client-auth-socials {
   margin-top: 1rem;
   display: grid;
@@ -3410,6 +3470,80 @@ body[data-page="client-auth"] {
   padding: 0.62rem 0.75rem;
   font-size: 0.85rem;
   font-weight: 700;
+  color: var(--text-500);
+}
+
+.client-auth-methods {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.client-auth-method-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line-soft);
+  background: #fff;
+  padding: 0.9rem 1rem;
+  color: var(--text-900);
+  text-align: left;
+  text-decoration: none;
+  box-shadow: 0 18px 28px -30px rgba(15, 23, 42, 0.22);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.client-auth-method-btn:hover {
+  border-color: color-mix(in srgb, var(--brand-600) 24%, transparent);
+  box-shadow: 0 24px 36px -30px rgba(15, 23, 42, 0.28);
+  transform: translateY(-1px);
+}
+
+.client-auth-method-btn:disabled,
+.client-auth-method-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.78;
+  transform: none;
+}
+
+.client-auth-method-btn--primary {
+  border-color: color-mix(in srgb, var(--brand-600) 24%, transparent);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fcfa 100%);
+}
+
+.client-auth-method-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 2.9rem;
+  height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.client-auth-method-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.client-auth-method-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.client-auth-method-copy strong {
+  display: block;
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.client-auth-method-copy small {
+  display: block;
+  font-size: 0.82rem;
   color: var(--text-500);
 }
 
@@ -3479,6 +3613,13 @@ body[data-page="client-auth"] {
   border-color: var(--line-soft);
 }
 
+.client-auth-btn--linkish {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .client-auth-actions {
   display: grid;
   gap: 0.5rem;
@@ -3499,6 +3640,119 @@ body[data-page="client-auth"] {
   text-align: center;
   font-size: 0.86rem;
   color: var(--text-600);
+}
+
+.client-auth-legal {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text-500);
+}
+
+.client-auth-chip {
+  margin-top: 1rem;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--brand-600) 16%, transparent);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fcfa 100%);
+}
+
+.client-auth-chip span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-700);
+}
+
+.client-auth-chip strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-900);
+}
+
+.client-auth-choice-grid {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.client-auth-choice-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line-soft);
+  background: #fff;
+  box-shadow: 0 20px 34px -34px rgba(15, 23, 42, 0.42);
+}
+
+.client-auth-choice-icon {
+  display: inline-flex;
+  width: 2.8rem;
+  height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.client-auth-choice-icon svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.client-auth-choice-copy strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.client-auth-choice-copy p {
+  margin: 0.3rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text-500);
+}
+
+.client-auth-inline-links {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.client-auth-password-wrap {
+  position: relative;
+}
+
+.client-auth-input--password {
+  padding-right: 3rem;
+}
+
+.client-auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-500);
+  cursor: pointer;
+}
+
+.client-auth-password-toggle svg {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .client-auth-error {
@@ -3534,9 +3788,13 @@ body[data-page="client-auth"] {
 }
 
 @media (min-width: 900px) {
-  .client-auth-grid {
+  .client-auth-grid--split {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 1.6rem;
+  }
+
+  .client-auth-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

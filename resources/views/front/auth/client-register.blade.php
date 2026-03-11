@@ -10,7 +10,7 @@
 
 @section('content')
   <main class="client-auth-shell">
-    <div class="client-auth-grid">
+    <div class="client-auth-grid client-auth-grid--split">
       <section class="client-auth-hero">
         <p class="client-auth-eyebrow">Cuenta cliente</p>
         <h1 class="client-auth-title">Regístrate en menos de un minuto</h1>

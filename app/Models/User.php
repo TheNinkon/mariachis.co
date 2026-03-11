@@ -114,6 +114,11 @@ class User extends Authenticatable
         return $this->hasMany(QuoteConversation::class, 'client_user_id');
     }
 
+    public function clientLoginTokens(): HasMany
+    {
+        return $this->hasMany(ClientLoginToken::class);
+    }
+
     public function quoteMessages(): HasMany
     {
         return $this->hasMany(QuoteMessage::class, 'sender_user_id');

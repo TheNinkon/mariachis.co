@@ -83,6 +83,12 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/auth/reset-password-basic', [ResetPasswordController::class, 'store'])->name('password.update');
 
     Route::get('/login', [ClientLoginController::class, 'create'])->name('client.login');
+    Route::get('/login/email', [ClientLoginController::class, 'showEmailForm'])->name('client.login.email');
+    Route::post('/login/email', [ClientLoginController::class, 'captureEmail'])->name('client.login.email.capture');
+    Route::get('/login/email/opciones', [ClientLoginController::class, 'showEmailOptions'])->name('client.login.email.options');
+    Route::get('/login/email/password', [ClientLoginController::class, 'showPasswordForm'])->name('client.login.password');
+    Route::post('/login/email/enlace', [ClientLoginController::class, 'sendMagicLink'])->name('client.login.magic.send');
+    Route::get('/login/magic/{token}', [ClientLoginController::class, 'consumeMagicLink'])->name('client.login.magic');
     Route::post('/login', [ClientLoginController::class, 'store'])->name('client.login.attempt');
 
     Route::get('/registro', [ClientRegistrationController::class, 'create'])->name('client.register');
