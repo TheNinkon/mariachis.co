@@ -22,8 +22,13 @@ class ClientMagicLinkMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $isFirstAccess = trim((string) ($this->user->first_name ?? '')) === ''
+            || trim((string) ($this->user->last_name ?? '')) === '';
+
         return new Envelope(
-            subject: 'Tu enlace de acceso a Mariachis.co',
+            subject: $isFirstAccess
+                ? 'Bienvenido a Mariachis.co: confirma tu acceso seguro'
+                : 'Tu enlace seguro para entrar a Mariachis.co',
         );
     }
 

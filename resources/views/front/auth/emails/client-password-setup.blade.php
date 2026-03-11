@@ -1,15 +1,4 @@
 @php
-  $displayName = trim((string) ($user->first_name ?: $user->display_name ?: ''));
-  $isFirstAccess = trim((string) ($user->first_name ?? '')) === '' || trim((string) ($user->last_name ?? '')) === '';
-  $emailTitle = $isFirstAccess
-      ? 'Bienvenido a Mariachis.co'
-      : 'Tu acceso seguro a Mariachis.co';
-  $emailLead = $isFirstAccess
-      ? 'Haz clic en el botón para entrar y terminar de preparar tu cuenta en Mariachis.co.'
-      : 'Usa este enlace de un solo uso para entrar a tu cuenta de cliente en Mariachis.co.';
-  $buttonLabel = $isFirstAccess
-      ? 'Continuar en Mariachis.co'
-      : 'Entrar a mi cuenta';
   $logoUrl = 'https://mariachis.co/front/assets/logo-wordmark.png';
 @endphp
 <!DOCTYPE html>
@@ -17,7 +6,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $emailTitle }}</title>
+    <title>Define tu contraseña en Mariachis.co</title>
   </head>
   <body style="margin:0;padding:0;background:#f4f6f5;font-family:'Plus Jakarta Sans',Arial,sans-serif;color:#0f172a;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f5;padding:28px 12px;">
@@ -32,42 +21,35 @@
             <tr>
               <td align="center" style="padding:0 32px 8px;">
                 <h1 style="margin:0;font-size:38px;line-height:1.06;font-weight:800;color:#101828;">
-                  {{ $emailTitle }}
+                  Define tu contraseña
                 </h1>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:8px 40px 0;">
                 <p style="margin:0;font-size:18px;line-height:1.7;color:#334155;">
-                  {{ $emailLead }}
+                  Te enviamos este enlace para que completes tu acceso y puedas entrar a Mariachis.co con tu propia contraseña.
                 </p>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:14px 40px 0;">
                 <p style="margin:0;font-size:19px;line-height:1.6;font-weight:800;color:#0f172a;word-break:break-word;">
-                  {{ $user->email }}
+                  {{ $email }}
                 </p>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:28px 32px 0;">
-                <a href="{{ $magicUrl }}" style="display:inline-block;min-width:280px;padding:16px 26px;border-radius:12px;background:#00563b;color:#ffffff;text-decoration:none;font-size:20px;font-weight:800;line-height:1.2;">
-                  {{ $buttonLabel }}
+                <a href="{{ $setupUrl }}" style="display:inline-block;min-width:280px;padding:16px 26px;border-radius:12px;background:#00563b;color:#ffffff;text-decoration:none;font-size:20px;font-weight:800;line-height:1.2;">
+                  Crear mi contraseña
                 </a>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:28px 40px 0;">
                 <p style="margin:0;font-size:16px;line-height:1.8;color:#334155;">
-                  Este enlace es de un solo uso y caduca en {{ $expiresInMinutes }} minutos.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:22px 40px 0;">
-                <p style="margin:0;font-size:16px;line-height:1.8;color:#334155;">
-                  Si no solicitaste este acceso, puedes ignorar este mensaje con tranquilidad.
+                  Este enlace caduca en {{ $expiresInMinutes }} minutos por seguridad. Si no solicitaste este acceso, puedes ignorar este correo.
                 </p>
               </td>
             </tr>
@@ -81,7 +63,7 @@
             <tr>
               <td style="padding:12px 28px 18px;">
                 <div style="padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid rgba(148,163,184,0.18);font-size:12px;line-height:1.75;color:#334155;word-break:break-all;text-align:left;">
-                  {{ $magicUrl }}
+                  {{ $setupUrl }}
                 </div>
               </td>
             </tr>

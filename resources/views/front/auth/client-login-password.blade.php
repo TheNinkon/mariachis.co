@@ -11,28 +11,30 @@
         @include('front.auth.partials.client-auth-back', ['href' => route('client.login.email.options'), 'label' => 'Atrás'])
       </div>
 
-      <section class="client-auth-stage client-auth-stage--flow">
+      <section class="client-auth-stage client-auth-stage--flow client-auth-stage--flow-centered client-auth-stage--email-options">
         @include('front.auth.partials.client-auth-flashes')
 
         <div>
-          <span class="client-auth-step">Paso 3 de 3</span>
-          <h1 class="client-auth-subtitle">Usa tu contraseña</h1>
-          <p class="client-auth-copy">Entra con la clave asociada a tu cuenta de cliente.</p>
+          <h1 class="client-auth-subtitle">Continúa con la contraseña</h1>
+          <p class="client-auth-copy">Vas a iniciar sesión como</p>
+          <p class="client-auth-confirm-email">{{ $email }}</p>
         </div>
 
-        <div class="client-auth-chip" title="{{ $email }}">
-          <span>Correo</span>
-          <strong>{{ $email }}</strong>
-        </div>
-
-        <form action="{{ route('client.login.attempt') }}" method="POST" class="client-auth-form">
+        <form action="{{ route('client.login.attempt') }}" method="POST" class="client-auth-form client-auth-form--compact client-auth-form--centered">
           @csrf
           <input type="hidden" name="email" value="{{ $email }}" />
 
           <div>
-            <label for="password" class="client-auth-label">Contraseña</label>
             <div class="client-auth-password-wrap">
-              <input id="password" name="password" type="password" autocomplete="current-password" required class="client-auth-input client-auth-input--password" />
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                placeholder="Contraseña"
+                class="client-auth-input client-auth-input--centered client-auth-input--password"
+              />
               <button type="button" class="client-auth-password-toggle" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false">
                 <svg data-password-eye-open viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M2.46 12C3.73 7.94 7.52 5 12 5c4.48 0 8.27 2.94 9.54 7-1.27 4.06-5.06 7-9.54 7-4.48 0-8.27-2.94-9.54-7Z" />
@@ -48,15 +50,28 @@
             @error('email')<p class="client-auth-error">{{ $message }}</p>@enderror
           </div>
 
-          <div class="client-auth-row">
-            <label class="client-auth-check"><input type="checkbox" name="remember" /> Mantener mi sesión</label>
-            <a href="{{ route('client.password.request') }}" class="client-auth-link">Olvidé mi contraseña</a>
-          </div>
-
           <div class="client-auth-actions">
-            <button type="submit" class="client-auth-btn">Entrar</button>
+            <button type="submit" class="client-auth-btn">Iniciar sesión</button>
           </div>
         </form>
+
+        <form action="{{ route('client.password.email') }}" method="POST" class="client-auth-inline-form">
+          @csrf
+          <input type="hidden" name="email" value="{{ $email }}" />
+          <button type="submit" class="client-auth-link-button">¿Usuario nuevo? Crea tu cuenta</button>
+        </form>
+
+        <div class="client-auth-divider" aria-hidden="true">
+          <span>o</span>
+        </div>
+
+        <div class="client-auth-form client-auth-form--compact client-auth-form--centered">
+          <div class="client-auth-actions">
+            <a href="{{ route('client.login.email.options') }}" class="client-auth-btn secondary client-auth-btn--linkish">
+              Usa un enlace único
+            </a>
+          </div>
+        </div>
       </section>
     </div>
   </main>

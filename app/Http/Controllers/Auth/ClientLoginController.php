@@ -23,6 +23,7 @@ class ClientLoginController extends Controller
     private const AUTH_PROVIDER_MAGIC_LINK = 'magic_link';
     private const LOGIN_EMAIL_SESSION_KEY = 'client_login.email';
     private const MAGIC_LINK_TTL_MINUTES = 20;
+    private const MAGIC_LINK_RESEND_COOLDOWN_SECONDS = 30;
     private const MAGIC_LINK_EMAIL_MAX_ATTEMPTS = 4;
     private const MAGIC_LINK_IP_MAX_ATTEMPTS = 12;
     private const MAGIC_LINK_DECAY_SECONDS = 900;
@@ -34,6 +35,11 @@ class ClientLoginController extends Controller
 
     public function showEmailForm(Request $request): View
     {
+        $request->session()->forget([
+            'client_login.magic_link_sent',
+            'client_login.magic_link_sent_at',
+        ]);
+
         return view('front.auth.client-login-email', [
             'email' => old('email', (string) $request->session()->get(self::LOGIN_EMAIL_SESSION_KEY, '')),
         ]);
@@ -46,6 +52,10 @@ class ClientLoginController extends Controller
         ]);
 
         $request->session()->put(self::LOGIN_EMAIL_SESSION_KEY, Str::lower(trim((string) $validated['email'])));
+        $request->session()->forget([
+            'client_login.magic_link_sent',
+            'client_login.magic_link_sent_at',
+        ]);
 
         return redirect()->route('client.login.email.options');
     }
@@ -59,6 +69,12 @@ class ClientLoginController extends Controller
         }
 
         $matchedUser = $this->findUserByEmail($email);
+        $magicLinkSent = (bool) $request->session()->get('client_login.magic_link_sent', false);
+        $sentAt = (int) $request->session()->get('client_login.magic_link_sent_at', 0);
+        $remainingCooldownSeconds = max(
+            0,
+            self::MAGIC_LINK_RESEND_COOLDOWN_SECONDS - (now()->timestamp - $sentAt)
+        );
 
         if ($matchedUser && ! $matchedUser->isClient()) {
             return redirect()
@@ -79,6 +95,10 @@ class ClientLoginController extends Controller
         return view('front.auth.client-login-options', [
             'email' => $email,
             'canUsePassword' => $matchedUser?->isClient() === true && $this->userHasPasswordAccess($matchedUser),
+            'magicLinkSent' => $magicLinkSent,
+            'magicLinkTtlMinutes' => self::MAGIC_LINK_TTL_MINUTES,
+            'magicLinkResendCooldownSeconds' => self::MAGIC_LINK_RESEND_COOLDOWN_SECONDS,
+            'remainingCooldownSeconds' => $magicLinkSent ? $remainingCooldownSeconds : 0,
         ]);
     }
 
@@ -164,6 +184,9 @@ class ClientLoginController extends Controller
 
         $this->hitMagicLinkRateLimit($request, $email);
 
+        $request->session()->put('client_login.magic_link_sent', true);
+        $request->session()->put('client_login.magic_link_sent_at', now()->timestamp);
+
         return redirect()
             ->route('client.login.email.options')
             ->with('status', 'Revisa '.$email.'. Te enviamos un enlace seguro para entrar o crear tu acceso.');
@@ -205,7 +228,11 @@ class ClientLoginController extends Controller
 
         Auth::login($user, true);
         $request->session()->regenerate();
-        $request->session()->forget(self::LOGIN_EMAIL_SESSION_KEY);
+        $request->session()->forget([
+            self::LOGIN_EMAIL_SESSION_KEY,
+            'client_login.magic_link_sent',
+            'client_login.magic_link_sent_at',
+        ]);
 
         if ($this->needsAccountCompletion($user)) {
             return redirect()
@@ -314,7 +341,11 @@ class ClientLoginController extends Controller
             ]);
         }
 
-        $request->session()->forget(self::LOGIN_EMAIL_SESSION_KEY);
+        $request->session()->forget([
+            self::LOGIN_EMAIL_SESSION_KEY,
+            'client_login.magic_link_sent',
+            'client_login.magic_link_sent_at',
+        ]);
 
         return redirect()->intended(route('client.dashboard'));
     }

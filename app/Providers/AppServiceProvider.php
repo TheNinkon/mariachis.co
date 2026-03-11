@@ -30,7 +30,6 @@ class AppServiceProvider extends ServiceProvider
             'mail.mailers.smtp.username' => $runtimeConfig['smtp']['username'],
             'mail.mailers.smtp.password' => $runtimeConfig['smtp']['password'],
             'mail.mailers.smtp.scheme' => $runtimeConfig['smtp']['scheme'],
-            'mail.mailers.smtp.encryption' => $runtimeConfig['smtp']['encryption'],
             'mail.from.address' => $runtimeConfig['from']['address'],
             'mail.from.name' => $runtimeConfig['from']['name'],
         ]);

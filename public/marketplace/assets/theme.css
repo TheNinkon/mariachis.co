@@ -3456,6 +3456,11 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   font-size: 0.95rem;
 }
 
+.client-auth-copy--centered {
+  max-width: 26rem;
+  margin-inline: auto;
+}
+
 .client-auth-card {
   border: 1px solid var(--line-soft);
   border-radius: 1.2rem;
@@ -3518,6 +3523,10 @@ body[data-page="client-auth"] .public-clean-footer--auth {
 .client-auth-stage--flow-centered .client-auth-form {
   width: min(23rem, 100%);
   margin-top: 0.2rem;
+}
+
+.client-auth-stage--email-options {
+  gap: 1.3rem;
 }
 
 .client-auth-back {
@@ -3660,6 +3669,11 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   gap: 0.75rem;
 }
 
+.client-auth-form--centered {
+  width: min(23rem, 100%);
+  margin-inline: auto;
+}
+
 .client-auth-label {
   display: block;
   margin-bottom: 0.32rem;
@@ -3725,6 +3739,15 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   border-color: var(--line-soft);
 }
 
+.client-auth-btn:disabled,
+.client-auth-btn[disabled] {
+  cursor: not-allowed;
+  background: #ececec;
+  border-color: #ececec;
+  color: #7b7b7b;
+  box-shadow: none;
+}
+
 .client-auth-btn--linkish {
   display: inline-flex;
   align-items: center;
@@ -3756,6 +3779,11 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   text-align: center;
   font-size: 0.86rem;
   color: var(--text-600);
+}
+
+.client-auth-footnote--centered {
+  max-width: 24rem;
+  margin-inline: auto;
 }
 
 .client-auth-legal {
@@ -3875,6 +3903,73 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   display: flex;
   flex-wrap: wrap;
   gap: 0.85rem;
+}
+
+.client-auth-inline-links--centered {
+  justify-content: center;
+}
+
+.client-auth-inline-form {
+  margin: 0;
+}
+
+.client-auth-link-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-700);
+  font-size: 0.98rem;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.client-auth-link-button:hover {
+  color: var(--text-900);
+}
+
+.client-auth-confirm-email {
+  margin: 0.55rem 0 0;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: var(--text-900);
+  word-break: break-word;
+}
+
+.client-auth-confirm-email--large {
+  font-size: clamp(1.8rem, 4vw, 2.35rem);
+  line-height: 1.18;
+}
+
+.client-auth-confirm-copy {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.client-auth-divider {
+  width: min(23rem, 100%);
+  margin: -0.1rem auto 0;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: var(--text-500);
+  font-size: 0.92rem;
+}
+
+.client-auth-divider::before,
+.client-auth-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line-soft);
+}
+
+.client-auth-divider span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
 }
 
 .client-auth-password-wrap {

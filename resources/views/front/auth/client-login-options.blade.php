@@ -1,8 +1,14 @@
 @extends('front.layouts.public-clean')
 
-@section('title', 'Elige cómo entrar | Mariachis.co')
-@section('meta_description', 'Selecciona si quieres recibir un enlace de acceso o usar tu contraseña.')
+@section('title', 'Continúa con tu acceso | Mariachis.co')
+@section('meta_description', 'Elige cómo continuar con tu acceso usando tu correo electrónico.')
 @section('page_id', 'client-auth')
+
+@php
+  $showConfirmation = $magicLinkSent ?? false;
+  $viewErrors = $errors ?? session('errors');
+  $remainingCooldownSeconds = (int) ($remainingCooldownSeconds ?? 0);
+@endphp
 
 @section('content')
   <main class="client-auth-shell narrow">
@@ -11,61 +17,145 @@
         @include('front.auth.partials.client-auth-back', ['href' => route('client.login.email'), 'label' => 'Atrás'])
       </div>
 
-      <section class="client-auth-stage client-auth-stage--flow">
-        @include('front.auth.partials.client-auth-flashes')
+      <section class="client-auth-stage client-auth-stage--flow client-auth-stage--flow-centered client-auth-stage--email-options">
+        @if ($viewErrors && $viewErrors->has('auth'))
+          <div class="client-auth-alert warning">{{ $viewErrors->first('auth') }}</div>
+        @endif
 
-        <div>
-          <span class="client-auth-step">Paso 2 de 3</span>
-          <h1 class="client-auth-subtitle">¿Cómo quieres entrar?</h1>
-          <p class="client-auth-copy">
-            {{ $canUsePassword ? 'Este correo ya tiene una cuenta cliente activa.' : 'Si este correo aún no tiene cuenta, la crearemos cuando confirmes el enlace.' }}
-          </p>
-        </div>
+        @if ($showConfirmation)
+          <div>
+            <h1 class="client-auth-subtitle">Comprueba tu correo electrónico</h1>
+            <p class="client-auth-copy">Hemos enviado un enlace seguro y de un solo uso a</p>
+            <p class="client-auth-confirm-email">{{ $email }}</p>
+          </div>
 
-        <div class="client-auth-chip" title="{{ $email }}">
-          <span>Correo</span>
-          <strong>{{ $email }}</strong>
-        </div>
-
-        <div class="client-auth-choice-grid">
-          <form action="{{ route('client.login.magic.send') }}" method="POST" class="client-auth-choice-card">
+          <form action="{{ route('client.login.magic.send') }}" method="POST" class="client-auth-form client-auth-form--compact client-auth-form--centered">
             @csrf
             <input type="hidden" name="email" value="{{ $email }}" />
-            <div class="client-auth-choice-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4m0 10v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M3 12h4m10 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
-              </svg>
+            <div class="client-auth-actions">
+              <button
+                type="submit"
+                class="client-auth-btn secondary"
+                data-magic-resend-button
+                data-cooldown-seconds="{{ $remainingCooldownSeconds }}"
+                data-default-label="Reenviar correo electrónico"
+                @disabled($remainingCooldownSeconds > 0)
+              >
+                Reenviar correo electrónico
+              </button>
             </div>
-            <div class="client-auth-choice-copy">
-              <strong>Recibir un enlace seguro</strong>
-              <p>{{ $canUsePassword ? 'Te enviamos un acceso de un solo uso a tu correo.' : 'Te enviamos un enlace para entrar y dejar tu cuenta lista.' }}</p>
-            </div>
-            <button type="submit" class="client-auth-btn">Enviar enlace</button>
           </form>
 
-          <div class="client-auth-choice-card">
-            <div class="client-auth-choice-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V8.25a4.5 4.5 0 1 0-9 0v2.25m-1.5 0h12a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18v-6A1.5 1.5 0 0 1 6 10.5Z" />
-              </svg>
-            </div>
-            <div class="client-auth-choice-copy">
-              <strong>{{ $canUsePassword ? 'Usar contraseña' : 'Primero confirma tu correo' }}</strong>
-              <p>{{ $canUsePassword ? 'Accede con la contraseña que ya usas en tu cuenta.' : 'La contraseña aparece cuando el correo ya tiene una cuenta activa.' }}</p>
-            </div>
-            @if($canUsePassword)
-              <a href="{{ route('client.login.password') }}" class="client-auth-btn secondary client-auth-btn--linkish">Continuar con contraseña</a>
-            @else
-              <button type="button" class="client-auth-btn secondary" disabled aria-disabled="true">Aún no disponible</button>
-            @endif
+          <div class="client-auth-confirm-copy">
+            <p class="client-auth-copy client-auth-copy--centered">
+              Toca el enlace del correo para iniciar sesión o crear tu cuenta. Este enlace caduca en {{ $magicLinkTtlMinutes }} minutos.
+            </p>
+            <p class="client-auth-footnote client-auth-footnote--centered">
+              Si no lo encuentras, revisa promociones, spam o correo no deseado.
+            </p>
           </div>
-        </div>
 
-        <div class="client-auth-inline-links">
-          <a href="{{ route('client.login.email') }}" class="client-auth-link">Cambiar correo</a>
-          <a href="{{ route('client.password.request') }}" class="client-auth-link">Olvidé mi contraseña</a>
-        </div>
+          <div class="client-auth-inline-links client-auth-inline-links--centered">
+            <a href="{{ route('client.login.email') }}" class="client-auth-link">Cambiar correo</a>
+          </div>
+        @elseif ($canUsePassword)
+          <div>
+            <h1 class="client-auth-subtitle">Entra o crea tu acceso con el mismo correo</h1>
+            <p class="client-auth-copy">Enviaremos un enlace seguro y de un solo uso a</p>
+            <p class="client-auth-confirm-email">{{ $email }}</p>
+          </div>
+
+          <form action="{{ route('client.login.magic.send') }}" method="POST" class="client-auth-form client-auth-form--compact client-auth-form--centered">
+            @csrf
+            <input type="hidden" name="email" value="{{ $email }}" />
+            <div class="client-auth-actions">
+              <button type="submit" class="client-auth-btn">Recibe un enlace</button>
+            </div>
+          </form>
+
+          <div class="client-auth-divider" aria-hidden="true">
+            <span>o</span>
+          </div>
+
+          <div class="client-auth-form client-auth-form--compact client-auth-form--centered">
+            <div class="client-auth-actions">
+              <a href="{{ route('client.login.password') }}" class="client-auth-btn secondary client-auth-btn--linkish">
+                O bien, usa la contraseña
+              </a>
+            </div>
+          </div>
+
+          <p class="client-auth-legal client-auth-legal--centered">
+            Al crear una cuenta, aceptas nuestros <a href="#" class="client-auth-link">Términos y condiciones</a>, la
+            <a href="#" class="client-auth-link">Política de privacidad</a> y el acuerdo con Mariachis.co.
+          </p>
+        @else
+          <div>
+            <h1 class="client-auth-subtitle">Entra o crea tu acceso con un enlace seguro</h1>
+            <p class="client-auth-copy">Enviaremos un enlace seguro y de un solo uso a</p>
+            <p class="client-auth-confirm-email">{{ $email }}</p>
+          </div>
+
+          <form action="{{ route('client.login.magic.send') }}" method="POST" class="client-auth-form client-auth-form--compact client-auth-form--centered">
+            @csrf
+            <input type="hidden" name="email" value="{{ $email }}" />
+            <div class="client-auth-actions">
+              <button type="submit" class="client-auth-btn">Recibe un enlace</button>
+            </div>
+          </form>
+
+          <p class="client-auth-copy client-auth-copy--centered">
+            Toca el enlace que recibirás por correo para iniciar sesión o crear tu cuenta.
+          </p>
+
+          <div class="client-auth-inline-links client-auth-inline-links--centered">
+            <a href="{{ route('client.login.email') }}" class="client-auth-link">Cambiar correo</a>
+          </div>
+        @endif
       </section>
     </div>
   </main>
 @endsection
+
+@push('scripts')
+  @if ($showConfirmation)
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const button = document.querySelector('[data-magic-resend-button]');
+
+        if (!button) {
+          return;
+        }
+
+        const defaultLabel = button.dataset.defaultLabel || 'Reenviar correo electrónico';
+        let remaining = Number(button.dataset.cooldownSeconds || 0);
+
+        const render = function () {
+          if (remaining > 0) {
+            button.disabled = true;
+            button.textContent = `${defaultLabel} (${remaining} s)`;
+            return;
+          }
+
+          button.disabled = false;
+          button.textContent = defaultLabel;
+        };
+
+        render();
+
+        if (remaining <= 0) {
+          return;
+        }
+
+        const timer = window.setInterval(function () {
+          remaining -= 1;
+          render();
+
+          if (remaining <= 0) {
+            window.clearInterval(timer);
+          }
+        }, 1000);
+      });
+    </script>
+  @endif
+@endpush

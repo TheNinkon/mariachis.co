@@ -14,7 +14,7 @@ class SystemSmtpTestMail extends Mailable
 
     public function __construct(
         public string $recipient,
-        public string $mailer,
+        public string $mailerName,
         public string $fromAddress,
         public string $fromName
     ) {
@@ -33,7 +33,7 @@ class SystemSmtpTestMail extends Mailable
             view: 'emails.system-smtp-test',
             with: [
                 'recipient' => $this->recipient,
-                'mailer' => $this->mailer,
+                'mailer' => $this->mailerName,
                 'fromAddress' => $this->fromAddress,
                 'fromName' => $this->fromName,
                 'sentAt' => now(),

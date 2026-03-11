@@ -69,8 +69,11 @@ class MailSettingsService
      */
     public function runtimeConfig(): array
     {
-        $scheme = $this->encryption();
-        $resolvedScheme = $scheme === self::ENCRYPTION_NONE ? null : $scheme;
+        $resolvedScheme = match ($this->encryption()) {
+            self::ENCRYPTION_SSL => 'smtps',
+            self::ENCRYPTION_TLS, self::ENCRYPTION_NONE => 'smtp',
+            default => 'smtp',
+        };
         $username = $this->username();
         $password = $this->password();
 
@@ -83,7 +86,6 @@ class MailSettingsService
                 'username' => $username !== '' ? $username : null,
                 'password' => $password !== '' ? $password : null,
                 'scheme' => $resolvedScheme,
-                'encryption' => $resolvedScheme,
                 'timeout' => config('mail.mailers.smtp.timeout'),
                 'local_domain' => config('mail.mailers.smtp.local_domain'),
             ],
