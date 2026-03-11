@@ -4,14 +4,14 @@
 @section('meta_description', 'Introduce tu contraseña para entrar a tu cuenta de cliente.')
 @section('page_id', 'client-auth')
 
-@section('auth_header_link')
-  <a href="{{ route('client.register') }}">Crear cuenta</a>
-@endsection
-
 @section('content')
   <main class="client-auth-shell narrow">
-    <div class="client-auth-grid">
-      <section class="client-auth-card">
+    <div class="client-auth-frame">
+      <div class="client-auth-back-row">
+        @include('front.auth.partials.client-auth-back', ['href' => route('client.login.email.options'), 'label' => 'Atrás'])
+      </div>
+
+      <section class="client-auth-stage client-auth-stage--flow">
         @include('front.auth.partials.client-auth-flashes')
 
         <div>
@@ -55,7 +55,6 @@
 
           <div class="client-auth-actions">
             <button type="submit" class="client-auth-btn">Entrar</button>
-            <a href="{{ route('client.login.email.options') }}" class="client-auth-btn secondary client-auth-btn--linkish">Volver</a>
           </div>
         </form>
       </section>

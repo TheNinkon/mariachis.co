@@ -13,11 +13,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-client-auth-v2" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-client-auth-v5" />
     @stack('head')
   </head>
   <body data-page="@yield('page_id', 'client-auth')">
     @php
+      $pageId = trim((string) $__env->yieldContent('page_id', 'client-auth'));
+      $isClientAuthFlow = $pageId === 'client-auth';
       $authUser = auth()->user();
       $isClientAuth = $authUser && $authUser->role === \App\Models\User::ROLE_CLIENT;
       $initials = 'C';
@@ -34,15 +36,18 @@
           }
       }
 
-      $footerCities = \App\Models\MariachiProfile::query()
-          ->published()
-          ->selectRaw('city_name, count(*) as total')
-          ->whereNotNull('city_name')
-          ->where('city_name', '!=', '')
-          ->groupBy('city_name')
-          ->orderByDesc('total')
-          ->limit(5)
-          ->get();
+      $footerCities = collect();
+      if (! $isClientAuthFlow) {
+          $footerCities = \App\Models\MariachiProfile::query()
+              ->published()
+              ->selectRaw('city_name, count(*) as total')
+              ->whereNotNull('city_name')
+              ->where('city_name', '!=', '')
+              ->groupBy('city_name')
+              ->orderByDesc('total')
+              ->limit(5)
+              ->get();
+      }
     @endphp
     <header class="public-clean-header">
       <div class="public-clean-header-inner layout-shell">
@@ -80,17 +85,8 @@
                 </form>
               </div>
             </details>
-          @else
-            <details class="public-clean-account">
-              <summary>
-                <span class="public-clean-avatar">C</span>
-              </summary>
-              <div class="public-clean-account-menu">
-                <a href="/login">Iniciar sesión / Registrarse</a>
-                <a href="{{ route('client.account.favorites') }}">Lista de deseos</a>
-                <a href="#">Ayuda</a>
-              </div>
-            </details>
+          @elseif(! $isClientAuthFlow)
+            <a href="{{ route('client.login') }}" class="public-clean-login-link">Iniciar sesión</a>
           @endif
         </nav>
       </div>
@@ -98,48 +94,61 @@
 
     @yield('content')
 
-    <footer class="public-clean-footer">
-      <div class="public-clean-footer-inner public-clean-footer-grid layout-shell">
-        <section>
-          <a class="brand-logo brand-logo--footer" href="/" aria-label="mariachis.co">
-            <span class="brand-logo-copy">
-              <span class="brand-logo-word">
-                <img src="assets/logo-wordmark.png" alt="Mariachis.co" class="brand-logo-image" />
+    @if($isClientAuthFlow)
+      <footer class="public-clean-footer public-clean-footer--auth">
+        <div class="public-clean-footer-inner public-clean-footer-inner--auth layout-shell">
+          <span>&copy; {{ now()->year }} Mariachis.co</span>
+          <nav class="public-clean-footer-inline" aria-label="Enlaces legales">
+            <a href="#">Términos y condiciones</a>
+            <a href="#">Privacidad y cookies</a>
+            <a href="/#como-funciona">Cómo funciona</a>
+          </nav>
+        </div>
+      </footer>
+    @else
+      <footer class="public-clean-footer">
+        <div class="public-clean-footer-inner public-clean-footer-grid layout-shell">
+          <section>
+            <a class="brand-logo brand-logo--footer" href="/" aria-label="mariachis.co">
+              <span class="brand-logo-copy">
+                <span class="brand-logo-word">
+                  <img src="assets/logo-wordmark.png" alt="Mariachis.co" class="brand-logo-image" />
+                </span>
+                <span class="brand-logo-sub">marketplace colombiano</span>
               </span>
-              <span class="brand-logo-sub">marketplace colombiano</span>
-            </span>
-          </a>
-          <p class="public-clean-footer-text">Marketplace para contratar mariachis en Colombia con perfiles reales, contacto directo y búsqueda por ciudad.</p>
-          <div class="public-clean-footer-chips">
-            <span>SEO local</span>
-            <span>WhatsApp first</span>
-            <span>Mobile</span>
-          </div>
-        </section>
+            </a>
+            <p class="public-clean-footer-text">Marketplace para contratar mariachis en Colombia con perfiles reales, contacto directo y búsqueda por ciudad.</p>
+            <div class="public-clean-footer-chips">
+              <span>SEO local</span>
+              <span>WhatsApp first</span>
+              <span>Mobile</span>
+            </div>
+          </section>
 
-        <section>
-          <h3>Ciudades populares</h3>
-          <ul>
-            @forelse($footerCities as $city)
-              <li><a href="{{ route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city->city_name)]) }}">Mariachis en {{ $city->city_name }}</a></li>
-            @empty
-              <li><span>Sin ciudades activas todavía</span></li>
-            @endforelse
-          </ul>
-        </section>
+          <section>
+            <h3>Ciudades populares</h3>
+            <ul>
+              @forelse($footerCities as $city)
+                <li><a href="{{ route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city->city_name)]) }}">Mariachis en {{ $city->city_name }}</a></li>
+              @empty
+                <li><span>Sin ciudades activas todavía</span></li>
+              @endforelse
+            </ul>
+          </section>
 
-        <section>
-          <h3>Marketplace</h3>
-          <ul>
-            <li><a href="/#como-funciona">Cómo funciona</a></li>
-            <li><a href="/#soy-mariachi">Publica tu anuncio</a></li>
-            <li><a href="/mariachis/bogota">Anuncios en tu ciudad</a></li>
-            <li><a href="/blog">Blog</a></li>
-            <li><a href="#">Centro de ayuda</a></li>
-          </ul>
-        </section>
-      </div>
-    </footer>
+          <section>
+            <h3>Marketplace</h3>
+            <ul>
+              <li><a href="/#como-funciona">Cómo funciona</a></li>
+              <li><a href="/#soy-mariachi">Publica tu anuncio</a></li>
+              <li><a href="/mariachis/bogota">Anuncios en tu ciudad</a></li>
+              <li><a href="/blog">Blog</a></li>
+              <li><a href="#">Centro de ayuda</a></li>
+            </ul>
+          </section>
+        </div>
+      </footer>
+    @endif
 
     @stack('scripts')
   </body>

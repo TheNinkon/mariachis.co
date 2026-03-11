@@ -184,49 +184,6 @@
         </div>
       </section>
 
-      <section id="ciudades" class="layout-shell pt-10 pb-10">
-        <div class="mb-5 flex items-end justify-between gap-4" data-reveal>
-          <div>
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">Por zona</p>
-            <h2 class="mt-2 text-3xl font-extrabold tracking-[-0.01em] text-slate-900 md:text-4xl">Músicos por zona de Colombia</h2>
-          </div>
-        </div>
-
-        <div class="zone-carousel-wrap" data-zone-carousel-wrap data-reveal>
-          <div class="zone-carousel-track" data-zone-carousel>
-            @forelse($zones as $zone)
-              @php
-                $zoneUrl = !empty($zone['city_slug'])
-                  ? route('seo.landing.city-category', ['citySlug' => $zone['city_slug'], 'scopeSlug' => $zone['slug']])
-                  : route('seo.landing.slug', ['slug' => $zone['slug']]);
-              @endphp
-              <a href="{{ $zoneUrl }}" class="zone-card zone-card--visual" @if(!empty($zone['cover_url'])) style="--zone-cover-image: url('{{ $zone['cover_url'] }}');" @endif>
-                <div class="zone-card__content">
-                  <h3>{{ $zone['name'] }}</h3>
-                  <p>{{ $zone['count'] }} {{ $zone['count'] === 1 ? 'mariachi' : 'mariachis' }}</p>
-                  @if(!empty($zone['city_name']))
-                    <span class="zone-card__meta">Zona en {{ $zone['city_name'] }}</span>
-                  @endif
-                </div>
-              </a>
-            @empty
-              <article class="zone-card zone-card--visual">
-                <div class="zone-card__content">
-                <h3>Sin zonas publicadas aún</h3>
-                <p>Cuando se complete la cobertura de los perfiles aparecerán aquí.</p>
-                </div>
-              </article>
-              <article class="zone-card zone-card--visual">
-                <div class="zone-card__content">
-                <h3>Bloque preparado</h3>
-                <p>La home se actualiza automáticamente con datos reales.</p>
-                </div>
-              </article>
-            @endforelse
-          </div>
-        </div>
-      </section>
-
       <section id="categorias" class="layout-shell py-14">
         <div class="mb-6 flex flex-wrap items-end justify-between gap-4" data-reveal>
           <div>
@@ -359,6 +316,49 @@
                 </div>
                 <div class="featured-promo-footer">
                   <p class="featured-promo-meta">Cuando el primer mariachi complete su anuncio, aparecerá automáticamente aquí.</p>
+                </div>
+              </article>
+            @endforelse
+          </div>
+        </div>
+      </section>
+
+      <section id="ciudades" class="layout-shell pt-10 pb-10">
+        <div class="mb-5 flex items-end justify-between gap-4" data-reveal>
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">Por zona</p>
+            <h2 class="mt-2 text-3xl font-extrabold tracking-[-0.01em] text-slate-900 md:text-4xl">Músicos por zona de Colombia</h2>
+          </div>
+        </div>
+
+        <div class="zone-carousel-wrap" data-zone-carousel-wrap data-reveal>
+          <div class="zone-carousel-track" data-zone-carousel>
+            @forelse($zones as $zone)
+              @php
+                $zoneUrl = !empty($zone['city_slug'])
+                  ? route('seo.landing.city-category', ['citySlug' => $zone['city_slug'], 'scopeSlug' => $zone['slug']])
+                  : route('seo.landing.slug', ['slug' => $zone['slug']]);
+              @endphp
+              <a href="{{ $zoneUrl }}" class="zone-card zone-card--visual" @if(!empty($zone['cover_url'])) style="--zone-cover-image: url('{{ $zone['cover_url'] }}');" @endif>
+                <div class="zone-card__content">
+                  <h3>{{ $zone['name'] }}</h3>
+                  <p>{{ $zone['count'] }} {{ $zone['count'] === 1 ? 'mariachi' : 'mariachis' }}</p>
+                  @if(!empty($zone['city_name']))
+                    <span class="zone-card__meta">Zona en {{ $zone['city_name'] }}</span>
+                  @endif
+                </div>
+              </a>
+            @empty
+              <article class="zone-card zone-card--visual">
+                <div class="zone-card__content">
+                <h3>Sin zonas publicadas aún</h3>
+                <p>Cuando se complete la cobertura de los perfiles aparecerán aquí.</p>
+                </div>
+              </article>
+              <article class="zone-card zone-card--visual">
+                <div class="zone-card__content">
+                <h3>Bloque preparado</h3>
+                <p>La home se actualiza automáticamente con datos reales.</p>
                 </div>
               </article>
             @endforelse

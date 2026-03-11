@@ -40,6 +40,44 @@ class ClientLoginFlowTest extends TestCase
         });
     }
 
+    public function test_guest_email_can_request_magic_link_and_account_is_created_on_consume(): void
+    {
+        Mail::fake();
+
+        $email = 'nuevo-cliente@example.com';
+
+        $response = $this->post(route('client.login.magic.send'), [
+            'email' => $email,
+        ]);
+
+        $response->assertRedirect(route('client.login.email.options'));
+        $response->assertSessionHas('status');
+
+        $token = ClientLoginToken::query()
+            ->where('email', $email)
+            ->first();
+
+        $this->assertNotNull($token);
+        $this->assertNull($token->user_id);
+
+        Mail::assertSent(ClientMagicLinkMail::class, fn (ClientMagicLinkMail $mail): bool => $mail->hasTo($email));
+
+        $rawToken = 'nuevo-token-cliente';
+        $token->forceFill([
+            'token_hash' => hash('sha256', $rawToken),
+        ])->save();
+
+        $consumeResponse = $this->get(route('client.login.magic', ['token' => $rawToken]));
+
+        $consumeResponse->assertRedirect(route('client.dashboard'));
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', [
+            'email' => $email,
+            'role' => User::ROLE_CLIENT,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
     public function test_magic_link_logs_in_active_client(): void
     {
         $user = User::factory()->create([
@@ -105,5 +143,18 @@ class ClientLoginFlowTest extends TestCase
         $response->assertRedirect(route('client.login.password'));
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
+    }
+
+    public function test_options_view_hides_password_path_for_unknown_email(): void
+    {
+        $this->withSession([
+            'client_login.email' => 'nuevo@example.com',
+        ]);
+
+        $response = $this->get(route('client.login.email.options'));
+
+        $response->assertOk();
+        $response->assertSee('la crearemos cuando confirmes el enlace', false);
+        $response->assertSee('Aún no disponible', false);
     }
 }

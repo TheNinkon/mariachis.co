@@ -26,6 +26,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Client\ClientDashboardController;
 use App\Http\Controllers\Front\BlogController;
 use App\Http\Controllers\Front\HomeController;
+use App\Http\Controllers\Front\ListingInfoRequestController;
 use App\Http\Controllers\Front\PublicMariachiController;
 use App\Http\Controllers\Front\QuoteRequestController;
 use App\Http\Controllers\Front\SeoLandingController;
@@ -248,5 +249,6 @@ Route::get('/mariachi/{slug}', [PublicMariachiController::class, 'show'])
     ->where('slug', '^(?!login$|panel$|dashboard$|profile$|solicitudes$)[a-z0-9-]+$')
     ->name('mariachi.public.show');
 Route::post('/mariachi/{slug}/solicitar-presupuesto', [QuoteRequestController::class, 'store'])->name('quote.request.store');
+Route::post('/solicitudes-info/{slug}', [ListingInfoRequestController::class, 'store'])->name('listing.info-requests.store');
 
 Route::get('/lang/{locale}', [LanguageController::class, 'swap']);

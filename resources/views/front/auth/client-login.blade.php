@@ -4,20 +4,19 @@
 @section('meta_description', 'Accede a tu cuenta de cliente para revisar solicitudes, favoritos y conversaciones.')
 @section('page_id', 'client-auth')
 
-@section('auth_header_link')
-  <a href="{{ route('client.register') }}">Crear cuenta</a>
-@endsection
-
 @section('content')
   <main class="client-auth-shell">
-    <div class="client-auth-grid client-auth-grid--selector">
+    <div class="client-auth-frame client-auth-frame--selector">
+      <div class="client-auth-back-row">
+        @include('front.auth.partials.client-auth-back', ['href' => url('/'), 'label' => 'Atrás'])
+      </div>
+
       <section class="client-auth-stage client-auth-stage--selector">
         @include('front.auth.partials.client-auth-flashes')
 
         <div>
-          <p class="client-auth-eyebrow">Acceso cliente</p>
-          <h1 class="client-auth-title">Entra a tu cuenta como prefieras</h1>
-          <p class="client-auth-copy">Consulta conversaciones, favoritos y seguimiento de solicitudes desde un solo lugar.</p>
+          <h1 class="client-auth-title">Entrar o crear tu acceso</h1>
+          <p class="client-auth-copy">Usa tu mismo correo para continuar. Si todavía no existe una cuenta, la preparamos en el proceso.</p>
         </div>
 
         <div class="client-auth-methods">
@@ -29,8 +28,7 @@
               </svg>
             </span>
             <span class="client-auth-method-copy">
-              <strong>Continuar con email</strong>
-              <small>Recibe un enlace o usa tu contraseña</small>
+              <strong>Continuar con correo electrónico</strong>
             </span>
           </a>
 
@@ -45,7 +43,6 @@
             </span>
             <span class="client-auth-method-copy">
               <strong>Continuar con Google</strong>
-              <small>Próximamente</small>
             </span>
           </button>
 
@@ -57,7 +54,6 @@
             </span>
             <span class="client-auth-method-copy">
               <strong>Continuar con Facebook</strong>
-              <small>Próximamente</small>
             </span>
           </button>
 
@@ -69,13 +65,11 @@
             </span>
             <span class="client-auth-method-copy">
               <strong>Continuar con Apple</strong>
-              <small>Próximamente</small>
             </span>
           </button>
         </div>
 
         <p class="client-auth-legal">Al continuar aceptas nuestros términos de uso y la política de privacidad de Mariachis.co.</p>
-        <p class="client-auth-footnote">¿No tienes cuenta? <a href="{{ route('client.register') }}" class="client-auth-link">Crear cuenta</a></p>
       </section>
     </div>
   </main>

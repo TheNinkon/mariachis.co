@@ -55,8 +55,27 @@ class ClientLoginController extends Controller
             return redirect()->route('client.login.email');
         }
 
+        $matchedUser = $this->findUserByEmail($email);
+
+        if ($matchedUser && ! $matchedUser->isClient()) {
+            return redirect()
+                ->route('client.login.email')
+                ->withErrors([
+                    'auth' => 'Este correo ya está vinculado a otro tipo de acceso.',
+                ]);
+        }
+
+        if ($matchedUser && $matchedUser->status !== User::STATUS_ACTIVE) {
+            return redirect()
+                ->route('client.login.email')
+                ->withErrors([
+                    'auth' => 'Tu cuenta está desactivada. Contacta a soporte.',
+                ]);
+        }
+
         return view('front.auth.client-login-options', [
             'email' => $email,
+            'canUsePassword' => $matchedUser?->isClient() === true,
         ]);
     }
 
@@ -66,6 +85,16 @@ class ClientLoginController extends Controller
 
         if ($email === null) {
             return redirect()->route('client.login.email');
+        }
+
+        $matchedUser = $this->findUserByEmail($email);
+
+        if (! $matchedUser || ! $matchedUser->isClient() || $matchedUser->status !== User::STATUS_ACTIVE) {
+            return redirect()
+                ->route('client.login.email.options')
+                ->withErrors([
+                    'auth' => 'Primero confirma tu acceso con enlace para activar tu cuenta.',
+                ]);
         }
 
         return view('front.auth.client-login-password', [
@@ -80,51 +109,61 @@ class ClientLoginController extends Controller
         $request->session()->put(self::LOGIN_EMAIL_SESSION_KEY, $email);
         $this->ensureMagicLinkRateLimit($request, $email);
 
-        $user = User::query()
-            ->whereRaw('LOWER(email) = ?', [$email])
-            ->first();
+        $user = $this->findUserByEmail($email);
 
-        if ($user && $this->canAccessClientPortal($user)) {
-            $plainToken = Str::random(64);
-
-            ClientLoginToken::query()
-                ->whereRaw('LOWER(email) = ?', [$email])
-                ->whereNull('used_at')
-                ->update(['used_at' => now()]);
-
-            ClientLoginToken::create([
-                'user_id' => $user->id,
-                'email' => $email,
-                'token_hash' => hash('sha256', $plainToken),
-                'expires_at' => now()->addMinutes(self::MAGIC_LINK_TTL_MINUTES),
-                'ip' => $request->ip(),
-                'user_agent' => Str::limit((string) $request->userAgent(), 2000, ''),
+        if ($user && ! $user->isClient()) {
+            throw ValidationException::withMessages([
+                'auth' => 'Este correo ya está vinculado a otro tipo de acceso.',
             ]);
+        }
 
-            try {
-                Mail::to($email, $user->display_name)->send(
-                    new ClientMagicLinkMail(
-                        $user,
-                        route('client.login.magic', ['token' => $plainToken]),
-                        self::MAGIC_LINK_TTL_MINUTES
-                    )
-                );
-            } catch (Throwable $exception) {
-                report($exception);
+        if ($user && $user->status !== User::STATUS_ACTIVE) {
+            throw ValidationException::withMessages([
+                'auth' => 'Tu cuenta está desactivada. Contacta a soporte.',
+            ]);
+        }
 
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'auth' => 'No pudimos enviar el enlace ahora mismo. Intenta de nuevo en un momento.',
-                    ]);
-            }
+        $plainToken = Str::random(64);
+
+        ClientLoginToken::query()
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
+        $tempUser = $user ?? $this->makePendingClientUser($email);
+
+        ClientLoginToken::create([
+            'user_id' => $user?->id,
+            'email' => $email,
+            'token_hash' => hash('sha256', $plainToken),
+            'expires_at' => now()->addMinutes(self::MAGIC_LINK_TTL_MINUTES),
+            'ip' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 2000, ''),
+        ]);
+
+        try {
+            Mail::to($email, $tempUser->display_name)->send(
+                new ClientMagicLinkMail(
+                    $tempUser,
+                    route('client.login.magic', ['token' => $plainToken]),
+                    self::MAGIC_LINK_TTL_MINUTES
+                )
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'auth' => 'No pudimos enviar el enlace ahora mismo. Intenta de nuevo en un momento.',
+                ]);
         }
 
         $this->hitMagicLinkRateLimit($request, $email);
 
         return redirect()
             ->route('client.login.email.options')
-            ->with('status', 'Si existe una cuenta activa para '.$email.', te enviamos un enlace seguro para entrar.');
+            ->with('status', 'Revisa '.$email.'. Te enviamos un enlace seguro para entrar o crear tu acceso.');
     }
 
     public function consumeMagicLink(Request $request, string $token): RedirectResponse
@@ -144,9 +183,16 @@ class ClientLoginController extends Controller
         $loginToken->markAsUsed();
 
         $user = $loginToken->user
-            ?? User::query()->whereRaw('LOWER(email) = ?', [Str::lower($loginToken->email)])->first();
+            ?? $this->findUserByEmail($loginToken->email);
 
-        if (! $user || ! $this->canAccessClientPortal($user)) {
+        if (! $user) {
+            $user = $this->createClientFromEmail($loginToken->email);
+            $loginToken->forceFill([
+                'user_id' => $user->id,
+            ])->save();
+        }
+
+        if (! $this->canAccessClientPortal($user)) {
             return redirect()
                 ->route('client.login.email')
                 ->withErrors([
@@ -220,6 +266,13 @@ class ClientLoginController extends Controller
         )->validate()['email']));
     }
 
+    private function findUserByEmail(string $email): ?User
+    {
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [Str::lower($email)])
+            ->first();
+    }
+
     private function canAccessClientPortal(User $user, bool $requireActive = true): bool
     {
         if (! $user->isClient()) {
@@ -278,5 +331,46 @@ class ClientLoginController extends Controller
         }
 
         return (string) ceil($seconds / 60).' min';
+    }
+
+    private function makePendingClientUser(string $email): User
+    {
+        $name = $this->displayNameFromEmail($email);
+
+        return new User([
+            'name' => $name,
+            'first_name' => $name,
+            'email' => $email,
+            'role' => User::ROLE_CLIENT,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+    }
+
+    private function createClientFromEmail(string $email): User
+    {
+        $name = $this->displayNameFromEmail($email);
+
+        $user = new User([
+            'name' => $name,
+            'first_name' => $name,
+            'email' => $email,
+            'password' => Str::random(40),
+            'role' => User::ROLE_CLIENT,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $user->forceFill([
+            'email_verified_at' => now(),
+        ])->save();
+
+        return $user;
+    }
+
+    private function displayNameFromEmail(string $email): string
+    {
+        $localPart = Str::before($email, '@');
+        $normalized = preg_replace('/[^a-z0-9]+/i', ' ', $localPart) ?: 'Cliente';
+
+        return Str::title(trim($normalized));
     }
 }

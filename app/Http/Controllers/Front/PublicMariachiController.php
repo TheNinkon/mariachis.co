@@ -131,31 +131,39 @@ class PublicMariachiController extends Controller
 
         $isFavorited = false;
         $quoteDefaults = [
+            'contact_name' => '',
+            'contact_email' => '',
             'contact_phone' => '',
             'event_city' => '',
         ];
 
-        if ($request->user()?->isClient()) {
-            $clientUser = $request->user();
+        if ($request->user()) {
+            $authUser = $request->user();
+            $quoteDefaults['contact_name'] = (string) ($authUser->display_name ?? '');
+            $quoteDefaults['contact_email'] = (string) ($authUser->email ?? '');
+            $quoteDefaults['contact_phone'] = (string) ($authUser->phone ?? '');
 
-            ClientRecentView::query()->updateOrCreate(
-                [
-                    'user_id' => $clientUser->id,
-                    'mariachi_profile_id' => $profile->mariachi_profile_id,
-                    'mariachi_listing_id' => $profile->id,
-                ],
-                [
-                    'last_viewed_at' => now(),
-                ]
-            );
+            if ($authUser->isClient()) {
+                $clientUser = $authUser;
 
-            $isFavorited = ClientFavorite::query()
-                ->where('user_id', $clientUser->id)
-                ->where('mariachi_listing_id', $profile->id)
-                ->exists();
+                ClientRecentView::query()->updateOrCreate(
+                    [
+                        'user_id' => $clientUser->id,
+                        'mariachi_profile_id' => $profile->mariachi_profile_id,
+                        'mariachi_listing_id' => $profile->id,
+                    ],
+                    [
+                        'last_viewed_at' => now(),
+                    ]
+                );
 
-            $quoteDefaults['contact_phone'] = (string) ($clientUser->phone ?? '');
-            $quoteDefaults['event_city'] = (string) ($clientUser->clientProfile?->city_name ?? '');
+                $isFavorited = ClientFavorite::query()
+                    ->where('user_id', $clientUser->id)
+                    ->where('mariachi_listing_id', $profile->id)
+                    ->exists();
+
+                $quoteDefaults['event_city'] = (string) ($clientUser->clientProfile?->city_name ?? '');
+            }
         }
 
         $viewKey = 'mariachi_listing_viewed_'.$profile->id;

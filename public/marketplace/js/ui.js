@@ -2313,6 +2313,10 @@
   }
 
   function initGalleryModal() {
+    if (document.querySelector('[data-gallery-experience="viator"]')) {
+      return;
+    }
+
     const items = Array.from(document.querySelectorAll("[data-gallery-item]")).filter((item) => {
       return (item.getAttribute("data-src") || "").trim() !== "";
     });

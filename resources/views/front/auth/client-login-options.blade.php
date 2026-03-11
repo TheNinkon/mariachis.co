@@ -4,20 +4,22 @@
 @section('meta_description', 'Selecciona si quieres recibir un enlace de acceso o usar tu contraseña.')
 @section('page_id', 'client-auth')
 
-@section('auth_header_link')
-  <a href="{{ route('client.register') }}">Crear cuenta</a>
-@endsection
-
 @section('content')
   <main class="client-auth-shell narrow">
-    <div class="client-auth-grid">
-      <section class="client-auth-card">
+    <div class="client-auth-frame">
+      <div class="client-auth-back-row">
+        @include('front.auth.partials.client-auth-back', ['href' => route('client.login.email'), 'label' => 'Atrás'])
+      </div>
+
+      <section class="client-auth-stage client-auth-stage--flow">
         @include('front.auth.partials.client-auth-flashes')
 
         <div>
           <span class="client-auth-step">Paso 2 de 3</span>
           <h1 class="client-auth-subtitle">¿Cómo quieres entrar?</h1>
-          <p class="client-auth-copy">Usaremos el correo seleccionado para tu acceso.</p>
+          <p class="client-auth-copy">
+            {{ $canUsePassword ? 'Este correo ya tiene una cuenta cliente activa.' : 'Si este correo aún no tiene cuenta, la crearemos cuando confirmes el enlace.' }}
+          </p>
         </div>
 
         <div class="client-auth-chip" title="{{ $email }}">
@@ -36,7 +38,7 @@
             </div>
             <div class="client-auth-choice-copy">
               <strong>Recibir un enlace seguro</strong>
-              <p>Te enviamos un acceso de un solo uso a tu correo.</p>
+              <p>{{ $canUsePassword ? 'Te enviamos un acceso de un solo uso a tu correo.' : 'Te enviamos un enlace para entrar y dejar tu cuenta lista.' }}</p>
             </div>
             <button type="submit" class="client-auth-btn">Enviar enlace</button>
           </form>
@@ -48,10 +50,14 @@
               </svg>
             </div>
             <div class="client-auth-choice-copy">
-              <strong>Usar contraseña</strong>
-              <p>Accede con la contraseña que ya usas en tu cuenta.</p>
+              <strong>{{ $canUsePassword ? 'Usar contraseña' : 'Primero confirma tu correo' }}</strong>
+              <p>{{ $canUsePassword ? 'Accede con la contraseña que ya usas en tu cuenta.' : 'La contraseña aparece cuando el correo ya tiene una cuenta activa.' }}</p>
             </div>
-            <a href="{{ route('client.login.password') }}" class="client-auth-btn secondary client-auth-btn--linkish">Continuar con contraseña</a>
+            @if($canUsePassword)
+              <a href="{{ route('client.login.password') }}" class="client-auth-btn secondary client-auth-btn--linkish">Continuar con contraseña</a>
+            @else
+              <button type="button" class="client-auth-btn secondary" disabled aria-disabled="true">Aún no disponible</button>
+            @endif
           </div>
         </div>
 

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ $seoTitle }}</title>
     <meta name="description" content="{{ $seoDescription }}" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
     <base href="{{ asset('marketplace') }}/" />
     <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />
@@ -14,13 +15,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-listing-v3" />
     <script type="application/ld+json">{!! $schemaJson !!}</script>
   </head>
   <body data-page="listing" class="has-mobile-cta font-sans text-slate-900 antialiased">
     <div data-component="site-header"></div>
 
     @php
+      $resolveVideoThumb = static function (string $url): ?string {
+        if (preg_match('/embed\/([^?&"\'#\/]+)/', $url, $matches) === 1 && ! empty($matches[1])) {
+          return 'https://i.ytimg.com/vi/'.$matches[1].'/hqdefault.jpg';
+        }
+
+        return null;
+      };
       $mainPhoto = $featuredPhoto;
       $mainPhotoUrl = $mainPhoto ? asset('storage/'.$mainPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
       $cityLandingUrl = route('seo.landing.slug', ['slug' => $citySlug]);
@@ -34,6 +42,7 @@
         $photoGalleryItems->push([
           'type' => 'image',
           'src' => $mainPhotoUrl,
+          'thumb' => $mainPhotoUrl,
           'title' => $mainPhoto->title ?: $h1,
         ]);
       }
@@ -42,6 +51,7 @@
         $photoGalleryItems->push([
           'type' => 'image',
           'src' => asset('storage/'.$photo->path),
+          'thumb' => asset('storage/'.$photo->path),
           'title' => $photo->title ?: $h1,
         ]);
       }
@@ -50,6 +60,7 @@
         $photoGalleryItems->push([
           'type' => 'image',
           'src' => $mainPhotoUrl,
+          'thumb' => $mainPhotoUrl,
           'title' => $h1,
         ]);
       }
@@ -59,10 +70,25 @@
         ->map(fn (string $url, int $index): array => [
           'type' => 'video',
           'src' => $url,
+          'thumb' => $resolveVideoThumb($url),
           'title' => 'Video '.($index + 1).' de '.$h1,
         ]);
 
-      $galleryItems = $photoGalleryItems->concat($videoGalleryItems)->values();
+      $galleryItems = collect([$photoGalleryItems->first()]);
+      if ($videoGalleryItems->isNotEmpty()) {
+        $galleryItems->push($videoGalleryItems->first());
+      }
+      $galleryItems = $galleryItems
+        ->concat($photoGalleryItems->slice(1))
+        ->concat($videoGalleryItems->slice(1))
+        ->filter()
+        ->unique(fn (array $item): string => $item['type'].'|'.$item['src'])
+        ->values();
+      $heroGalleryItems = $galleryItems->take(3)->values();
+      $heroRailItems = $heroGalleryItems;
+      $primaryGalleryItem = $galleryItems->first();
+      $galleryPhotosCount = $photoGalleryItems->count();
+      $galleryVideosCount = $videoGalleryItems->count();
       $basePriceLabel = $profile->base_price ? '$'.number_format((float) $profile->base_price, 0, ',', '.') : 'Cotizar';
       $responsibleName = $profile->responsible_name ?: $profile->user?->display_name ?: $h1;
       $heroSummary = $profile->short_description ?: 'Servicio activo para serenatas, celebraciones y eventos privados.';
@@ -103,12 +129,13 @@
           'kind' => 'city',
         ])
         ->values();
-      $heroGalleryItems = $photoGalleryItems->take(4)->values();
-      $heroGalleryMainItem = $heroGalleryItems->first() ?: $galleryItems->first();
-      $heroGallerySideItems = $heroGalleryItems->slice(1)->values();
-      $heroGalleryVisibleCount = $heroGalleryItems->count();
-      $hiddenGalleryItems = $galleryItems->slice($heroGalleryVisibleCount)->values();
-      $heroGalleryMoreCount = max(0, $galleryItems->count() - $heroGalleryVisibleCount);
+      $favoriteKey = 'listing-'.$profile->id;
+      $favoriteStoreUrl = auth()->user()?->role === \App\Models\User::ROLE_CLIENT
+        ? route('client.favorites.store', ['slug' => $profile->slug])
+        : null;
+      $favoriteDestroyUrl = auth()->user()?->role === \App\Models\User::ROLE_CLIENT
+        ? route('client.favorites.destroy', ['slug' => $profile->slug])
+        : null;
 
       $reviewVerificationMap = [
         'basic' => 'Opinion basica',
@@ -154,37 +181,23 @@
                   <span>Compartir</span>
                 </button>
 
-                @if(auth()->user()?->role === \App\Models\User::ROLE_CLIENT)
-                  @if($isFavorited)
-                    <form action="{{ route('client.favorites.destroy', ['slug' => $profile->slug]) }}" method="POST">
-                      @csrf
-                      @method('DELETE')
-                      <button type="submit" class="listing-hero-action-btn listing-hero-action-btn--favorite is-active" aria-label="Quitar de favoritos" aria-pressed="true">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <path d="M12.001 4.529a5.998 5.998 0 0 1 8.484 8.484l-7.778 7.779a1 1 0 0 1-1.414 0l-7.778-7.779a5.998 5.998 0 1 1 8.484-8.484Z"/>
-                        </svg>
-                        <span>Añadido a favoritos</span>
-                      </button>
-                    </form>
-                  @else
-                    <form action="{{ route('client.favorites.store', ['slug' => $profile->slug]) }}" method="POST">
-                      @csrf
-                      <button type="submit" class="listing-hero-action-btn listing-hero-action-btn--favorite" aria-label="Guardar en favoritos" aria-pressed="false">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                        <span>Agregar a favoritos</span>
-                      </button>
-                    </form>
+                <button
+                  type="button"
+                  class="listing-hero-action-btn listing-hero-action-btn--favorite {{ $isFavorited ? 'is-active' : '' }}"
+                  data-listing-favorite="{{ $favoriteKey }}"
+                  data-initial-favorited="{{ $isFavorited ? 'true' : 'false' }}"
+                  @if($favoriteStoreUrl)
+                    data-sync-store-url="{{ $favoriteStoreUrl }}"
+                    data-sync-destroy-url="{{ $favoriteDestroyUrl }}"
                   @endif
-                @else
-                  <a href="{{ route('client.login') }}" class="listing-hero-action-btn listing-hero-action-btn--favorite">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                    <span>Agregar a favoritos</span>
-                  </a>
-                @endif
+                  aria-label="{{ $isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos' }}"
+                  aria-pressed="{{ $isFavorited ? 'true' : 'false' }}"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="{{ $isFavorited ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-listing-favorite-icon>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <span data-listing-favorite-label>{{ $isFavorited ? 'Guardado' : 'Guardar' }}</span>
+                </button>
 
                 <p data-share-status class="listing-share-status hidden">Enlace copiado</p>
               </div>
@@ -206,67 +219,77 @@
         <div class="listing-page-grid mt-5 grid gap-6 md:grid-cols-12">
           <div class="listing-page-hero md:col-span-8">
             <section data-reveal>
-              <article class="listing-showcase">
-                <div class="listing-showcase__grid {{ $heroGallerySideItems->isEmpty() ? 'listing-showcase__grid--single' : '' }}">
-                  <button
-                    data-gallery-item
-                    data-type="{{ $heroGalleryMainItem['type'] }}"
-                    data-src="{{ $heroGalleryMainItem['src'] }}"
-                    data-title="{{ $heroGalleryMainItem['title'] }}"
-                    class="listing-showcase__main"
-                    type="button"
-                  >
-                    <img src="{{ $heroGalleryMainItem['src'] }}" alt="{{ $heroGalleryMainItem['title'] }}" class="h-full w-full object-cover" />
-                    <span class="listing-showcase__shade"></span>
-                    <span class="listing-showcase__panel">
-                      <span class="listing-showcase__meta">
-                        <span>{{ $photoGalleryItems->count() }} foto(s)</span>
-                        @if($videoGalleryItems->isNotEmpty())
-                          <span>{{ $videoGalleryItems->count() }} video(s)</span>
-                        @endif
-                      </span>
-                      <span class="listing-showcase__cta">Ver galería completa</span>
-                    </span>
-                  </button>
-
-                  @if($heroGallerySideItems->isNotEmpty())
-                    <div class="listing-showcase__rail" data-count="{{ $heroGallerySideItems->count() }}">
-                      @foreach($heroGallerySideItems as $media)
+              <article class="listing-showcase listing-showcase--viator" data-gallery-experience="viator">
+                <script type="application/json" data-gallery-slides>@json($galleryItems->values()->all())</script>
+                <div class="listing-showcase__grid listing-showcase__grid--viator {{ $heroGalleryItems->count() === 1 ? 'listing-showcase__grid--single' : '' }}">
+                  @if($galleryItems->count() > 1)
+                    <div class="listing-showcase__rail listing-showcase__rail--viator" data-listing-gallery-rail data-count="{{ $heroRailItems->count() }}" aria-label="Miniaturas del anuncio">
+                      @foreach($heroRailItems as $index => $media)
                         <button
                           data-gallery-item
+                          data-gallery-index="{{ $index }}"
                           data-type="{{ $media['type'] }}"
                           data-src="{{ $media['src'] }}"
+                          data-thumb="{{ $media['thumb'] }}"
                           data-title="{{ $media['title'] }}"
-                          class="listing-showcase__thumb"
+                          class="listing-showcase__thumb listing-showcase__thumb--viator {{ $loop->first ? 'is-active' : '' }}"
                           type="button"
+                          aria-label="{{ $media['type'] === 'video' ? 'Ver video' : 'Ver foto' }} {{ $index + 1 }}"
                         >
-                          <img src="{{ $media['src'] }}" alt="{{ $media['title'] }}" class="h-full w-full object-cover" />
+                          @if($media['thumb'])
+                            <img src="{{ $media['thumb'] }}" alt="{{ $media['title'] }}" loading="lazy" class="h-full w-full object-cover" />
+                          @else
+                            <span class="listing-showcase__thumb-fallback">{{ $media['type'] === 'video' ? 'Video' : 'Foto' }}</span>
+                          @endif
                           <span class="listing-showcase__shade"></span>
-                          <span class="listing-showcase__caption">
-                            @if($loop->last && $heroGalleryMoreCount > 0)
-                              +{{ $heroGalleryMoreCount }} más
-                            @else
-                              {{ $media['type'] === 'video' ? 'Ver video' : 'Ver foto' }}
-                            @endif
-                          </span>
+                          @if($media['type'] === 'video')
+                            <span class="listing-showcase__badge">Video</span>
+                          @endif
                         </button>
                       @endforeach
                     </div>
                   @endif
-                </div>
 
-                <div class="listing-stage-sources" aria-hidden="true">
-                  @foreach($hiddenGalleryItems as $galleryItem)
-                    <button
-                      data-gallery-item
-                      data-type="{{ $galleryItem['type'] }}"
-                      data-src="{{ $galleryItem['src'] }}"
-                      data-title="{{ $galleryItem['title'] }}"
-                      type="button"
-                      tabindex="-1"
-                      class="hidden"
-                    ></button>
-                  @endforeach
+                  <div class="listing-showcase__viewer">
+                    <div class="listing-showcase__frame" data-gallery-inline-stage>
+                      @if($primaryGalleryItem && $primaryGalleryItem['type'] === 'video')
+                        <div class="listing-showcase__video">
+                          <iframe src="{{ $primaryGalleryItem['src'] }}" title="{{ $primaryGalleryItem['title'] }}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+                        </div>
+                      @elseif($primaryGalleryItem)
+                        <img src="{{ $primaryGalleryItem['src'] }}" alt="{{ $primaryGalleryItem['title'] }}" class="listing-showcase__stage-image" />
+                      @endif
+
+                      <div class="listing-showcase__floating listing-showcase__floating--top">
+                        <div class="listing-showcase__meta">
+                          <span>{{ $galleryPhotosCount }} foto(s)</span>
+                          @if($galleryVideosCount > 0)
+                            <span>{{ $galleryVideosCount }} video(s)</span>
+                          @endif
+                        </div>
+                      </div>
+
+                      <div class="listing-showcase__floating listing-showcase__floating--bottom">
+                        <div class="listing-showcase__inline-tools">
+                          <button type="button" class="listing-showcase__nav-btn" data-gallery-inline-prev aria-label="Elemento anterior">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                          <span class="listing-showcase__inline-counter" data-gallery-inline-counter>1 / {{ $heroGalleryItems->count() }}</span>
+                          <button type="button" class="listing-showcase__nav-btn" data-gallery-inline-next aria-label="Elemento siguiente">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <button type="button" class="listing-showcase__cta" data-open-gallery-modal>
+                          Ver galería completa
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </article>
             </section>
@@ -292,36 +315,19 @@
                   </div>
                 </div>
 
-                @if($errors->has('quote') || $errors->has('event_notes'))
-                  <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    {{ $errors->first('quote') ?: $errors->first('event_notes') }}
-                  </div>
-                @endif
-
                 <div class="listing-budget-cta-stack mt-4">
                   @if($whatsappUrl)
-                    <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="listing-budget-btn listing-budget-btn--whatsapp">
+                    <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="listing-budget-btn listing-budget-btn--whatsapp" data-listing-whatsapp-link>
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                         <path d="M13.601 2.326A7.854 7.854 0 0 0 8.01 0C3.673 0 .145 3.528.145 7.864c0 1.386.362 2.74 1.05 3.936L0 16l4.32-1.133a7.82 7.82 0 0 0 3.69.94h.003c4.336 0 7.864-3.528 7.864-7.864a7.8 7.8 0 0 0-2.276-5.617Zm-5.59 12.18h-.002a6.5 6.5 0 0 1-3.314-.908l-.237-.14-2.564.673.685-2.502-.155-.257a6.52 6.52 0 0 1-1.002-3.482c0-3.6 2.93-6.53 6.53-6.53 1.744 0 3.385.678 4.618 1.911A6.48 6.48 0 0 1 14.5 7.89c0 3.6-2.93 6.53-6.49 6.53Zm3.58-4.89c-.196-.098-1.16-.573-1.34-.638-.18-.065-.311-.098-.442.098-.13.196-.507.638-.622.769-.114.13-.229.147-.425.049-.196-.098-.828-.305-1.577-.973-.582-.52-.975-1.162-1.09-1.358-.114-.196-.012-.302.086-.4.09-.09.196-.229.294-.344.098-.114.13-.196.196-.327.065-.13.033-.245-.016-.344-.049-.098-.442-1.064-.605-1.456-.159-.381-.32-.33-.442-.336a7.63 7.63 0 0 0-.377-.007.72.72 0 0 0-.523.245c-.18.196-.687.67-.687 1.635s.703 1.897.801 2.028c.098.13 1.385 2.114 3.356 2.964.469.202.836.323 1.122.413.472.15.902.129 1.242.078.379-.056 1.16-.474 1.324-.932.163-.458.163-.85.114-.932-.049-.082-.18-.131-.376-.229Z"/>
                       </svg>
                       <span>WhatsApp</span>
                     </a>
-                  @else
-                    <span class="listing-budget-btn listing-budget-btn--whatsapp is-disabled">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                        <path d="M13.601 2.326A7.854 7.854 0 0 0 8.01 0C3.673 0 .145 3.528.145 7.864c0 1.386.362 2.74 1.05 3.936L0 16l4.32-1.133a7.82 7.82 0 0 0 3.69.94h.003c4.336 0 7.864-3.528 7.864-7.864a7.8 7.8 0 0 0-2.276-5.617Zm-5.59 12.18h-.002a6.5 6.5 0 0 1-3.314-.908l-.237-.14-2.564.673.685-2.502-.155-.257a6.52 6.52 0 0 1-1.002-3.482c0-3.6 2.93-6.53 6.53-6.53 1.744 0 3.385.678 4.618 1.911A6.48 6.48 0 0 1 14.5 7.89c0 3.6-2.93 6.53-6.49 6.53Zm3.58-4.89c-.196-.098-1.16-.573-1.34-.638-.18-.065-.311-.098-.442.098-.13.196-.507.638-.622.769-.114.13-.229.147-.425.049-.196-.098-.828-.305-1.577-.973-.582-.52-.975-1.162-1.09-1.358-.114-.196-.012-.302.086-.4.09-.09.196-.229.294-.344.098-.114.13-.196.196-.327.065-.13.033-.245-.016-.344-.049-.098-.442-1.064-.605-1.456-.159-.381-.32-.33-.442-.336a7.63 7.63 0 0 0-.377-.007.72.72 0 0 0-.523.245c-.18.196-.687.67-.687 1.635s.703 1.897.801 2.028c.098.13 1.385 2.114 3.356 2.964.469.202.836.323 1.122.413.472.15.902.129 1.242.078.379-.056 1.16-.474 1.324-.932.163-.458.163-.85.114-.932-.049-.082-.18-.131-.376-.229Z"/>
-                      </svg>
-                      <span>WhatsApp</span>
-                    </span>
                   @endif
 
-                  @if(auth()->user()?->role === \App\Models\User::ROLE_CLIENT)
-                    <a href="#solicitar" class="listing-budget-btn listing-budget-btn--quote">Solicitud de presupuesto</a>
-                  @elseif(auth()->check())
-                    <span class="listing-budget-btn listing-budget-btn--quote is-disabled">Solicitud de presupuesto</span>
-                  @else
-                    <a href="{{ route('client.login') }}" class="listing-budget-btn listing-budget-btn--quote">Solicitud de presupuesto</a>
-                  @endif
+                  <button type="button" class="listing-budget-btn listing-budget-btn--quote" data-open-lead-modal>
+                    Quiero más información
+                  </button>
 
                   @if($phoneUrl)
                     <a href="{{ $phoneUrl }}" class="listing-budget-btn listing-budget-btn--secondary" aria-label="Llamar al mariachi">
@@ -330,46 +336,11 @@
                       </svg>
                       <span>Llamar</span>
                     </a>
-                  @else
-                    <span class="listing-budget-btn listing-budget-btn--secondary is-disabled" aria-hidden="true">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h3A2.25 2.25 0 0 1 9.75 4.5v2.04a2.25 2.25 0 0 1-.659 1.591l-1.2 1.2a16.45 16.45 0 0 0 6.774 6.774l1.2-1.2a2.25 2.25 0 0 1 1.591-.659H19.5a2.25 2.25 0 0 1 2.25 2.25v3A2.25 2.25 0 0 1 19.5 21.75h-.75C9.775 21.75 2.25 14.225 2.25 5.25V4.5Z" />
-                      </svg>
-                      <span>Llamar</span>
-                    </span>
                   @endif
                 </div>
-
-                @if(auth()->user()?->role === \App\Models\User::ROLE_CLIENT)
-                  <form id="solicitar" action="{{ route('quote.request.store', ['slug' => $profile->slug]) }}" method="POST" class="listing-budget-form">
-                    @csrf
-                    <div>
-                      <p class="listing-budget-form-title">Cuéntanos tu evento</p>
-                      <p class="listing-budget-form-copy">Recibe una respuesta más clara si incluyes fecha, ciudad y formato del servicio.</p>
-                    </div>
-                    <label class="listing-budget-field">
-                      <span>Teléfono de contacto</span>
-                      <input type="text" name="contact_phone" value="{{ old('contact_phone', $quoteDefaults['contact_phone']) }}" placeholder="300 123 4567" />
-                    </label>
-                    <label class="listing-budget-field">
-                      <span>Fecha del evento</span>
-                      <input type="date" name="event_date" value="{{ old('event_date') }}" />
-                    </label>
-                    <label class="listing-budget-field">
-                      <span>Ciudad del evento</span>
-                      <input type="text" name="event_city" value="{{ old('event_city', $quoteDefaults['event_city']) }}" placeholder="Bogotá" />
-                    </label>
-                    <label class="listing-budget-field">
-                      <span>Detalles</span>
-                      <textarea name="event_notes" rows="4" placeholder="Cuéntanos fecha, tipo de evento y lo que necesitas..." required>{{ old('event_notes') }}</textarea>
-                    </label>
-                    <button type="submit" class="listing-budget-btn listing-budget-btn--quote">Enviar solicitud</button>
-                  </form>
-                @elseif(auth()->check())
-                  <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    Para solicitar presupuesto desde esta vista, usa una cuenta de cliente.
-                  </div>
-                @endif
+                <div class="listing-budget-note">
+                  Te respondemos con más detalles según disponibilidad, ciudad y fecha de tu evento.
+                </div>
 
               </article>
             </div>
@@ -680,14 +651,14 @@
 
                   <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">
                     <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-3" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
-                      Como puedo solicitar una cotizacion?
+                      Como puedo pedir mas informacion?
                       <span data-accordion-icon>+</span>
                     </button>
                     <div id="faq-listing-3" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
                       @if($whatsappUrl || $phoneUrl)
-                        Puedes contactar por los botones de esta ficha para validar disponibilidad o usar el formulario de cotizacion.
+                        Puedes escribir por WhatsApp, llamar o usar el boton "Quiero mas informacion" para dejar tus datos.
                       @else
-                        Usa el formulario de solicitud de presupuesto para contactar al mariachi segun su plan actual.
+                        Usa el boton "Quiero mas informacion" para dejar tus datos y recibir respuesta del mariachi.
                       @endif
                     </div>
                   </div>
@@ -700,26 +671,116 @@
     </main>
 
     <div class="mobile-cta md:hidden">
-      @if(auth()->user()?->role === \App\Models\User::ROLE_CLIENT)
-        <a href="#solicitar" class="mobile-cta-btn mobile-cta-btn--wa">Cotizar</a>
-      @else
-        <a href="{{ route('client.login') }}" class="mobile-cta-btn mobile-cta-btn--wa">Cotizar</a>
-      @endif
+      <button type="button" class="mobile-cta-btn mobile-cta-btn--wa" data-open-lead-modal>Más info</button>
       @if($whatsappUrl)
         <a href="{{ $whatsappUrl }}" target="_blank" rel="noopener noreferrer" class="mobile-cta-btn">WhatsApp</a>
-      @else
-        <span class="mobile-cta-btn opacity-70">WhatsApp</span>
       @endif
       @if($phoneUrl)
         <a href="{{ $phoneUrl }}" class="mobile-cta-btn">Llamar</a>
-      @else
-        <span class="mobile-cta-btn opacity-70">Llamar</span>
       @endif
+    </div>
+
+    <div class="gallery-modal hidden" data-listing-gallery-modal aria-hidden="true">
+      <div class="gallery-modal__card gallery-modal__card--listing" role="dialog" aria-modal="true" aria-label="Galería del anuncio">
+        <div class="gallery-modal__top">
+          <div class="gallery-modal__meta">
+            @if($galleryVideosCount > 0)
+              <div class="gallery-modal__filters" data-gallery-modal-filters>
+                <button type="button" class="gallery-modal__filter is-active" data-gallery-filter="all">Todo ({{ $galleryItems->count() }})</button>
+                <button type="button" class="gallery-modal__filter" data-gallery-filter="image">Fotos del mariachi ({{ $galleryPhotosCount }})</button>
+                <button type="button" class="gallery-modal__filter" data-gallery-filter="video">Videos del mariachi ({{ $galleryVideosCount }})</button>
+              </div>
+            @endif
+            <span data-gallery-counter class="gallery-modal__counter"></span>
+          </div>
+          <button type="button" data-gallery-close class="gallery-modal__close" aria-label="Cerrar galería">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="gallery-modal__stage-shell">
+          <button type="button" data-gallery-prev class="gallery-modal__nav gallery-modal__nav--prev" aria-label="Anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div data-gallery-stage class="gallery-modal__stage"></div>
+          <button type="button" data-gallery-next class="gallery-modal__nav gallery-modal__nav--next" aria-label="Siguiente">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        <div data-gallery-thumbs class="gallery-modal__thumbs" aria-label="Miniaturas de la galería"></div>
+      </div>
+    </div>
+
+    <div class="lead-modal hidden" data-lead-modal aria-hidden="true">
+      <div class="lead-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="lead-modal-title">
+        <div class="lead-modal__head">
+          <div>
+            <p class="lead-modal__eyebrow">Contacto directo</p>
+            <h2 id="lead-modal-title" class="lead-modal__title">Quiero más información</h2>
+            <p class="lead-modal__copy">Déjanos tus datos y te ayudamos a validar disponibilidad y detalles del servicio.</p>
+          </div>
+          <button type="button" class="lead-modal__close" data-lead-modal-close aria-label="Cerrar formulario">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form action="{{ route('listing.info-requests.store', ['slug' => $profile->slug]) }}" method="POST" class="lead-modal__form" data-lead-form>
+          @csrf
+          <div class="lead-modal__grid">
+            <label class="lead-modal__field">
+              <span>Nombre</span>
+              <input type="text" name="name" value="{{ $quoteDefaults['contact_name'] }}" placeholder="Tu nombre" required />
+            </label>
+            <label class="lead-modal__field">
+              <span>Correo</span>
+              <input type="email" name="email" value="{{ $quoteDefaults['contact_email'] }}" placeholder="tucorreo@ejemplo.com" required />
+            </label>
+            <label class="lead-modal__field">
+              <span>Teléfono</span>
+              <input type="text" name="phone" value="{{ $quoteDefaults['contact_phone'] }}" placeholder="300 123 4567" required />
+            </label>
+            <label class="lead-modal__field">
+              <span>Fecha del evento</span>
+              <input type="date" name="event_date" required />
+            </label>
+          </div>
+
+          <label class="lead-modal__field">
+            <span>Ciudad del evento</span>
+            <input type="text" name="event_city" value="{{ $quoteDefaults['event_city'] }}" placeholder="Bogotá" />
+          </label>
+
+          <label class="lead-modal__field">
+            <span>Mensaje</span>
+            <textarea name="message" rows="4" placeholder="Cuéntanos qué tipo de evento tienes, horario y lo que necesitas." required></textarea>
+          </label>
+
+          <p class="lead-modal__error hidden" data-lead-error></p>
+          <p class="lead-modal__success hidden" data-lead-success></p>
+
+          <div class="lead-modal__actions">
+            <button type="button" class="lead-modal__btn lead-modal__btn--ghost" data-lead-modal-close>Cancelar</button>
+            <button type="submit" class="lead-modal__btn lead-modal__btn--primary" data-lead-submit>Enviar solicitud</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
+    <script src="js/ui.js?v=20260311-listing-v3"></script>
+    <script src="js/listing-gallery.js?v=20260311-listing-v2"></script>
+    <script src="js/listing-lead-modal.js?v=20260311-listing-v1"></script>
+    <script src="js/listing-favorites.js?v=20260311-listing-v1"></script>
   </body>
 </html>
