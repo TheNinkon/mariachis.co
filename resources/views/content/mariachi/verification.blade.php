@@ -22,11 +22,17 @@
       <div>
         <h5 class="mb-1">Verificacion de perfil</h5>
         <p class="mb-1">Estado actual: <strong>{{ $profile->verification_status }}</strong></p>
-        <small class="text-muted">Sube cédula colombiana y prueba visual del grupo para revision manual.</small>
+        <small class="text-muted">Plan actual: {{ $planSummary['name'] }}. Sube cédula colombiana y prueba visual del grupo para revision manual.</small>
       </div>
       <a href="{{ route('mariachi.provider-profile.edit') }}" class="btn btn-outline-primary">Volver al perfil</a>
     </div>
   </div>
+
+  @if(! $capabilities['allows_verification'])
+    <div class="alert alert-warning">
+      La verificacion de perfil solo esta disponible en planes que incluyan esta capacidad. Puedes seguir viendo el historial, pero no enviar nuevas solicitudes.
+    </div>
+  @endif
 
   @if($latestRequest)
     <div class="card mb-6">
@@ -65,7 +71,7 @@
           </div>
         </div>
         <div class="mt-4">
-          <button type="submit" class="btn btn-primary">Enviar solicitud de verificacion</button>
+          <button type="submit" class="btn btn-primary" @disabled(! $capabilities['allows_verification'])>Enviar solicitud de verificacion</button>
         </div>
       </form>
     </div>

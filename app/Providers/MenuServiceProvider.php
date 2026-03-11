@@ -46,7 +46,9 @@ class MenuServiceProvider extends ServiceProvider
         User::ROLE_ADMIN => [
           ['url' => '/admin/dashboard', 'name' => 'Dashboard Admin', 'icon' => 'menu-icon icon-base ti tabler-layout-dashboard', 'slug' => 'admin.dashboard'],
           ['url' => '/admin/mariachis', 'name' => 'Mariachis', 'icon' => 'menu-icon icon-base ti tabler-list-details', 'slug' => 'admin.mariachis.index'],
-          ['url' => '/admin/resenas', 'name' => 'Resenas', 'icon' => 'menu-icon icon-base ti tabler-message-stars', 'slug' => 'admin.reviews.index'],
+          ['url' => '/admin/anuncios', 'name' => 'Anuncios', 'icon' => 'menu-icon icon-base ti tabler-speakerphone', 'slug' => 'admin.listings'],
+          ['url' => '/admin/paquetes', 'name' => 'Paquetes', 'icon' => 'menu-icon icon-base ti tabler-package', 'slug' => 'admin.plans.index'],
+          ['url' => '/admin/resenas', 'name' => 'Resenas', 'icon' => 'menu-icon icon-base ti tabler-message-star', 'slug' => 'admin.reviews.index'],
           ['url' => '/admin/verificaciones-perfil', 'name' => 'Verificaciones', 'icon' => 'menu-icon icon-base ti tabler-shield-check', 'slug' => 'admin.profile-verifications.index'],
           ['url' => '/admin/internal-users', 'name' => 'Equipo Interno', 'icon' => 'menu-icon icon-base ti tabler-settings', 'slug' => 'admin.internal-users.index'],
           ['url' => '/admin/configuracion-sistema', 'name' => 'Configuracion', 'icon' => 'menu-icon icon-base ti tabler-adjustments', 'slug' => 'admin.system-settings.edit'],
@@ -89,7 +91,7 @@ class MenuServiceProvider extends ServiceProvider
       };
 
       $menu = (object) ['menu' => array_map($castMenuItem, array_merge($baseMenu, $roleMenu))];
-      $horizontalMenu = (object) ['menu' => array_map($castMenuItem, array_merge($baseMenu, $guestMenu))];
+      $horizontalMenu = (object) ['menu' => array_map($castMenuItem, array_merge($baseMenu, $roleMenu))];
 
       $view->with('menuData', [$menu, $horizontalMenu]);
     });

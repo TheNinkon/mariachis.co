@@ -14,24 +14,27 @@ use App\Models\MarketplaceCity;
 use App\Models\MarketplaceZone;
 use App\Models\MariachiProfile;
 use App\Models\Plan;
-use App\Models\Subscription;
 use App\Models\ServiceType;
-use App\Services\MediaProtectionService;
+use App\Services\EntitlementsService;
 use App\Services\GoogleMapsSettingsService;
+use App\Services\MediaProtectionService;
+use App\Services\PlanAssignmentService;
 use App\Services\SubscriptionCapabilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MariachiListingController extends Controller
 {
     public function __construct(
         private readonly SubscriptionCapabilityService $capabilityService,
+        private readonly EntitlementsService $entitlementsService,
+        private readonly PlanAssignmentService $planAssignmentService,
         private readonly MediaProtectionService $mediaProtectionService,
         private readonly GoogleMapsSettingsService $googleMapsSettings
     ) {
@@ -41,18 +44,26 @@ class MariachiListingController extends Controller
     {
         $profile = $this->providerProfile();
         $listings = $profile->listings()
-            ->with(['photos', 'eventTypes:id,name'])
+            ->with(['photos', 'videos', 'serviceAreas', 'eventTypes:id,name'])
             ->latest('updated_at')
             ->get();
 
         $capabilities = $this->capabilityService->resolveCapabilities($profile);
         $limit = $capabilities['listing_limit'];
         $used = $listings->count();
+        $planSummary = $this->entitlementsService->summary($profile);
+        $planIssues = $this->entitlementsService->profileAdjustmentIssues($profile);
+        $listingIssues = $listings->mapWithKeys(
+            fn (MariachiListing $listing): array => [$listing->id => $this->entitlementsService->listingAdjustmentIssues($listing)]
+        );
 
         return view('content.mariachi.listings-index', [
             'profile' => $profile,
             'listings' => $listings,
             'capabilities' => $capabilities,
+            'planSummary' => $planSummary,
+            'planIssues' => $planIssues,
+            'listingIssues' => $listingIssues,
             'listingLimit' => $limit,
             'listingsUsed' => $used,
             'listingsRemaining' => max(0, $limit - $used),
@@ -69,6 +80,8 @@ class MariachiListingController extends Controller
         return view('content.mariachi.listings-create', [
             'profile' => $profile,
             'capabilities' => $capabilities,
+            'planSummary' => $this->entitlementsService->summary($profile),
+            'planIssues' => $this->entitlementsService->profileAdjustmentIssues($profile),
             'canCreate' => $listingsUsed < $listingLimit,
             'listingLimit' => $listingLimit,
             'listingsUsed' => $listingsUsed,
@@ -101,6 +114,7 @@ class MariachiListingController extends Controller
             'base_price' => $validated['base_price'] ?? null,
             'country' => $this->defaultCountryName(),
             'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
             'is_active' => false,
             'selected_plan_code' => null,
         ]);
@@ -110,7 +124,7 @@ class MariachiListingController extends Controller
 
         return redirect()
             ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Borrador creado. Completa el anuncio y al final elige plan y paga para activarlo.');
+            ->with('status', 'Borrador creado. Completa el anuncio, elige plan y luego envíalo a revisión.');
     }
 
     public function plans(MariachiListing $listing): View
@@ -122,6 +136,7 @@ class MariachiListingController extends Controller
         return view('content.mariachi.listings-plans', [
             'listing' => $listing->loadMissing('mariachiProfile.subscriptions.plan'),
             'capabilities' => $this->capabilityService->resolveCapabilities($profile),
+            'planSummary' => $this->entitlementsService->summary($profile),
             'plans' => $this->availablePlans(),
         ]);
     }
@@ -154,62 +169,34 @@ class MariachiListingController extends Controller
 
         $planModel = Plan::query()
             ->active()
+            ->public()
             ->where('code', $planCode)
             ->first();
         abort_unless($planModel, 422);
 
-        DB::transaction(function () use ($profile, $planModel, $listing): void {
-            $profile->subscriptions()
-                ->where('status', Subscription::STATUS_ACTIVE)
-                ->update([
-                    'status' => Subscription::STATUS_REPLACED,
-                    'ends_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-            $profile->subscriptions()->create([
-                'plan_id' => $planModel->id,
-                'status' => Subscription::STATUS_ACTIVE,
-                'starts_at' => now(),
-                'renews_at' => now()->addMonth(),
-                'base_amount_cop' => $planModel->price_cop,
-                'extra_city_amount_cop' => (int) config('monetization.additional_city_price_cop', 9900),
-                'metadata' => [
-                    'source' => 'manual_selection',
-                    'currency' => 'COP',
-                ],
-            ]);
-
-            $profile->update([
-                'subscription_plan_code' => $planModel->code,
-                'subscription_listing_limit' => $planModel->listing_limit,
-                'subscription_active' => true,
-                'default_mariachi_listing_id' => $profile->default_mariachi_listing_id ?: $listing->id,
-            ]);
-
-            $listing->update([
-                'selected_plan_code' => $planModel->code,
-                'plan_selected_at' => now(),
-                'status' => MariachiListing::STATUS_ACTIVE,
-                'is_active' => true,
-                'activated_at' => now(),
-                'deactivated_at' => null,
-            ]);
-        });
+        $this->planAssignmentService->assignToProfile($profile, $planModel, $listing, 'manual_selection');
 
         $this->refreshListingProgress($listing->refresh());
 
         return redirect()
             ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Plan seleccionado ('.$selectedPlan['name'].'). El anuncio quedo activo.');
+            ->with('status', 'Plan seleccionado ('.$selectedPlan['name'].'). Ahora envía el anuncio a revisión para publicarlo.');
     }
 
-    public function edit(MariachiListing $listing): View
+    public function edit(MariachiListing $listing): View|RedirectResponse
     {
         $this->ensureOwned($listing);
 
+        if ($listing->isPendingReview()) {
+            return redirect()
+                ->route('mariachi.listings.index')
+                ->withErrors([
+                    'listing' => 'Este anuncio ya fue enviado a revisión. Mientras el equipo lo evalúa no puedes editarlo.',
+                ]);
+        }
+
         $listing->load([
-            'mariachiProfile.activeSubscription.plan',
+            'mariachiProfile.activeSubscription.plan.entitlements',
             'marketplaceCity:id,name',
             'photos',
             'videos',
@@ -232,6 +219,9 @@ class MariachiListingController extends Controller
         return view('content.mariachi.listings-edit', [
             'listing' => $listing,
             'capabilities' => $capabilities,
+            'planSummary' => $profile ? $this->entitlementsService->summary($profile) : null,
+            'planIssues' => $profile ? $this->entitlementsService->profileAdjustmentIssues($profile) : [],
+            'listingIssues' => $this->entitlementsService->listingAdjustmentIssues($listing),
             'maxCitiesAllowed' => $maxCitiesAllowed,
             'plans' => $this->availablePlans(),
             'googleMaps' => $this->googleMapsSettings->publicConfig(),
@@ -253,6 +243,7 @@ class MariachiListingController extends Controller
     public function update(Request $request, MariachiListing $listing): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:180'],
@@ -300,11 +291,11 @@ class MariachiListingController extends Controller
         ]);
 
         $status = $validated['status'] ?? $listing->status;
-        if ($status === MariachiListing::STATUS_ACTIVE && blank($listing->selected_plan_code)) {
+        if ($status === MariachiListing::STATUS_ACTIVE && ! $listing->hasEffectivePlan()) {
             return back()
                 ->withInput()
                 ->withErrors([
-                    'status' => 'Para activar el anuncio primero debes elegir y pagar un plan en el paso final.',
+                    'status' => 'Para activar el anuncio primero debes elegir un plan en el paso final o pedir al admin que te asigne uno privado.',
                 ]);
         }
 
@@ -318,6 +309,21 @@ class MariachiListingController extends Controller
                     'zone_ids' => 'Las zonas seleccionadas deben pertenecer a la ciudad principal del anuncio.',
                 ]);
         }
+
+        $profile = $listing->mariachiProfile;
+        abort_unless($profile, 404);
+
+        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile);
+        if ($zones->count() > $maxZonesCovered) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'zone_ids' => 'Tu plan permite hasta '.$maxZonesCovered.' zona(s) por anuncio.',
+                ]);
+        }
+
+        $shouldResetReview = $this->shouldResetReviewAfterFormChange($listing, $validated, $city, $cityName, $zones, $zoneName);
+        $reviewResetPayload = $shouldResetReview ? $this->reviewResetPayloadOnOwnerChange($listing) : [];
 
         $listing->update([
             'title' => $validated['title'],
@@ -340,7 +346,7 @@ class MariachiListingController extends Controller
             'is_active' => $status === MariachiListing::STATUS_ACTIVE,
             'activated_at' => $status === MariachiListing::STATUS_ACTIVE ? ($listing->activated_at ?? now()) : $listing->activated_at,
             'deactivated_at' => $status === MariachiListing::STATUS_ACTIVE ? null : now(),
-        ]);
+        ] + $reviewResetPayload);
 
         $listing->eventTypes()->sync($validated['event_type_ids'] ?? []);
         $listing->serviceTypes()->sync($validated['service_type_ids'] ?? []);
@@ -356,12 +362,13 @@ class MariachiListingController extends Controller
         $listing->ensureSlug();
         $this->refreshListingProgress($listing);
 
-        return back()->with('status', 'Anuncio actualizado.');
+        return back()->with('status', $this->ownerMutationStatusMessage('Anuncio actualizado.', $reviewResetPayload !== []));
     }
 
     public function autosave(Request $request, MariachiListing $listing): JsonResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
 
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:180'],
@@ -415,13 +422,15 @@ class MariachiListingController extends Controller
         [$zones, $zoneName] = $this->resolveListingZones($validated, $city);
 
         $currentStatus = array_key_exists('status', $validated) ? $validated['status'] : $listing->status;
-        if ($currentStatus === MariachiListing::STATUS_ACTIVE && blank($listing->selected_plan_code)) {
+        if ($currentStatus === MariachiListing::STATUS_ACTIVE && ! $listing->hasEffectivePlan()) {
             $currentStatus = MariachiListing::STATUS_AWAITING_PLAN;
         }
 
         $travelsToOtherCities = array_key_exists('travels_to_other_cities', $validated)
             ? $request->boolean('travels_to_other_cities')
             : $listing->travels_to_other_cities;
+        $shouldResetReview = $this->shouldResetReviewAfterFormChange($listing, $validated, $city, $cityName, $zones, $zoneName);
+        $reviewResetPayload = $shouldResetReview ? $this->reviewResetPayloadOnOwnerChange($listing) : [];
 
         $listing->update([
             'title' => $this->validatedValue($validated, 'title', $listing->title),
@@ -446,7 +455,7 @@ class MariachiListingController extends Controller
             'is_active' => $currentStatus === MariachiListing::STATUS_ACTIVE,
             'activated_at' => $currentStatus === MariachiListing::STATUS_ACTIVE ? ($listing->activated_at ?? now()) : $listing->activated_at,
             'deactivated_at' => $currentStatus === MariachiListing::STATUS_ACTIVE ? null : ($listing->deactivated_at ?? now()),
-        ]);
+        ] + $reviewResetPayload);
 
         if ($syncAll || array_key_exists('event_type_ids', $validated)) {
             $listing->eventTypes()->sync($validated['event_type_ids'] ?? []);
@@ -468,6 +477,17 @@ class MariachiListingController extends Controller
             ], 422);
         }
 
+        $profile = $listing->mariachiProfile;
+        abort_unless($profile, 404);
+
+        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile);
+        if ($zones->count() > $maxZonesCovered) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Tu plan permite hasta '.$maxZonesCovered.' zona(s) por anuncio.',
+            ], 422);
+        }
+
         if ($syncAll || array_key_exists('zone_ids', $validated) || array_key_exists('primary_marketplace_zone_id', $validated)) {
             $this->syncListingZones($listing, $zones);
         }
@@ -483,17 +503,19 @@ class MariachiListingController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => 'Borrador guardado',
+            'message' => $this->ownerMutationStatusMessage('Borrador guardado', $reviewResetPayload !== []),
             'saved_at' => now()->toIso8601String(),
             'listing_completion' => (int) $listing->listing_completion,
             'listing_completed' => (bool) $listing->listing_completed,
             'status' => (string) $listing->status,
+            'review_status' => (string) $listing->review_status,
         ]);
     }
 
     public function uploadPhoto(Request $request, MariachiListing $listing): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
@@ -528,14 +550,16 @@ class MariachiListingController extends Controller
 
         $this->mediaProtectionService->registerListingPhotoHash($listing, $photo, $hash);
 
-        $this->refreshListingProgress($listing);
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+        $this->refreshListingProgress($listing->refresh());
 
-        return back()->with('status', 'Foto cargada en el anuncio.');
+        return back()->with('status', $this->ownerMutationStatusMessage('Foto cargada en el anuncio.', $reviewReset));
     }
 
     public function deletePhoto(MariachiListing $listing, MariachiListingPhoto $photo): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         abort_unless($photo->mariachi_listing_id === $listing->id, 404);
 
         Storage::disk('public')->delete($photo->path);
@@ -554,25 +578,30 @@ class MariachiListingController extends Controller
             }
         }
 
-        $this->refreshListingProgress($listing);
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+        $this->refreshListingProgress($listing->refresh());
 
-        return back()->with('status', 'Foto eliminada del anuncio.');
+        return back()->with('status', $this->ownerMutationStatusMessage('Foto eliminada del anuncio.', $reviewReset));
     }
 
     public function setFeaturedPhoto(MariachiListing $listing, MariachiListingPhoto $photo): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         abort_unless($photo->mariachi_listing_id === $listing->id, 404);
 
         $listing->photos()->update(['is_featured' => false]);
         $photo->update(['is_featured' => true]);
 
-        return back()->with('status', 'Foto destacada actualizada.');
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+
+        return back()->with('status', $this->ownerMutationStatusMessage('Foto destacada actualizada.', $reviewReset));
     }
 
     public function movePhoto(MariachiListing $listing, MariachiListingPhoto $photo, string $direction): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         abort_unless($photo->mariachi_listing_id === $listing->id, 404);
         abort_unless(in_array($direction, ['up', 'down'], true), 404);
 
@@ -588,12 +617,15 @@ class MariachiListingController extends Controller
         $photo->update(['sort_order' => $target->sort_order]);
         $target->update(['sort_order' => $currentOrder]);
 
-        return back()->with('status', 'Orden de fotos actualizado.');
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+
+        return back()->with('status', $this->ownerMutationStatusMessage('Orden de fotos actualizado.', $reviewReset));
     }
 
     public function storeVideo(Request $request, MariachiListing $listing): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
@@ -616,20 +648,70 @@ class MariachiListingController extends Controller
             'platform' => $platform,
         ]);
 
-        $this->refreshListingProgress($listing);
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+        $this->refreshListingProgress($listing->refresh());
 
-        return back()->with('status', 'Video agregado al anuncio.');
+        return back()->with('status', $this->ownerMutationStatusMessage('Video agregado al anuncio.', $reviewReset));
     }
 
     public function deleteVideo(MariachiListing $listing, MariachiListingVideo $video): RedirectResponse
     {
         $this->ensureOwned($listing);
+        $this->ensureOwnerCanModifyListing($listing);
         abort_unless($video->mariachi_listing_id === $listing->id, 404);
 
         $video->delete();
-        $this->refreshListingProgress($listing);
+        $reviewReset = $this->resetApprovedReviewAfterOwnerMutation($listing);
+        $this->refreshListingProgress($listing->refresh());
 
-        return back()->with('status', 'Video eliminado del anuncio.');
+        return back()->with('status', $this->ownerMutationStatusMessage('Video eliminado del anuncio.', $reviewReset));
+    }
+
+    public function submitForReview(MariachiListing $listing): RedirectResponse
+    {
+        $this->ensureOwned($listing);
+
+        if ($listing->isPendingReview()) {
+            return back()->withErrors([
+                'listing' => 'Este anuncio ya esta en cola de revision.',
+            ]);
+        }
+
+        $this->refreshListingProgress($listing->refresh());
+        $listing->refresh();
+
+        if (! $listing->listing_completed) {
+            return back()->withErrors([
+                'listing' => 'Completa primero la informacion obligatoria del anuncio antes de enviarlo a revision.',
+            ]);
+        }
+
+        if (! $listing->hasEffectivePlan()) {
+            return back()->withErrors([
+                'listing' => 'Activa primero un plan para este perfil antes de enviar el anuncio a revision.',
+            ]);
+        }
+
+        $blockers = $this->entitlementsService->publicationBlockers($listing->loadMissing('mariachiProfile', 'photos', 'videos', 'serviceAreas'));
+        if ($blockers !== []) {
+            return back()->withErrors([
+                'listing' => 'Tu plan actual requiere ajustes antes de publicar: '.implode(' ', $blockers),
+            ]);
+        }
+
+        $wasRejected = $listing->review_status === MariachiListing::REVIEW_REJECTED;
+
+        $listing->update([
+            'review_status' => MariachiListing::REVIEW_PENDING,
+            'submitted_for_review_at' => now(),
+            'reviewed_at' => null,
+            'reviewed_by_user_id' => null,
+            'rejection_reason' => null,
+        ]);
+
+        return back()->with('status', $wasRejected
+            ? 'Anuncio reenviado a revision. Te avisaremos cuando el equipo admin lo revise.'
+            : 'Anuncio enviado a revision. Quedara bloqueado mientras el equipo admin lo evalua.');
     }
 
     /**
@@ -880,6 +962,8 @@ class MariachiListingController extends Controller
     {
         $plans = Plan::query()
             ->active()
+            ->public()
+            ->with('entitlements')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -890,15 +974,20 @@ class MariachiListingController extends Controller
                     $plan->code => [
                         'id' => $plan->id,
                         'code' => $plan->code,
+                        'slug' => $plan->slug,
                         'name' => $plan->name,
+                        'badge_text' => $plan->badge_text,
+                        'is_public' => (bool) $plan->is_public,
                         'price_cop' => (int) $plan->price_cop,
-                        'listing_limit' => (int) $plan->listing_limit,
-                        'included_cities' => (int) $plan->included_cities,
-                        'max_photos_per_listing' => (int) $plan->max_photos_per_listing,
-                        'max_videos_per_listing' => (int) $plan->max_videos_per_listing,
-                        'show_whatsapp' => (bool) $plan->show_whatsapp,
-                        'show_phone' => (bool) $plan->show_phone,
-                        'description' => 'Hasta '.((int) $plan->listing_limit).' anuncio(s), '.((int) $plan->included_cities).' ciudad(es) y prioridad '.((int) $plan->priority_level).'.',
+                        'listing_limit' => (int) ($plan->entitlementValue('max_listings_total', $plan->listing_limit) ?? 1),
+                        'included_cities' => (int) ($plan->entitlementValue('max_cities_covered', $plan->included_cities) ?? 1),
+                        'max_zones_covered' => (int) ($plan->entitlementValue('max_zones_covered', max(5, $plan->included_cities * 5)) ?? 5),
+                        'max_photos_per_listing' => (int) ($plan->entitlementValue('max_photos_per_listing', $plan->max_photos_per_listing) ?? 0),
+                        'can_add_video' => (bool) ($plan->entitlementValue('can_add_video', $plan->max_videos_per_listing > 0) ?? false),
+                        'max_videos_per_listing' => (int) ($plan->entitlementValue('max_videos_per_listing', $plan->max_videos_per_listing) ?? 0),
+                        'show_whatsapp' => (bool) ($plan->entitlementValue('can_show_whatsapp', $plan->show_whatsapp) ?? false),
+                        'show_phone' => (bool) ($plan->entitlementValue('can_show_phone', $plan->show_phone) ?? false),
+                        'description' => $plan->description ?: 'Paquete configurable para anuncios de mariachi.',
                     ],
                 ])
                 ->all();
@@ -910,15 +999,20 @@ class MariachiListingController extends Controller
                     $code => [
                         'id' => null,
                         'code' => $code,
+                        'slug' => null,
                         'name' => (string) ($plan['name'] ?? strtoupper($code)),
+                        'badge_text' => $plan['badge_text'] ?? null,
+                        'is_public' => (bool) ($plan['is_public'] ?? true),
                         'price_cop' => (int) ($plan['price_cop'] ?? 0),
                         'listing_limit' => (int) ($plan['listing_limit'] ?? 1),
                         'included_cities' => (int) ($plan['included_cities'] ?? 1),
+                        'max_zones_covered' => (int) (($plan['entitlements']['max_zones_covered'] ?? null) ?: max(5, (int) ($plan['included_cities'] ?? 1) * 5)),
                         'max_photos_per_listing' => (int) ($plan['max_photos_per_listing'] ?? 5),
+                        'can_add_video' => (bool) (($plan['entitlements']['can_add_video'] ?? null) ?? (($plan['max_videos_per_listing'] ?? 0) > 0)),
                         'max_videos_per_listing' => (int) ($plan['max_videos_per_listing'] ?? 0),
                         'show_whatsapp' => (bool) ($plan['show_whatsapp'] ?? false),
                         'show_phone' => (bool) ($plan['show_phone'] ?? false),
-                        'description' => 'Plan base para anuncios de mariachi.',
+                        'description' => (string) ($plan['description'] ?? 'Plan base para anuncios de mariachi.'),
                     ],
                 ];
             })
@@ -928,6 +1022,212 @@ class MariachiListingController extends Controller
     private function ensureOwned(MariachiListing $listing): void
     {
         abort_unless($listing->mariachiProfile?->user_id === auth()->id(), 403);
+    }
+
+    private function ensureOwnerCanModifyListing(MariachiListing $listing): void
+    {
+        if ($listing->isPendingReview()) {
+            throw ValidationException::withMessages([
+                'listing' => 'Este anuncio esta en revision. Debes esperar la decision del equipo admin antes de editarlo.',
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function reviewResetPayloadOnOwnerChange(MariachiListing $listing): array
+    {
+        if ($listing->review_status !== MariachiListing::REVIEW_APPROVED) {
+            return [];
+        }
+
+        return [
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'submitted_for_review_at' => null,
+            'reviewed_at' => null,
+            'reviewed_by_user_id' => null,
+            'rejection_reason' => null,
+        ];
+    }
+
+    private function resetApprovedReviewAfterOwnerMutation(MariachiListing $listing): bool
+    {
+        $payload = $this->reviewResetPayloadOnOwnerChange($listing);
+        if ($payload === []) {
+            return false;
+        }
+
+        $listing->update($payload);
+
+        return true;
+    }
+
+    private function ownerMutationStatusMessage(string $baseMessage, bool $reviewReset): string
+    {
+        if (! $reviewReset) {
+            return $baseMessage;
+        }
+
+        return $baseMessage.' El anuncio salio de publicacion y debe reenviarse a revision.';
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @param  \Illuminate\Support\Collection<int, MarketplaceZone>  $zones
+     */
+    private function shouldResetReviewAfterFormChange(
+        MariachiListing $listing,
+        array $validated,
+        ?MarketplaceCity $city,
+        ?string $cityName,
+        $zones,
+        ?string $zoneName
+    ): bool {
+        if ($listing->review_status !== MariachiListing::REVIEW_APPROVED) {
+            return false;
+        }
+
+        $currentPayload = [
+            'title' => $this->normalizeComparableValue($listing->title),
+            'short_description' => $this->normalizeComparableValue($listing->short_description),
+            'description' => $this->normalizeComparableValue($listing->description),
+            'base_price' => $this->normalizeComparableValue($listing->base_price),
+            'state' => $this->normalizeComparableValue($listing->state),
+            'marketplace_city_id' => $this->normalizeComparableValue($listing->marketplace_city_id),
+            'city_name' => $this->normalizeComparableValue($listing->city_name),
+            'zone_name' => $this->normalizeComparableValue($listing->zone_name),
+            'postal_code' => $this->normalizeComparableValue($listing->postal_code),
+            'address' => $this->normalizeComparableValue($listing->address),
+            'latitude' => $this->normalizeComparableValue($listing->latitude),
+            'longitude' => $this->normalizeComparableValue($listing->longitude),
+            'google_place_id' => $this->normalizeComparableValue($listing->google_place_id),
+            'google_location_payload' => $this->normalizeComparableValue($listing->google_location_payload),
+            'travels_to_other_cities' => (bool) $listing->travels_to_other_cities,
+        ];
+
+        $nextPayload = [
+            'title' => $this->normalizeComparableValue($validated['title'] ?? $listing->title),
+            'short_description' => $this->normalizeComparableValue($validated['short_description'] ?? $listing->short_description),
+            'description' => $this->normalizeComparableValue($validated['description'] ?? $listing->description),
+            'base_price' => $this->normalizeComparableValue($validated['base_price'] ?? $listing->base_price),
+            'state' => $this->normalizeComparableValue($validated['state'] ?? $listing->state),
+            'marketplace_city_id' => $this->normalizeComparableValue($city?->id),
+            'city_name' => $this->normalizeComparableValue($cityName),
+            'zone_name' => $this->normalizeComparableValue($zoneName),
+            'postal_code' => $this->normalizeComparableValue($validated['postal_code'] ?? $listing->postal_code),
+            'address' => $this->normalizeComparableValue($validated['address'] ?? $listing->address),
+            'latitude' => $this->normalizeComparableValue($validated['latitude'] ?? $listing->latitude),
+            'longitude' => $this->normalizeComparableValue($validated['longitude'] ?? $listing->longitude),
+            'google_place_id' => $this->normalizeComparableValue($validated['google_place_id'] ?? $listing->google_place_id),
+            'google_location_payload' => $this->normalizeComparableValue(
+                array_key_exists('google_location_payload', $validated)
+                    ? $this->decodeGooglePayload($validated['google_location_payload'] ?? null)
+                    : $listing->google_location_payload
+            ),
+            'travels_to_other_cities' => array_key_exists('travels_to_other_cities', $validated)
+                ? (bool) $validated['travels_to_other_cities']
+                : (bool) $listing->travels_to_other_cities,
+        ];
+
+        if ($currentPayload !== $nextPayload) {
+            return true;
+        }
+
+        if ($this->normalizedIdList($listing->eventTypes()->pluck('event_types.id')->all()) !== $this->normalizedIdList($validated['event_type_ids'] ?? [])) {
+            return true;
+        }
+
+        if ($this->normalizedIdList($listing->serviceTypes()->pluck('service_types.id')->all()) !== $this->normalizedIdList($validated['service_type_ids'] ?? [])) {
+            return true;
+        }
+
+        if ($this->normalizedIdList($listing->groupSizeOptions()->pluck('group_size_options.id')->all()) !== $this->normalizedIdList($validated['group_size_option_ids'] ?? [])) {
+            return true;
+        }
+
+        if ($this->normalizedIdList($listing->budgetRanges()->pluck('budget_ranges.id')->all()) !== $this->normalizedIdList($validated['budget_range_ids'] ?? [])) {
+            return true;
+        }
+
+        if ($this->normalizedIdList($listing->serviceAreas()->pluck('marketplace_zone_id')->filter()->all()) !== $this->normalizedIdList($zones->pluck('id')->all())) {
+            return true;
+        }
+
+        return $this->normalizedFaqRowsFromModel($listing) !== $this->normalizedFaqRowsFromValidated($validated, $listing);
+    }
+
+    private function normalizeComparableValue(mixed $value): mixed
+    {
+        if (is_bool($value) || is_int($value) || is_float($value)) {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        return trim((string) $value);
+    }
+
+    /**
+     * @param  array<int, mixed>  $ids
+     * @return array<int, int>
+     */
+    private function normalizedIdList(array $ids): array
+    {
+        $normalized = array_values(array_unique(array_filter(array_map(static fn (mixed $id): int => (int) $id, $ids))));
+        sort($normalized);
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<int, array{question:string,answer:string}>
+     */
+    private function normalizedFaqRowsFromModel(MariachiListing $listing): array
+    {
+        return $listing->faqs()
+            ->orderBy('sort_order')
+            ->get(['question', 'answer'])
+            ->map(fn ($faq): array => [
+                'question' => trim((string) $faq->question),
+                'answer' => trim((string) $faq->answer),
+            ])
+            ->filter(fn (array $faq): bool => $faq['question'] !== '' && $faq['answer'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<int, array{question:string,answer:string}>
+     */
+    private function normalizedFaqRowsFromValidated(array $validated, MariachiListing $listing): array
+    {
+        $questions = (array) ($validated['faq_question'] ?? $listing->faqs()->orderBy('sort_order')->pluck('question')->all());
+        $answers = (array) ($validated['faq_answer'] ?? $listing->faqs()->orderBy('sort_order')->pluck('answer')->all());
+
+        $rows = [];
+
+        foreach ($questions as $index => $question) {
+            $row = [
+                'question' => trim((string) $question),
+                'answer' => trim((string) ($answers[$index] ?? '')),
+            ];
+
+            if ($row['question'] === '' || $row['answer'] === '') {
+                continue;
+            }
+
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     private function providerProfile(): MariachiProfile
@@ -959,28 +1259,15 @@ class MariachiListingController extends Controller
         }
 
         $defaultPlanCode = $profile->subscription_plan_code ?: 'basic';
-        $plan = Plan::query()->active()->where('code', $defaultPlanCode)->first()
+        $plan = Plan::query()->active()->public()->where('code', $defaultPlanCode)->first()
+            ?? Plan::query()->active()->public()->orderBy('sort_order')->first()
             ?? Plan::query()->active()->orderBy('sort_order')->first();
 
         if (! $plan) {
             return;
         }
 
-        $profile->subscriptions()->create([
-            'plan_id' => $plan->id,
-            'status' => Subscription::STATUS_ACTIVE,
-            'starts_at' => now(),
-            'renews_at' => now()->addMonth(),
-            'base_amount_cop' => $plan->price_cop,
-            'extra_city_amount_cop' => (int) config('monetization.additional_city_price_cop', 9900),
-            'metadata' => ['source' => 'auto_default'],
-        ]);
-
-        $profile->update([
-            'subscription_plan_code' => $plan->code,
-            'subscription_listing_limit' => $plan->listing_limit,
-            'subscription_active' => true,
-        ]);
+        $this->planAssignmentService->assignToProfile($profile, $plan, null, 'auto_default');
     }
 
     private function refreshListingProgress(MariachiListing $listing): void

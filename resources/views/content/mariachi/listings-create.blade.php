@@ -21,12 +21,29 @@
     <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
         <h5 class="mb-1">Nuevo anuncio / servicio</h5>
-        <p class="mb-1">Plan actual: <strong>{{ $capabilities['name'] }}</strong>. Cupo usado: {{ $listingsUsed }} de {{ $listingLimit }}.</p>
-        <small class="text-muted">Incluye {{ $capabilities['included_cities'] }} ciudad(es), {{ $capabilities['max_photos_per_listing'] }} foto(s) y {{ $capabilities['max_videos_per_listing'] }} video(s) por anuncio.</small>
+        <p class="mb-1">
+          Plan actual: <strong>{{ $planSummary['name'] }}</strong>.
+          Cupo usado: {{ $listingsUsed }} de {{ $listingLimit }}.
+        </p>
+        <small class="text-muted">
+          Incluye {{ $capabilities['included_cities'] }} ciudad(es), {{ $capabilities['max_zones_covered'] ?? 0 }} zona(s),
+          {{ $capabilities['max_photos_per_listing'] }} foto(s) y {{ $capabilities['max_videos_per_listing'] }} video(s) por anuncio.
+        </small>
       </div>
       <a href="{{ route('mariachi.listings.index') }}" class="btn btn-outline-primary">Volver</a>
     </div>
   </div>
+
+  @if($planIssues !== [])
+    <div class="alert alert-warning">
+      <strong>Antes de publicar cambios con este plan debes ajustar algunas cosas.</strong>
+      <ul class="mb-0 mt-2">
+        @foreach($planIssues as $issue)
+          <li>{{ $issue }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
 
   <div class="row g-6">
     <div class="col-xl-4">
@@ -50,8 +67,8 @@
           <div class="d-flex gap-3">
             <span class="badge rounded-pill bg-label-primary">3</span>
             <div>
-              <p class="mb-0 fw-semibold">Elegir plan y pagar</p>
-              <small class="text-muted">Solo al final cuando el anuncio ya está listo.</small>
+              <p class="mb-0 fw-semibold">Activar plan</p>
+              <small class="text-muted">Selecciona un plan publico o usa el que te haya asignado admin.</small>
             </div>
           </div>
         </div>
@@ -64,7 +81,7 @@
         <div class="card-body">
           @if(!$canCreate)
             <div class="alert alert-warning mb-0">
-              Alcanzaste el límite de anuncios de tu plan actual.
+              Alcanzaste el limite de anuncios de tu plan actual.
             </div>
           @else
             <form method="POST" action="{{ route('mariachi.listings.store') }}">

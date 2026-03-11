@@ -15,11 +15,11 @@
   $usagePercent = $listingLimit > 0 ? min(100, (int) round(($listingsUsed / $listingLimit) * 100)) : 0;
 @endphp
 
-<div class="card mb-6">
-  <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <div>
-      <h5 class="mb-1">Metricas de anuncios</h5>
-      <p class="mb-0 text-muted">Datos reales tomados de tus anuncios, conversaciones, favoritos y reseñas.</p>
+  <div class="card mb-6">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h5 class="mb-1">Metricas de anuncios</h5>
+        <p class="mb-0 text-muted">Datos reales tomados de tus anuncios, conversaciones, favoritos y reseñas.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
       <a class="btn btn-primary" href="{{ route('mariachi.listings.index') }}">Gestionar anuncios</a>
@@ -29,13 +29,24 @@
   </div>
 </div>
 
-@if(! $profile)
+  @if(! $profile)
   <div class="card">
     <div class="card-body">
       <p class="mb-0 text-muted">Aun no tienes perfil de mariachi. Completa tu perfil para ver metricas.</p>
     </div>
   </div>
-@else
+  @else
+  @if($planIssues !== [])
+    <div class="alert alert-warning mb-6">
+      <strong>Tu plan actual requiere ajuste.</strong>
+      <ul class="mb-0 mt-2">
+        @foreach($planIssues as $issue)
+          <li>{{ $issue }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+
   <div class="row g-4 mb-6">
     <div class="col-xl-3 col-md-6">
       <div class="card h-100">
@@ -115,7 +126,12 @@
         <div class="card-body">
           <h6 class="mb-1">Estado del perfil</h6>
           <h3 class="mb-1 text-capitalize">{{ $profile->verification_status ?: 'unverified' }}</h3>
-          <p class="mb-0 text-muted">Plan: {{ strtoupper($profile->subscription_plan_code ?: 'basic') }}</p>
+          <p class="mb-0 text-muted">
+            Plan: {{ $planSummary['name'] ?? strtoupper($profile->subscription_plan_code ?: 'basic') }}
+            @if(! empty($planSummary['badge_text']))
+              · {{ $planSummary['badge_text'] }}
+            @endif
+          </p>
         </div>
       </div>
     </div>

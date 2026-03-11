@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260309-11" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
   </head>
   <body data-page="city" class="font-sans text-slate-900 antialiased city-viator">
     <style>
@@ -642,10 +642,11 @@
                   $reviewMariachiName = $review->mariachiListing?->title
                     ?: $review->mariachiProfile?->business_name
                     ?: $review->mariachiProfile?->user?->display_name;
+                  $defaultReviewListing = $review->mariachiProfile?->resolveDefaultListing();
                   $reviewProfileUrl = $review->mariachiListing?->slug
                     ? route('mariachi.public.show', ['slug' => $review->mariachiListing->slug])
-                    : ($review->mariachiProfile?->resolveDefaultListing()?->slug
-                      ? route('mariachi.public.show', ['slug' => $review->mariachiProfile->resolveDefaultListing()->slug])
+                    : ($defaultReviewListing?->isApprovedForMarketplace() && $defaultReviewListing?->slug
+                      ? route('mariachi.public.show', ['slug' => $defaultReviewListing->slug])
                       : null);
                 @endphp
                 <article class="rounded-xl border border-slate-200 bg-white px-4 py-4">
@@ -867,6 +868,6 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260310-02"></script>
+    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
   </body>
 </html>

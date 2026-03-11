@@ -109,6 +109,22 @@ class Helpers
         }
       }
     }
+
+    $currentRouteName = request()->route()?->getName() ?? '';
+    $authUser = auth()->user();
+    $isMariachiPanel =
+      $authUser?->isMariachi() &&
+      Str::startsWith($currentRouteName, 'mariachi.') &&
+      !Str::startsWith($currentRouteName, 'mariachi.public.');
+
+    if ($isMariachiPanel) {
+      $data['myLayout'] = 'horizontal';
+      $data['contentLayout'] = 'wide';
+      $data['menuCollapsed'] = false;
+      $data['navbarType'] = 'sticky';
+      $data['headerType'] = 'fixed';
+    }
+
     $themeVal = $data['myTheme'] == "dark" ? "dark" : "light";
     $themeUpdatedVal = $data['myTheme'] == "dark" ? "dark" : $data['myTheme'];
 
@@ -122,12 +138,12 @@ class Helpers
 
     // Get primary color from config first. If not configured, fallback to cookie.
     $primaryColor = array_key_exists('primaryColor', $data) ? $data['primaryColor'] : null;
-    if ($primaryColor === null && isset($_COOKIE[$primaryColorCookieName])) {
+    if (!$isMariachiPanel && $primaryColor === null && isset($_COOKIE[$primaryColorCookieName])) {
       $primaryColor = $_COOKIE[$primaryColorCookieName];
     }
 
     // Determine style based on cookies, only if not 'blank-layout'
-    if ($layoutName !== 'blank') {
+    if ($layoutName !== 'blank' && !$isMariachiPanel) {
       if (isset($_COOKIE[$modeCookieName])) {
         $themeVal = $_COOKIE[$modeCookieName];
         if ($themeVal === 'system') {
@@ -143,17 +159,22 @@ class Helpers
 
     // Process skin and semi-dark settings only for admin layouts
     if ($isAdmin) {
-      // Get skin from cookie or fall back to config
-      $skinFromCookie = isset($_COOKIE[$skinCookieName]) ? $_COOKIE[$skinCookieName] : null;
-      $configSkin = isset($data['mySkins']) ? $data['mySkins'] : 'default';
-      $skinName = $skinFromCookie ?: $configSkin;
+      if ($isMariachiPanel) {
+        $skinName = isset($data['mySkins']) ? $data['mySkins'] : 'default';
+        $semiDarkEnabled = (bool)$data['hasSemiDark'];
+      } else {
+        // Get skin from cookie or fall back to config
+        $skinFromCookie = isset($_COOKIE[$skinCookieName]) ? $_COOKIE[$skinCookieName] : null;
+        $configSkin = isset($data['mySkins']) ? $data['mySkins'] : 'default';
+        $skinName = $skinFromCookie ?: $configSkin;
 
-      // Get semi-dark setting from cookie or fall back to config
-      $semiDarkFromCookie = isset($_COOKIE[$semiDarkCookieName]) ? $_COOKIE[$semiDarkCookieName] : null;
-      // Ensure we have a proper boolean conversion
-      $semiDarkEnabled = $semiDarkFromCookie !== null ?
-        filter_var($semiDarkFromCookie, FILTER_VALIDATE_BOOLEAN) :
-        (bool)$data['hasSemiDark'];
+        // Get semi-dark setting from cookie or fall back to config
+        $semiDarkFromCookie = isset($_COOKIE[$semiDarkCookieName]) ? $_COOKIE[$semiDarkCookieName] : null;
+        // Ensure we have a proper boolean conversion
+        $semiDarkEnabled = $semiDarkFromCookie !== null ?
+          filter_var($semiDarkFromCookie, FILTER_VALIDATE_BOOLEAN) :
+          (bool)$data['hasSemiDark'];
+      }
     } else {
       // For front-end layouts, use defaults
       $skinName = 'default';
@@ -161,16 +182,24 @@ class Helpers
     }
 
     // Get menu Collapsed state from cookie or fall back to config
-    $menuCollapsedFromCookie = isset($_COOKIE['LayoutCollapsed']) ? $_COOKIE['LayoutCollapsed'] : $data['menuCollapsed'];
+    $menuCollapsedFromCookie = $isMariachiPanel
+      ? $data['menuCollapsed']
+      : (isset($_COOKIE['LayoutCollapsed']) ? $_COOKIE['LayoutCollapsed'] : $data['menuCollapsed']);
 
     // Get content layout from cookie or fall back to config
-    $contentLayoutFromCookie = isset($_COOKIE['contentLayout']) ? $_COOKIE['contentLayout'] : $data['contentLayout'];
+    $contentLayoutFromCookie = $isMariachiPanel
+      ? $data['contentLayout']
+      : (isset($_COOKIE['contentLayout']) ? $_COOKIE['contentLayout'] : $data['contentLayout']);
 
     // Get header type from cookie or fall back to config
-    $navbarTypeFromCookie = isset($_COOKIE['navbarType']) ? $_COOKIE['navbarType'] : $data['navbarType'];
+    $navbarTypeFromCookie = $isMariachiPanel
+      ? $data['navbarType']
+      : (isset($_COOKIE['navbarType']) ? $_COOKIE['navbarType'] : $data['navbarType']);
 
     // Get Header type from cookie or fall back to config
-    $headerTypeFromCookie = isset($_COOKIE['headerType']) ? $_COOKIE['headerType'] : $data['headerType'];
+    $headerTypeFromCookie = $isMariachiPanel
+      ? $data['headerType']
+      : (isset($_COOKIE['headerType']) ? $_COOKIE['headerType'] : $data['headerType']);
 
     $directionVal = isset($_COOKIE['direction']) ? ($_COOKIE['direction'] === 'true' ? 'rtl' : 'ltr') : $data['myRTLMode'];
 

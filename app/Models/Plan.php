@@ -13,9 +13,13 @@ class Plan extends Model
 
     protected $fillable = [
         'code',
+        'slug',
         'name',
         'price_cop',
         'billing_cycle',
+        'description',
+        'badge_text',
+        'is_public',
         'listing_limit',
         'included_cities',
         'max_photos_per_listing',
@@ -36,6 +40,7 @@ class Plan extends Model
     {
         return [
             'price_cop' => 'integer',
+            'is_public' => 'boolean',
             'listing_limit' => 'integer',
             'included_cities' => 'integer',
             'max_photos_per_listing' => 'integer',
@@ -58,8 +63,27 @@ class Plan extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    public function entitlements(): HasMany
+    {
+        return $this->hasMany(PlanEntitlement::class)->orderBy('key');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopePublic(Builder $query): Builder
+    {
+        return $query->where('is_public', true);
+    }
+
+    public function entitlementValue(string $key, mixed $default = null): mixed
+    {
+        if (! $this->relationLoaded('entitlements')) {
+            $this->load('entitlements');
+        }
+
+        return $this->entitlements->firstWhere('key', $key)?->value ?? $default;
     }
 }

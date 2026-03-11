@@ -20,6 +20,18 @@ class MariachiListing extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_PAUSED = 'paused';
 
+    public const REVIEW_DRAFT = 'draft';
+    public const REVIEW_PENDING = 'pending';
+    public const REVIEW_APPROVED = 'approved';
+    public const REVIEW_REJECTED = 'rejected';
+
+    public const REVIEW_STATUSES = [
+        self::REVIEW_DRAFT,
+        self::REVIEW_PENDING,
+        self::REVIEW_APPROVED,
+        self::REVIEW_REJECTED,
+    ];
+
     protected $fillable = [
         'mariachi_profile_id',
         'slug',
@@ -42,9 +54,14 @@ class MariachiListing extends Model
         'listing_completion',
         'listing_completed',
         'status',
+        'review_status',
         'is_active',
         'selected_plan_code',
         'plan_selected_at',
+        'submitted_for_review_at',
+        'reviewed_at',
+        'reviewed_by_user_id',
+        'rejection_reason',
         'activated_at',
         'deactivated_at',
         'watermark_enabled',
@@ -64,10 +81,13 @@ class MariachiListing extends Model
             'listing_completion' => 'integer',
             'listing_completed' => 'boolean',
             'is_active' => 'boolean',
+            'reviewed_by_user_id' => 'integer',
             'watermark_enabled' => 'boolean',
             'image_hashing_enabled' => 'boolean',
             'has_duplicate_images' => 'boolean',
             'plan_selected_at' => 'datetime',
+            'submitted_for_review_at' => 'datetime',
+            'reviewed_at' => 'datetime',
             'activated_at' => 'datetime',
             'deactivated_at' => 'datetime',
         ];
@@ -79,12 +99,21 @@ class MariachiListing extends Model
             if (! filled($listing->slug)) {
                 $listing->slug = $listing->buildUniqueSlug();
             }
+
+            if (! filled($listing->review_status)) {
+                $listing->review_status = self::REVIEW_DRAFT;
+            }
         });
     }
 
     public function mariachiProfile(): BelongsTo
     {
         return $this->belongsTo(MariachiProfile::class);
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by_user_id');
     }
 
     public function marketplaceCity(): BelongsTo
@@ -185,10 +214,72 @@ class MariachiListing extends Model
     {
         return $query
             ->active()
+            ->where('review_status', self::REVIEW_APPROVED)
             ->whereHas('mariachiProfile.user', function (Builder $builder): void {
                 $builder->where('role', User::ROLE_MARIACHI)
                     ->where('status', User::STATUS_ACTIVE);
             });
+    }
+
+    public function scopePendingReview(Builder $query): Builder
+    {
+        return $query->where('review_status', self::REVIEW_PENDING);
+    }
+
+    public function scopeApprovedForMarketplace(Builder $query): Builder
+    {
+        return $query->where('review_status', self::REVIEW_APPROVED);
+    }
+
+    public function isPendingReview(): bool
+    {
+        return $this->review_status === self::REVIEW_PENDING;
+    }
+
+    public function isApprovedForMarketplace(): bool
+    {
+        return $this->review_status === self::REVIEW_APPROVED
+            && $this->status === self::STATUS_ACTIVE
+            && $this->is_active;
+    }
+
+    public function canBeSubmittedForReview(): bool
+    {
+        return $this->review_status !== self::REVIEW_PENDING
+            && $this->listing_completed
+            && $this->hasEffectivePlan();
+    }
+
+    public function hasEffectivePlan(): bool
+    {
+        return filled($this->effectivePlanCode());
+    }
+
+    public function effectivePlanCode(): ?string
+    {
+        if (filled($this->selected_plan_code)) {
+            return (string) $this->selected_plan_code;
+        }
+
+        if (! $this->relationLoaded('mariachiProfile')) {
+            $this->load('mariachiProfile.activeSubscription.plan');
+        } elseif ($this->mariachiProfile && ! $this->mariachiProfile->relationLoaded('activeSubscription')) {
+            $this->mariachiProfile->load('activeSubscription.plan');
+        } elseif ($this->mariachiProfile?->activeSubscription && ! $this->mariachiProfile->activeSubscription->relationLoaded('plan')) {
+            $this->mariachiProfile->activeSubscription->load('plan');
+        }
+
+        return $this->mariachiProfile?->activeSubscription?->plan?->code;
+    }
+
+    public function reviewStatusLabel(): string
+    {
+        return match ($this->review_status) {
+            self::REVIEW_PENDING => 'En revision',
+            self::REVIEW_APPROVED => 'Aprobado',
+            self::REVIEW_REJECTED => 'Rechazado',
+            default => 'Borrador',
+        };
     }
 
     public function getBusinessNameAttribute(): ?string

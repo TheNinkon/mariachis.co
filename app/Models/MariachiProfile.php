@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Entitlements\EntitlementKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,7 +88,7 @@ class MariachiProfile extends Model
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
-            ->where('status', Subscription::STATUS_ACTIVE)
+            ->active()
             ->latestOfMany('id');
     }
 
@@ -95,12 +96,18 @@ class MariachiProfile extends Model
     {
         return $this->hasMany(MariachiListing::class)
             ->where('status', MariachiListing::STATUS_ACTIVE)
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->where('review_status', MariachiListing::REVIEW_APPROVED);
     }
 
     public function defaultListing(): BelongsTo
     {
         return $this->belongsTo(MariachiListing::class, 'default_mariachi_listing_id');
+    }
+
+    public function entitlementOverrides(): HasMany
+    {
+        return $this->hasMany(MariachiEntitlementOverride::class)->orderBy('key');
     }
 
     public function videos(): HasMany
@@ -189,8 +196,15 @@ class MariachiProfile extends Model
 
     public function listingLimit(): int
     {
-        $this->loadMissing('activeSubscription.plan');
-        $subscriptionPlanLimit = (int) ($this->activeSubscription?->plan?->listing_limit ?? 0);
+        $this->loadMissing('activeSubscription.plan.entitlements');
+
+        $plan = $this->activeSubscription?->plan;
+        $subscriptionPlanLimit = 0;
+
+        if ($plan) {
+            $subscriptionPlanLimit = (int) ($plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL) ?? $plan->listing_limit ?? 0);
+        }
+
         if ($subscriptionPlanLimit > 0) {
             return $subscriptionPlanLimit;
         }

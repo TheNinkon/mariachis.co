@@ -14,22 +14,53 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260309-11" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
   </head>
   <body data-page="home" class="font-sans text-slate-900 antialiased">
+    @php
+      $heroPrimary = $heroPosts->first();
+    @endphp
+
     <div data-component="site-header"></div>
 
     <main>
-      <section class="hero-home-immersive relative border-b border-slate-200">
-        <div class="hero-home-immersive__backdrop" aria-hidden="true"></div>
-        <div class="layout-shell py-14">
-          <p class="text-xs font-bold uppercase tracking-[0.15em] text-brand-600">Comunidad</p>
-          <h1 class="hero-home-immersive__title mt-3">{{ $h1 }}</h1>
-          <p class="hero-home-immersive__lead">{{ $seoDescription }}</p>
+      <section class="hero-split-shell hero-split-shell--flush hero-split-shell--editorial">
+        <div class="hero-split-grid hero-split-grid--editorial {{ $heroPrimary ? '' : 'hero-split-grid--solo' }}">
+          <div class="hero-split-left hero-split-left--editorial">
+            <span class="hero-blog-kicker">Comunidad editorial</span>
+            <h1 class="hero-blog-title">{{ $h1 }}</h1>
+          </div>
+
+          @if($heroPrimary)
+            @php
+              $featuredCategory = $heroPrimary->eventTypes->pluck('name')->filter()->first()
+                ?: ($heroPrimary->primary_event_type_name ?: ($heroPrimary->primary_city_name ?: 'Artículo destacado'));
+              $primaryImage = $heroPrimary->featured_image
+                ? asset('storage/'.$heroPrimary->featured_image)
+                : asset('marketplace/assets/logo-wordmark.png');
+            @endphp
+
+            <div class="hero-split-right hero-split-right--editorial">
+              <article class="hero-blog-stage">
+                <img src="{{ $primaryImage }}" alt="{{ $heroPrimary->title }}" class="hero-blog-stage__image" />
+                <div class="hero-blog-stage__veil" aria-hidden="true"></div>
+
+                <a
+                  href="{{ route('blog.show', ['slug' => $heroPrimary->slug]) }}"
+                  class="hero-blog-stage__spotlight"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span class="hero-blog-stage__spotlight-kicker">Bloque destacado</span>
+                  <strong>{{ $featuredCategory }}</strong>
+                </a>
+              </article>
+            </div>
+          @endif
         </div>
       </section>
 
-      <section class="layout-shell py-12">
+      <section id="articulos" class="layout-shell py-12">
         @if($posts->isNotEmpty())
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             @foreach($posts as $post)
@@ -73,6 +104,6 @@
 
     <div data-component="site-footer"></div>
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260310-02"></script>
+    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
   </body>
 </html>

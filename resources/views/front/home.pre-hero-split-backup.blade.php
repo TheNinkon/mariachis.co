@@ -20,16 +20,16 @@
           extend: {
             colors: {
               brand: {
-                50: "#f2fbf7",
-                100: "#d9efe7",
-                200: "#b8ded1",
-                300: "#8ec6b0",
-                400: "#4ea27f",
-                500: "#006847",
-                600: "#00563b",
-                700: "#00472f",
-                800: "#003422",
-                900: "#02261a",
+                50: "#fbf7e8",
+                100: "#f5edc7",
+                200: "#eadb95",
+                300: "#dfc861",
+                400: "#d2b33f",
+                500: "#c9a227",
+                600: "#b58f22",
+                700: "#97761d",
+                800: "#785e17",
+                900: "#5c4711",
               },
             },
             fontFamily: {
@@ -43,10 +43,11 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v4" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260309-11" />
   </head>
   <body data-page="home" class="font-sans text-slate-900 antialiased">
     @php
+      $quickEventTypes = $eventTypes->take(4);
       $firstCity = $cityShowcase->first();
       $countryLandingSlug = \Illuminate\Support\Str::slug(config('seo.default_country_name', 'Colombia'));
       $searchCityOptions = collect($searchCities ?? [])->values();
@@ -55,26 +56,15 @@
     <div data-component="site-header"></div>
 
     <main>
-      <section class="hero-split-shell hero-split-shell--flush hero-split-shell--home">
-        <div class="hero-split-grid hero-split-grid--home">
-          <div class="hero-split-left hero-split-left--home" data-reveal>
-            <h1 class="hero-home-immersive__title">
-              <span class="hero-home-immersive__title-main">Encuentra mariachis para</span>
-              <span class="hero-home-immersive__title-accent">bodas, serenatas y eventos</span>
-            </h1>
-            <p class="hero-home-immersive__lead">Más de {{ number_format($publishedProfilesCount ?? 0) }} mariachis para tu celebración.</p>
-          </div>
+      <section class="hero-home-immersive relative border-b border-slate-200">
+        <div class="hero-home-immersive__backdrop" aria-hidden="true"></div>
+        <div class="mx-auto w-full max-w-7xl px-4 md:px-8">
+          <div class="hero-home-immersive__content" data-reveal>
+            <span class="hero-home-immersive__eyebrow">Marketplace de mariachis en Colombia</span>
+            <h1 class="hero-home-immersive__title">Encuentra mariachis para bodas, serenatas y eventos</h1>
+            <p class="hero-home-immersive__lead">Compara perfiles reales y contacta directo en segundos.</p>
 
-          <div class="hero-split-right hero-split-right--home" data-reveal>
-            <div class="hero-split-home-media">
-              <img src="img/2.webp" alt="Mariachis en vivo durante un evento" class="hero-split-home-media__image" />
-              <div class="hero-split-home-media__veil" aria-hidden="true"></div>
-            </div>
-          </div>
-        </div>
-        <div class="hero-home-search-bridge">
-          <div class="mx-auto w-full max-w-7xl px-4 md:px-8">
-            <form data-search-form data-default-landing-slug="{{ $countryLandingSlug }}" class="hero-search-form hero-search-form--immersive hero-search-form--home-split">
+            <form data-search-form data-default-landing-slug="{{ $countryLandingSlug }}" class="hero-search-form hero-search-form--immersive">
               <div class="hero-search-grid hero-search-grid--immersive">
                 <label class="hero-search-field-wrap hero-search-field-wrap--event" data-event-menu>
                   <span class="hero-search-icon" aria-hidden="true">
@@ -180,11 +170,21 @@
                 </div>
               </div>
             </form>
+
+            <div class="hero-quick-links hero-quick-links--immersive">
+              @forelse($quickEventTypes as $eventType)
+                <a href="{{ route('seo.landing.slug', ['slug' => $eventType->slug ?: \Illuminate\Support\Str::slug($eventType->name)]) }}">{{ $eventType->name }}</a>
+              @empty
+                <a href="{{ route('seo.landing.slug', ['slug' => 'serenatas']) }}">Serenatas</a>
+                <a href="{{ route('seo.landing.slug', ['slug' => 'bodas']) }}">Bodas</a>
+                <a href="{{ route('seo.landing.slug', ['slug' => 'cumpleanos']) }}">Cumpleaños</a>
+              @endforelse
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="ciudades" class="layout-shell pt-10 pb-10">
+      <section id="ciudades" class="layout-shell py-10">
         <div class="mb-5 flex items-end justify-between gap-4" data-reveal>
           <div>
             <p class="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">Por zona</p>
@@ -549,6 +549,6 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
+    <script src="js/ui.js?v=20260310-02"></script>
   </body>
 </html>

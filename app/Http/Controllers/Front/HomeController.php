@@ -124,6 +124,7 @@ class HomeController extends Controller
             'popularBudgetRanges' => $popularBudgetRanges,
             'latestBlogPosts' => $latestBlogPosts,
             'searchCities' => $searchCities,
+            'publishedProfilesCount' => $publishedProfiles->count(),
         ]);
     }
 

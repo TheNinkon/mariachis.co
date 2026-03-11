@@ -12,7 +12,7 @@ class BlogController extends Controller
 {
     public function index(): View
     {
-        $posts = BlogPost::query()
+        $baseQuery = BlogPost::query()
             ->with([
                 'eventTypes:id,name',
                 'cities:id,name',
@@ -20,11 +20,18 @@ class BlogController extends Controller
             ])
             ->published()
             ->latest('published_at')
-            ->latest('id')
+            ->latest('id');
+
+        $heroPosts = (clone $baseQuery)
+            ->take(3)
+            ->get();
+
+        $posts = (clone $baseQuery)
             ->paginate(9);
 
         return view('front.blog-index', [
             'posts' => $posts,
+            'heroPosts' => $heroPosts,
             'seoTitle' => 'Blog y recursos para contratar mariachis',
             'seoDescription' => 'Consejos, guias y recursos locales para encontrar mariachis por ciudad, zona y tipo de evento en Colombia.',
             'h1' => 'Blog y recursos del marketplace',

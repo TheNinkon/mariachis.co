@@ -39,7 +39,16 @@
     }
 
     $status = old('status', $listing->status);
-    $hasPlan = filled($listing->selected_plan_code);
+    $hasPlan = $listing->hasEffectivePlan();
+    $reviewMap = [
+      \App\Models\MariachiListing::REVIEW_DRAFT => ['label' => 'Borrador de revision', 'class' => 'secondary'],
+      \App\Models\MariachiListing::REVIEW_PENDING => ['label' => 'En revision', 'class' => 'warning'],
+      \App\Models\MariachiListing::REVIEW_APPROVED => ['label' => 'Aprobado', 'class' => 'success'],
+      \App\Models\MariachiListing::REVIEW_REJECTED => ['label' => 'Rechazado', 'class' => 'danger'],
+    ];
+    $reviewMeta = $reviewMap[$listing->review_status] ?? ['label' => $listing->reviewStatusLabel(), 'class' => 'secondary'];
+    $canSubmitForReview = $listing->canBeSubmittedForReview();
+    $submitForReviewLabel = $listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED ? 'Reenviar a revisión' : 'Enviar a revisión';
   @endphp
 
   @if(session('status'))
@@ -57,6 +66,39 @@
     </div>
   @endif
 
+  @if($listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED && $listing->rejection_reason)
+    <div class="alert alert-danger">
+      <strong>El anuncio fue rechazado.</strong> Corrige lo siguiente y luego vuelve a enviarlo a revisión.
+      <div class="mt-2">{{ $listing->rejection_reason }}</div>
+    </div>
+  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED)
+    <div class="alert alert-info">
+      <strong>Este anuncio ya fue aprobado.</strong> Si cambias contenido, fotos, videos o filtros, saldrá de publicación y volverá a borrador de revisión.
+    </div>
+  @endif
+
+  @if($planIssues !== [])
+    <div class="alert alert-warning">
+      <strong>Tu plan actual requiere ajuste.</strong>
+      <ul class="mb-0 mt-2">
+        @foreach($planIssues as $issue)
+          <li>{{ $issue }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+
+  @if($listingIssues !== [])
+    <div class="alert alert-warning">
+      <strong>Este anuncio requiere ajuste para volver a publicarse.</strong>
+      <ul class="mb-0 mt-2">
+        @foreach($listingIssues as $issue)
+          <li>{{ $issue }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+
   <div class="card mb-6">
     <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
@@ -64,9 +106,17 @@
         <p class="mb-1">
           Estado:
           <span class="badge bg-label-{{ $listing->is_active ? 'success' : 'warning' }}">{{ $listing->status }}</span>
-          · Plan: <strong>{{ $listing->selected_plan_code ?: 'sin plan' }}</strong>
+          · Revisión:
+          <span class="badge bg-label-{{ $reviewMeta['class'] }}">{{ $reviewMeta['label'] }}</span>
+          · Plan activo: <strong>{{ $planSummary['name'] ?? ($listing->effectivePlanCode() ?: 'sin plan') }}</strong>
+          @if(! empty($planSummary['badge_text']))
+            <span class="badge bg-label-primary ms-1">{{ $planSummary['badge_text'] }}</span>
+          @endif
         </p>
-        <small class="text-muted">Completitud: <strong data-completion-text>{{ $listing->listing_completion }}%</strong> · Límite por anuncio: {{ $capabilities['max_photos_per_listing'] }} foto(s) y {{ $capabilities['max_videos_per_listing'] }} video(s).</small>
+        <small class="text-muted">Completitud: <strong data-completion-text>{{ $listing->listing_completion }}%</strong> · Fotos {{ $capabilities['max_photos_per_listing'] }} · Videos {{ $capabilities['max_videos_per_listing'] }} · Zonas {{ $capabilities['max_zones_covered'] ?? 0 }}.</small>
+        @if($listing->submitted_for_review_at)
+          <div class="small text-muted mt-1">Último envío a revisión: {{ $listing->submitted_for_review_at->format('Y-m-d H:i') }}</div>
+        @endif
       </div>
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <span class="badge bg-label-secondary" data-autosave-status>Autoguardado listo</span>
@@ -243,7 +293,7 @@
 
             <div class="col-12">
               <label class="form-label">Zonas adicionales de cobertura</label>
-              <small class="d-block text-muted mb-1">Solo se muestran zonas de la ciudad detectada. Tu plan permite hasta {{ $maxCitiesAllowed }} ciudad(es) de cobertura en este anuncio.</small>
+              <small class="d-block text-muted mb-1">Solo se muestran zonas de la ciudad detectada. Tu plan permite hasta {{ $maxCitiesAllowed }} ciudad(es) de cobertura y {{ $capabilities['max_zones_covered'] ?? 0 }} zona(s) por anuncio.</small>
               <select class="form-select" name="zone_ids[]" id="zone_ids" multiple size="8" data-zone-select data-selected-city="{{ $selectedCityId }}">
                 @foreach($zones as $zone)
                   @php
@@ -493,6 +543,10 @@
                       <td class="ps-0 text-nowrap">Estado actual</td>
                       <td>{{ $listing->status }}</td>
                     </tr>
+                    <tr>
+                      <td class="ps-0 text-nowrap">Estado de revisión</td>
+                      <td>{{ $reviewMeta['label'] }}</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -503,7 +557,7 @@
             <div class="card h-100">
               <div class="card-body d-flex flex-column">
                 <h5 class="mb-2">Guardar y activar</h5>
-                <p class="text-muted">Paso 1: guarda datos. Paso 2: selecciona plan y paga.</p>
+                <p class="text-muted">Paso 1: guarda datos. Paso 2: selecciona un plan publico o usa el ya asignado. Paso 3: envialo a revision para que quede visible en el marketplace.</p>
                 <button class="btn btn-primary mb-3" type="submit" form="listing-main-form">Guardar todo el anuncio</button>
 
                 @if(!$listing->listing_completed)
@@ -514,7 +568,27 @@
 
                 <div class="d-grid gap-2 mt-auto">
                   <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="btn btn-success {{ $listing->listing_completed ? '' : 'disabled' }}">Elegir plan y pagar</a>
-                  <small class="text-muted">El plan se escoge al final, después de tener el anuncio listo.</small>
+                  @if($canSubmitForReview && $listingIssues === [] && $planIssues === [])
+                    <form method="POST" action="{{ route('mariachi.listings.submit-review', ['listing' => $listing->id]) }}">
+                      @csrf
+                      <button type="submit" class="btn btn-outline-primary w-100">{{ $submitForReviewLabel }}</button>
+                    </form>
+                  @elseif($canSubmitForReview)
+                    <div class="alert alert-warning mb-0">
+                      Este anuncio necesita ajustes de plan antes de poder enviarse a revision.
+                    </div>
+                  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_PENDING)
+                    <div class="alert alert-warning mb-0">
+                      Este anuncio ya está en revisión. No puedes modificarlo hasta recibir respuesta.
+                    </div>
+                  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED)
+                    <div class="alert alert-success mb-0">
+                      El anuncio está aprobado y, si además está activo, ya puede mostrarse públicamente.
+                    </div>
+                  @else
+                    <small class="text-muted">Para enviarlo a revision necesitas completar el anuncio y tener un plan activo.</small>
+                  @endif
+                  <small class="text-muted">La publicación pública exige aprobación administrativa además de tener plan y anuncio completo.</small>
                 </div>
               </div>
             </div>
@@ -529,13 +603,19 @@
                     @foreach($plans as $code => $plan)
                       <div class="col-md-4">
                         <div class="border rounded p-3 h-100 d-flex flex-column">
-                          <h6 class="mb-1">{{ $plan['name'] }}</h6>
+                          <h6 class="mb-1">
+                            {{ $plan['name'] }}
+                            @if($plan['badge_text'])
+                              <span class="badge bg-label-primary">{{ $plan['badge_text'] }}</span>
+                            @endif
+                          </h6>
                           <p class="text-muted mb-2">{{ $plan['description'] }}</p>
                           <p class="mb-2"><strong>${{ number_format((int) $plan['price_cop'], 0, ',', '.') }} COP / mes</strong></p>
                           <ul class="small text-muted ps-3 mb-3">
                             <li>{{ $plan['included_cities'] }} ciudad(es)</li>
+                            <li>{{ $plan['max_zones_covered'] }} zona(s)</li>
                             <li>{{ $plan['max_photos_per_listing'] }} foto(s)</li>
-                            <li>{{ $plan['max_videos_per_listing'] }} video(s)</li>
+                            <li>{{ $plan['can_add_video'] ? $plan['max_videos_per_listing'].' video(s)' : 'Sin videos' }}</li>
                           </ul>
                           <form method="POST" action="{{ route('mariachi.listings.plans.select', ['listing' => $listing->id]) }}" class="mt-auto">
                             @csrf

@@ -5,26 +5,41 @@ namespace App\Http\Controllers\Mariachi;
 use App\Http\Controllers\Controller;
 use App\Models\MariachiProfile;
 use App\Models\VerificationRequest;
+use App\Services\EntitlementsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class MariachiVerificationController extends Controller
 {
+    public function __construct(
+        private readonly EntitlementsService $entitlementsService
+    ) {
+    }
+
     public function edit(): View
     {
-        $profile = $this->providerProfile()->loadMissing('verificationRequests.reviewedBy:id,name,first_name,last_name');
+        $profile = $this->providerProfile()->loadMissing('verificationRequests.reviewedBy:id,name,first_name,last_name', 'activeSubscription.plan.entitlements');
         $latestRequest = $profile->verificationRequests->first();
+        $capabilities = $this->entitlementsService->legacyCapabilityPayload($profile);
 
         return view('content.mariachi.verification', [
             'profile' => $profile,
             'latestRequest' => $latestRequest,
+            'capabilities' => $capabilities,
+            'planSummary' => $this->entitlementsService->summary($profile),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $profile = $this->providerProfile();
+
+        if (! $this->entitlementsService->legacyCapabilityPayload($profile)['allows_verification']) {
+            return back()->withErrors([
+                'verification' => 'La verificacion de perfil no esta incluida en tu plan actual.',
+            ]);
+        }
 
         $validated = $request->validate([
             'id_document' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],

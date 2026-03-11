@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260310-05" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
     <script type="application/ld+json">{!! $schemaJson !!}</script>
   </head>
   <body data-page="listing" class="has-mobile-cta font-sans text-slate-900 antialiased">
@@ -720,6 +720,6 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260310-03"></script>
+    <script src="js/ui.js?v=20260311-brand-green-v1"></script>
   </body>
 </html>

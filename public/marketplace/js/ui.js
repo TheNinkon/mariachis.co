@@ -24,7 +24,7 @@
       id: "claro",
       label: "Claro",
       description: "Limpio y moderno",
-      swatches: ["#f8f5f2", "#f43f5e", "#ffffff"],
+      swatches: ["#f8f5f2", "#00563b", "#ffffff"],
     },
     {
       id: "mariachi",
@@ -903,7 +903,7 @@
               <span class="hidden h-8 w-px bg-slate-200 md:block" aria-hidden="true"></span>
               <div class="relative" data-header-account>
                 <button type="button" data-header-account-btn aria-expanded="false" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.45)] transition hover:border-slate-300">
-                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-rose-50 text-[11px] font-extrabold tracking-[0.03em] text-rose-700">${escapeHtml(authInitials)}</span>
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-brand-100 text-[11px] font-extrabold tracking-[0.03em] text-brand-700">${escapeHtml(authInitials)}</span>
                   <span class="hidden max-w-[7rem] truncate text-xs font-semibold text-slate-700 md:inline">${escapeHtml(authName)}</span>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
@@ -918,7 +918,7 @@
                   <a href="/mi-cuenta/seguridad" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Seguridad</a>
                   <form method="POST" action="/auth/logout" class="border-t border-slate-100">
                     <input type="hidden" name="_token" value="${escapeHtml(authState.csrfToken)}" />
-                    <button type="submit" class="w-full px-4 py-3 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50">Cerrar sesión</button>
+                    <button type="submit" class="w-full px-4 py-3 text-left text-sm font-semibold text-brand-700 transition hover:bg-brand-100">Cerrar sesión</button>
                   </form>
                 </div>
               </div>

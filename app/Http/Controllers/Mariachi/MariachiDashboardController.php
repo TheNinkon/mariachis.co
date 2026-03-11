@@ -7,14 +7,20 @@ use App\Models\ClientFavorite;
 use App\Models\ClientRecentView;
 use App\Models\MariachiReview;
 use App\Models\QuoteConversation;
+use App\Services\EntitlementsService;
 use Illuminate\View\View;
 
 class MariachiDashboardController extends Controller
 {
+    public function __construct(
+        private readonly EntitlementsService $entitlementsService
+    ) {
+    }
+
     public function __invoke(): View
     {
         $user = auth()->user();
-        $profile = $user->mariachiProfile?->loadMissing('stat');
+        $profile = $user->mariachiProfile?->loadMissing('stat', 'activeSubscription.plan.entitlements');
         $listingLimit = $profile?->listingLimit() ?? 1;
 
         $listings = $profile
@@ -128,6 +134,8 @@ class MariachiDashboardController extends Controller
             'quotes30d' => (int) $quotes30d,
             'views30d' => (int) $views30d,
             'favorites30d' => (int) $favorites30d,
+            'planSummary' => $profile ? $this->entitlementsService->summary($profile) : null,
+            'planIssues' => $profile ? $this->entitlementsService->profileAdjustmentIssues($profile) : [],
         ]);
     }
 }
