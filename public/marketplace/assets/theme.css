@@ -524,7 +524,7 @@ body.home-lock-active {
   text-wrap: pretty;
 }
 
-.hero-search-form--immersive {
+.hero-search-form.hero-search-form--immersive {
   margin-top: 1.55rem;
   max-width: 49.4rem;
   padding: 0;
@@ -535,7 +535,8 @@ body.home-lock-active {
   overflow: visible;
 }
 
-.hero-search-grid--immersive {
+.hero-search-grid.hero-search-grid--immersive {
+  display: grid;
   grid-template-columns: minmax(0, 1.72fr) minmax(0, 1.08fr) 7.25rem;
   gap: 0;
   align-items: stretch;
@@ -837,7 +838,7 @@ body.home-lock-active {
   font-size: 1.02rem;
 }
 
-.hero-search-btn--immersive {
+.hero-search-btn.hero-search-btn--immersive {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -857,7 +858,7 @@ body.home-lock-active {
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.hero-search-btn--immersive:hover {
+.hero-search-btn.hero-search-btn--immersive:hover {
   background: #d73653;
   transform: none;
   box-shadow: none;
@@ -932,7 +933,7 @@ body.home-lock-active {
   z-index: 2;
 }
 
-.hero-search-form {
+.hero-search-form:not(.hero-search-form--immersive) {
   margin-top: 1.25rem;
   padding: 0.48rem;
   border: 1px solid var(--line-soft);
@@ -940,7 +941,7 @@ body.home-lock-active {
   background: var(--surface-soft);
 }
 
-.hero-search-grid {
+.hero-search-grid:not(.hero-search-grid--immersive) {
   display: grid;
   gap: 0.45rem;
 }
@@ -966,7 +967,7 @@ body.home-lock-active {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-600) 20%, transparent);
 }
 
-.hero-search-btn {
+.hero-search-btn:not(.hero-search-btn--immersive) {
   border-radius: 0.78rem;
   padding: 0.84rem 1.2rem;
   border: 1px solid transparent;
@@ -978,7 +979,7 @@ body.home-lock-active {
   transition: background 0.2s ease;
 }
 
-.hero-search-btn:hover {
+.hero-search-btn:not(.hero-search-btn--immersive):hover {
   background: var(--brand-700);
 }
 
@@ -1187,7 +1188,7 @@ body.home-lock-active {
     line-height: 1.48;
   }
 
-  .hero-search-form--immersive {
+  .hero-search-form.hero-search-form--immersive {
     margin-top: 1.1rem;
     border-radius: 0.72rem;
     padding: 0;
@@ -1195,7 +1196,7 @@ body.home-lock-active {
     overflow: hidden;
   }
 
-  .hero-search-grid--immersive {
+  .hero-search-grid.hero-search-grid--immersive {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
@@ -1231,7 +1232,7 @@ body.home-lock-active {
     font-size: 1rem;
   }
 
-  .hero-search-btn--immersive {
+  .hero-search-btn.hero-search-btn--immersive {
     width: 100%;
     min-width: 0;
     height: 3.1rem;
