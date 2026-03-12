@@ -1,362 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $seoTitle }} | Mariachis.co</title>
-    <meta name="description" content="{{ $seoDescription }}" />
-    <base href="{{ asset('marketplace') }}/" />
-    <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('marketplace/favicon-16.png') }}" />
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('marketplace/apple-touch-icon.png') }}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
-  </head>
-  <body data-page="city" class="font-sans text-slate-900 antialiased city-viator">
-    <style>
-      body.city-viator .city-results-shell--viator {
-        width: 100%;
-        max-width: none;
-        margin: 0;
-        padding-inline: clamp(0.9rem, 2.1vw, 2rem);
-      }
+@extends('front.layouts.marketplace')
 
-      body.city-viator .city-results-intro {
-        display: grid;
-        gap: 0.7rem;
-        margin-bottom: 1rem;
-      }
+@section('title', $seoTitle . ' | Mariachis.co')
+@section('meta_description', $seoDescription)
+@section('body_page', 'city')
+@section('body_class', 'font-sans text-slate-900 antialiased city-viator')
 
-      body.city-viator .city-results-intro h1 {
-        font-size: clamp(1.55rem, 2.4vw, 2.2rem);
-        line-height: 1.18;
-        font-weight: 800;
-        color: #0f172a;
-      }
-
-      body.city-viator .city-results-kicker {
-        font-size: 0.73rem;
-        font-weight: 800;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: #64748b;
-      }
-
-      body.city-viator .city-results-subtitle {
-        max-width: 76ch;
-        font-size: 0.92rem;
-        line-height: 1.45;
-        color: #334155;
-      }
-
-      body.city-viator .city-breadcrumbs {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.42rem;
-        margin-bottom: 0.7rem;
-        font-size: 0.74rem;
-        font-weight: 600;
-        color: #64748b;
-      }
-
-      body.city-viator .city-breadcrumbs a {
-        color: #475569;
-        text-decoration: none;
-      }
-
-      body.city-viator .city-breadcrumbs a:hover {
-        color: #0f172a;
-        text-decoration: underline;
-      }
-
-      body.city-viator .city-breadcrumb-sep {
-        color: #94a3b8;
-        font-size: 0.68rem;
-      }
-
-      body.city-viator .city-results-stats {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-      }
-
-      body.city-viator .city-results-stats span {
-        border: 1px solid rgba(15, 23, 42, 0.12);
-        border-radius: 999px;
-        background: #ffffff;
-        padding: 0.34rem 0.66rem;
-        font-size: 0.71rem;
-        font-weight: 700;
-        color: #334155;
-      }
-
-      body.city-viator .city-results-panel[data-view-mode="gallery"] .city-results-grid--viator {
-        display: grid;
-        grid-template-columns: repeat(1, minmax(0, 1fr));
-        gap: 0.9rem;
-      }
-
-      body.city-viator .city-result-card--viator {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        border-radius: 1rem;
-        border: 1px solid rgba(15, 23, 42, 0.12);
-        background: #fff;
-        box-shadow: 0 14px 30px -26px rgba(15, 23, 42, 0.55);
-        padding: 0;
-        will-change: transform, box-shadow;
-        transition:
-          transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
-          box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-      }
-
-      @media (hover: hover) {
-        body.city-viator .city-result-card--viator:hover {
-          transform: translate3d(0, -6px, 0) scale(1.01);
-          box-shadow: 0 24px 46px -24px rgba(15, 23, 42, 0.45);
-        }
-      }
-
-      body.city-viator .city-result-card--viator:active {
-        transform: translate3d(0, -2px, 0) scale(1.005);
-      }
-
-      body.city-viator .city-result-media--viator {
-        height: auto;
-        min-height: 0;
-        aspect-ratio: 16 / 10;
-        border-radius: 0;
-      }
-
-      body.city-viator .city-result-favorite {
-        position: absolute;
-        top: 0.6rem;
-        right: 0.6rem;
-        z-index: 5;
-        border-color: rgba(15, 23, 42, 0.12);
-        backdrop-filter: blur(3px);
-        background: rgba(255, 255, 255, 0.92);
-      }
-
-      body.city-viator .city-result-main--viator {
-        display: grid;
-        gap: 0.52rem;
-        padding: 0.78rem 0.82rem 0.82rem;
-      }
-
-      body.city-viator .city-result-main--viator h3 a {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        font-size: 0.98rem;
-        font-weight: 800;
-        line-height: 1.3;
-        color: #0f172a;
-      }
-
-      body.city-viator .city-result-topline {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.4rem;
-      }
-
-      body.city-viator .city-result-chip {
-        border-radius: 999px;
-        background: #ecfdf5;
-        color: #065f46;
-        font-size: 0.65rem;
-        font-weight: 800;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        padding: 0.2rem 0.45rem;
-      }
-
-      body.city-viator .city-result-topline .city-result-rating {
-        font-size: 0.71rem;
-        font-weight: 700;
-        color: #64748b;
-      }
-
-      body.city-viator .city-result-main--viator .city-result-description {
-        font-size: 0.82rem;
-        line-height: 1.42;
-        color: #334155;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-
-      body.city-viator .city-result-coverage {
-        font-size: 0.74rem;
-        color: #475569;
-      }
-
-      body.city-viator .city-result-bottom--viator {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: 0.55rem;
-        border-top: 1px solid rgba(15, 23, 42, 0.08);
-        padding-top: 0.54rem;
-      }
-
-      body.city-viator .city-result-price-wrap {
-        display: grid;
-      }
-
-      body.city-viator .city-result-price-label {
-        font-size: 0.64rem;
-        font-weight: 800;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: #64748b;
-      }
-
-      body.city-viator .city-result-bottom--viator .city-result-price {
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 900;
-        color: #0f172a;
-      }
-
-      body.city-viator .city-result-cta--wide {
-        width: auto;
-        margin-top: 0;
-        white-space: nowrap;
-      }
-
-      body.city-viator .city-controls-form {
-        display: grid;
-        gap: 0.58rem;
-        border: 1px solid rgba(15, 23, 42, 0.12);
-        border-radius: 0.95rem;
-        background: #ffffff;
-        padding: 0.7rem;
-        margin-bottom: 0.72rem;
-      }
-
-      body.city-viator .city-control {
-        display: grid;
-        gap: 0.24rem;
-      }
-
-      body.city-viator .city-control label {
-        font-size: 0.66rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #64748b;
-      }
-
-      body.city-viator .city-control select {
-        width: 100%;
-        border: 1px solid rgba(15, 23, 42, 0.14);
-        border-radius: 0.65rem;
-        background: #ffffff;
-        color: #0f172a;
-        font-size: 0.82rem;
-        font-weight: 600;
-        padding: 0.56rem 0.62rem;
-      }
-
-      body.city-viator .city-control select:focus {
-        outline: none;
-        border-color: #0f766e;
-        box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
-      }
-
-      body.city-viator .city-controls-actions {
-        display: flex;
-        gap: 0.45rem;
-        align-items: end;
-      }
-
-      body.city-viator .city-controls-submit {
-        border: 1px solid #115e59;
-        border-radius: 0.62rem;
-        background: #115e59;
-        color: #ffffff;
-        font-size: 0.8rem;
-        font-weight: 800;
-        padding: 0.55rem 0.8rem;
-      }
-
-      body.city-viator .city-controls-submit:hover {
-        background: #0f766e;
-        border-color: #0f766e;
-      }
-
-      body.city-viator .city-reset-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid rgba(15, 23, 42, 0.14);
-        border-radius: 0.62rem;
-        background: #ffffff;
-        color: #334155;
-        font-size: 0.79rem;
-        font-weight: 700;
-        padding: 0.55rem 0.75rem;
-        text-decoration: none;
-      }
-
-      body.city-viator .city-reset-link:hover {
-        border-color: rgba(15, 23, 42, 0.26);
-      }
-
-      body.city-viator .city-controls-footer {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.55rem;
-        margin-bottom: 0.8rem;
-      }
-
-      body.city-viator .city-results-count {
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: #334155;
-      }
-
-      body.city-viator .city-results-note {
-        font-size: 0.74rem;
-        color: #64748b;
-      }
-
-      @media (min-width: 640px) {
-        body.city-viator .city-results-panel[data-view-mode="gallery"] .city-results-grid--viator {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      @media (min-width: 900px) {
-        body.city-viator .city-controls-form {
-          grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-          align-items: end;
-        }
-
-        body.city-viator .city-controls-actions {
-          justify-content: flex-end;
-        }
-      }
-
-      @media (min-width: 1024px) {
-        body.city-viator .city-results-panel[data-view-mode="gallery"] .city-results-grid--viator {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-      }
-    </style>
+@section('content')
     @php
       $isCountry = $mode === 'country';
       $isZone = $mode === 'zone';
@@ -385,8 +34,6 @@
       ])->filter()->count();
       $hasClientAuth = auth()->user()?->role === \App\Models\User::ROLE_CLIENT;
     @endphp
-
-    <div data-component="site-header"></div>
 
     <main class="city-hero">
       <section class="city-results-shell city-results-shell--viator pt-6 pb-10 md:pt-8">
@@ -486,10 +133,11 @@
                   $priceLabel = $profile->base_price
                     ? 'Desde $'.number_format((float) $profile->base_price, 0, ',', '.')
                     : 'Cotizacion directa';
+                  $isVip = $profile->hasPremiumMarketplaceBadge();
                 @endphp
 
                 <article
-                  class="city-result-card city-result-card--viator"
+                  class="city-result-card city-result-card--viator {{ $isVip ? 'city-result-card--vip' : '' }}"
                   data-favorite-id="city-{{ $profile->id }}"
                   data-compare-id="{{ $profile->id }}"
                   data-card-url="{{ $profileUrl }}"
@@ -499,6 +147,9 @@
                 >
                   <a href="{{ $profileUrl }}" class="city-result-media city-result-media--viator">
                     <img src="{{ $photoUrl }}" alt="{{ $profileName }}" class="h-full w-full object-cover" />
+                    @if($isVip)
+                      <span class="city-result-ribbon">{{ $profile->marketplaceBadgeLabel() }}</span>
+                    @endif
                     <span class="city-result-badge">{{ $profile->city_name ?: 'Colombia' }}</span>
                   </a>
 
@@ -864,10 +515,4 @@
         </div>
       </section>
     </main>
-
-    <div data-component="site-footer"></div>
-
-    @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v2"></script>
-  </body>
-</html>
+@endsection

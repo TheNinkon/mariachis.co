@@ -272,6 +272,28 @@ class MariachiListing extends Model
         return $this->mariachiProfile?->activeSubscription?->plan?->code;
     }
 
+    public function hasPremiumMarketplaceBadge(): bool
+    {
+        $planCode = $this->effectivePlanCode();
+
+        if (! filled($planCode)) {
+            return false;
+        }
+
+        $configured = config('monetization.plans.'.$planCode.'.has_premium_badge');
+
+        if (is_bool($configured)) {
+            return $configured;
+        }
+
+        return in_array((string) $planCode, ['premium', 'vip'], true);
+    }
+
+    public function marketplaceBadgeLabel(): ?string
+    {
+        return $this->hasPremiumMarketplaceBadge() ? 'VIP' : null;
+    }
+
     public function reviewStatusLabel(): string
     {
         return match ($this->review_status) {

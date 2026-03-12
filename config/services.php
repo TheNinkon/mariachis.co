@@ -39,4 +39,12 @@ return [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'trustpilot' => [
+        'profile_url' => env('TRUSTPILOT_PROFILE_URL', 'https://www.trustpilot.com/review/mariachis.co'),
+        'business_unit_id' => env('TRUSTPILOT_BUSINESS_UNIT_ID', '69b28501e5b9211cdbf13bc2'),
+        'display_name' => env('TRUSTPILOT_DISPLAY_NAME', 'Mariachis Colombia'),
+        'review_count' => (int) env('TRUSTPILOT_REVIEW_COUNT', 0),
+        'trust_score' => (float) env('TRUSTPILOT_TRUST_SCORE', 0),
+    ],
+
 ];

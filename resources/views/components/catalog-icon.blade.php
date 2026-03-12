@@ -1,6 +1,7 @@
 @props([
   'name' => null,
-  'class' => 'h-4 w-4',
+  'class' => '',
+  'size' => '1rem',
   'strokeWidth' => '1.8',
 ])
 
@@ -155,7 +156,21 @@
   $paths = $icons[$iconKey] ?? $icons['confetti'];
 @endphp
 
-<svg xmlns="http://www.w3.org/2000/svg" class="{{ $class }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{{ $strokeWidth }}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  class="{{ trim('catalog-icon '.$class) }}"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="{{ $strokeWidth }}"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+  width="{{ $size }}"
+  height="{{ $size }}"
+  style="width: {{ $size }}; height: {{ $size }}; min-width: {{ $size }}; min-height: {{ $size }}; flex: 0 0 {{ $size }}; display: inline-block; vertical-align: middle;"
+>
   @foreach($paths as $path)
     <path d="{{ $path[0] }}"></path>
   @endforeach

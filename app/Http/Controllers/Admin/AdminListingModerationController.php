@@ -24,6 +24,7 @@ class AdminListingModerationController extends Controller
                 'mariachiProfile.user:id,name,first_name,last_name,email',
                 'marketplaceCity:id,name',
                 'reviewedBy:id,name,first_name,last_name',
+                'photos:id,mariachi_listing_id,path,sort_order',
             ])
             ->withCount(['photos', 'videos', 'reviews', 'quoteConversations']);
 
@@ -77,6 +78,14 @@ class AdminListingModerationController extends Controller
             ->groupBy('review_status')
             ->pluck('total', 'review_status');
 
+        $listingMetrics = [
+            'pending' => (int) ($statusTotals[MariachiListing::REVIEW_PENDING] ?? 0),
+            'approved' => (int) ($statusTotals[MariachiListing::REVIEW_APPROVED] ?? 0),
+            'rejected' => (int) ($statusTotals[MariachiListing::REVIEW_REJECTED] ?? 0),
+            'live' => MariachiListing::query()->published()->count(),
+            'total' => MariachiListing::query()->count(),
+        ];
+
         $cities = MariachiListing::query()
             ->whereNotNull('city_name')
             ->where('city_name', '!=', '')
@@ -93,6 +102,7 @@ class AdminListingModerationController extends Controller
             'cities' => $cities,
             'statuses' => MariachiListing::REVIEW_STATUSES,
             'statusTotals' => $statusTotals,
+            'listingMetrics' => $listingMetrics,
         ]);
     }
 
@@ -112,8 +122,51 @@ class AdminListingModerationController extends Controller
             'reviewedBy:id,name,first_name,last_name',
         ])->loadCount(['quoteConversations', 'reviews']);
 
+        $activityTimeline = collect([
+            [
+                'title' => 'Anuncio creado',
+                'body' => 'El mariachi inicio la ficha base del anuncio en el panel.',
+                'meta' => 'Creacion inicial',
+                'at' => $listing->created_at,
+                'point' => 'primary',
+            ],
+            [
+                'title' => 'Enviado a revision',
+                'body' => 'El anuncio fue enviado al equipo admin para revisar contenido, media y catalogos.',
+                'meta' => 'Estado editorial: '.($listing->review_status ?: MariachiListing::REVIEW_DRAFT),
+                'at' => $listing->submitted_for_review_at,
+                'point' => 'warning',
+            ],
+            [
+                'title' => $listing->review_status === MariachiListing::REVIEW_REJECTED
+                    ? 'Revision rechazada'
+                    : 'Revision completada',
+                'body' => $listing->review_status === MariachiListing::REVIEW_REJECTED
+                    ? 'El anuncio fue devuelto al mariachi con ajustes pendientes antes de publicarse.'
+                    : 'El equipo admin reviso el anuncio y lo dejo listo para su siguiente etapa.',
+                'meta' => $listing->reviewedBy?->display_name ?: 'Revision admin',
+                'at' => $listing->reviewed_at,
+                'point' => $listing->review_status === MariachiListing::REVIEW_REJECTED ? 'danger' : 'success',
+            ],
+            [
+                'title' => 'Activado en el marketplace',
+                'body' => 'El anuncio ya puede aparecer en resultados y landings publicas.',
+                'meta' => 'Estado operativo: '.($listing->status ?: MariachiListing::STATUS_DRAFT),
+                'at' => $listing->activated_at,
+                'point' => 'info',
+            ],
+            [
+                'title' => 'Ultima actualizacion',
+                'body' => 'Ultimo cambio detectado en contenido, media o configuracion general del anuncio.',
+                'meta' => 'Completitud '.(int) $listing->listing_completion.'%',
+                'at' => $listing->updated_at,
+                'point' => 'secondary',
+            ],
+        ])->filter(fn (array $item): bool => filled($item['at']))->values();
+
         return view('content.admin.listings-show', [
             'listing' => $listing,
+            'activityTimeline' => $activityTimeline,
         ]);
     }
 

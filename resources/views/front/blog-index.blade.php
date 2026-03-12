@@ -1,27 +1,13 @@
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $seoTitle }} | Mariachis.co</title>
-    <meta name="description" content="{{ $seoDescription }}" />
-    <base href="{{ asset('marketplace') }}/" />
-    <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('marketplace/favicon-16.png') }}" />
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('marketplace/apple-touch-icon.png') }}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v1" />
-  </head>
-  <body data-page="home" class="font-sans text-slate-900 antialiased">
+@extends('front.layouts.marketplace')
+
+@section('title', $seoTitle . ' | Mariachis.co')
+@section('meta_description', $seoDescription)
+@section('body_page', 'blog-index')
+
+@section('content')
     @php
       $heroPrimary = $heroPosts->first();
     @endphp
-
-    <div data-component="site-header"></div>
 
     <main>
       <section class="hero-split-shell hero-split-shell--flush hero-split-shell--editorial">
@@ -101,9 +87,4 @@
         @endif
       </section>
     </main>
-
-    <div data-component="site-footer"></div>
-    @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v2"></script>
-  </body>
-</html>
+@endsection

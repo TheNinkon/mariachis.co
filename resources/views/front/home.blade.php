@@ -1,59 +1,10 @@
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mariachis.co | Marketplace de mariachis en Colombia</title>
-    <base href="{{ asset('marketplace') }}/" />
-    <meta name="description" content="Encuentra mariachis por ciudad, compara perfiles y contacta por WhatsApp o llamada." />
-    <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('marketplace/favicon-16.png') }}" />
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('marketplace/apple-touch-icon.png') }}" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              brand: {
-                50: "#f2fbf7",
-                100: "#d9efe7",
-                200: "#b8ded1",
-                300: "#8ec6b0",
-                400: "#4ea27f",
-                500: "#006847",
-                600: "#00563b",
-                700: "#00472f",
-                800: "#003422",
-                900: "#02261a",
-              },
-            },
-            fontFamily: {
-              sans: ["Plus Jakarta Sans", "sans-serif"],
-              display: ["Playfair Display", "serif"],
-            },
-            boxShadow: {
-              soft: "0 24px 48px -30px rgba(15, 23, 42, 0.42)",
-            },
-          },
-        },
-      };
-    </script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-brand-green-v4" />
-  </head>
-  <body data-page="home" class="font-sans text-slate-900 antialiased">
-    @php
-      $firstCity = $cityShowcase->first();
-      $countryLandingSlug = \Illuminate\Support\Str::slug(config('seo.default_country_name', 'Colombia'));
-      $searchCityOptions = collect($searchCities ?? [])->values();
-    @endphp
+@extends('front.layouts.marketplace')
 
-    <div data-component="site-header"></div>
+@section('title', 'Mariachis.co | Marketplace de mariachis en Colombia')
+@section('meta_description', 'Encuentra mariachis por ciudad, compara perfiles y contacta por WhatsApp o llamada.')
+@section('body_page', 'home')
 
+@section('content')
     <main>
       <section class="hero-split-shell hero-split-shell--flush hero-split-shell--home">
         <div class="hero-split-grid hero-split-grid--home">
@@ -74,112 +25,14 @@
         </div>
         <div class="hero-home-search-bridge">
           <div class="mx-auto w-full max-w-7xl px-4 md:px-8">
-            <form data-search-form data-default-landing-slug="{{ $countryLandingSlug }}" class="hero-search-form hero-search-form--immersive hero-search-form--home-split">
-              <div class="hero-search-grid hero-search-grid--immersive">
-                <label class="hero-search-field-wrap hero-search-field-wrap--event" data-event-menu>
-                  <span class="hero-search-icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="6.5"></circle><path stroke-linecap="round" stroke-linejoin="round" d="m16 16 5 5"></path></svg>
-                  </span>
-                  <input
-                    type="text"
-                    name="keyword"
-                    placeholder="Buscar por nombre o por categoría"
-                    class="hero-field hero-field--immersive"
-                    data-event-input
-                    autocomplete="off"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                  />
-                  <input type="hidden" name="cat" value="" data-event-cat />
-                  <input type="hidden" name="cat_type" value="" data-event-cat-type />
-                  <div class="event-mega-menu hidden" data-event-dropdown>
-                    <div class="event-mega-menu-col">
-                      <p class="event-mega-menu-title">Tipo de evento</p>
-                      @forelse($eventTypes as $item)
-                        <button type="button" class="event-mega-item" data-event-option data-cat="{{ $item->slug ?: \Illuminate\Support\Str::slug($item->name) }}" data-cat-type="event" data-label="{{ $item->name }}"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></button>
-                      @empty
-                        <span class="event-mega-item is-empty"><span>⏳</span><span>Sin eventos publicados aún</span></span>
-                      @endforelse
-                    </div>
-                    <div class="event-mega-menu-col">
-                      <p class="event-mega-menu-title">Tipo de servicio</p>
-                      @forelse($serviceTypes as $item)
-                        <button type="button" class="event-mega-item" data-event-option data-cat="{{ $item->slug ?: \Illuminate\Support\Str::slug($item->name) }}" data-cat-type="service" data-label="{{ $item->name }}"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></button>
-                      @empty
-                        <span class="event-mega-item is-empty"><span>⏳</span><span>Sin servicios publicados aún</span></span>
-                      @endforelse
-                    </div>
-                    <div class="event-mega-menu-col">
-                      <p class="event-mega-menu-title">Tamaño del grupo</p>
-                      @forelse($groupSizeOptions as $item)
-                        <button type="button" class="event-mega-item" data-event-option data-cat="{{ $item->slug ?: \Illuminate\Support\Str::slug($item->name) }}" data-cat-type="group" data-label="{{ $item->name }}"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></button>
-                      @empty
-                        <span class="event-mega-item is-empty"><span>⏳</span><span>Sin tamaños publicados aún</span></span>
-                      @endforelse
-                      <p class="event-mega-menu-title event-mega-menu-title--sub">Presupuesto</p>
-                      @forelse($budgetRanges as $item)
-                        <button type="button" class="event-mega-item" data-event-option data-cat="{{ $item->slug ?: \Illuminate\Support\Str::slug($item->name) }}" data-cat-type="budget" data-label="{{ $item->name }}"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></button>
-                      @empty
-                        <span class="event-mega-item is-empty"><span>⏳</span><span>Sin rangos publicados aún</span></span>
-                      @endforelse
-                    </div>
-                  </div>
-                </label>
-                <label class="hero-search-field-wrap hero-search-field-wrap--city" data-city-menu>
-                  <span class="hero-search-inline-prefix">en</span>
-                  <input
-                    type="text"
-                    name="city"
-                    placeholder="Dónde"
-                    class="hero-field hero-field--immersive"
-                    data-city-input-menu
-                    autocomplete="off"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                  />
-                  <input type="hidden" name="zone" value="" data-city-zone />
-                  <div class="city-dropdown-menu hidden" data-city-dropdown>
-                    <div class="city-dropdown-tabs" role="tablist" aria-label="Ciudades disponibles">
-                      <button type="button" class="city-dropdown-tab active" data-city-tab="provincia" role="tab" aria-selected="true">Provincia</button>
-                      <button type="button" class="city-dropdown-tab" data-city-tab="internacional" role="tab" aria-selected="false">Internacional</button>
-                    </div>
-                    <div class="city-dropdown-panel active" data-city-panel="provincia" role="tabpanel">
-                      @forelse($searchCityOptions as $city)
-                        <div class="city-dropdown-tree">
-                          <button type="button" class="city-dropdown-item city-dropdown-item--city" data-city-option data-city-value="{{ $city['name'] }}" data-city-option-slug="{{ $city['slug'] }}" data-zone-slug="">
-                            <span>{{ $city['name'] }} <small>({{ $city['count'] }})</small></span>
-                            @if($city['zones']->isNotEmpty())
-                              <span class="city-dropdown-arrow" data-city-expand-arrow aria-hidden="true">▾</span>
-                            @endif
-                          </button>
-
-                          @if($city['zones']->isNotEmpty())
-                            <div class="city-dropdown-children hidden" data-city-children>
-                              <button type="button" class="city-dropdown-item city-dropdown-item--zone city-dropdown-item--zone-all" data-city-option data-city-value="{{ $city['name'] }}" data-city-option-slug="{{ $city['slug'] }}" data-zone-slug="" data-zone-label="Toda la zona">
-                                Toda la zona
-                              </button>
-                              @foreach($city['zones'] as $zone)
-                                <button type="button" class="city-dropdown-item city-dropdown-item--zone" data-city-option data-city-value="{{ $city['name'] }}" data-city-option-slug="{{ $city['slug'] }}" data-zone-slug="{{ $zone['slug'] }}" data-zone-label="{{ $zone['name'] }}">
-                                  {{ $zone['name'] }} <small>({{ $zone['count'] }})</small>
-                                </button>
-                              @endforeach
-                            </div>
-                          @endif
-                        </div>
-                      @empty
-                        <span class="city-dropdown-item is-empty">Aún no hay ciudades publicadas.</span>
-                      @endforelse
-                    </div>
-                    <div class="city-dropdown-panel" data-city-panel="internacional" role="tabpanel">
-                      <span class="city-dropdown-item is-empty">Próximamente zonas internacionales.</span>
-                    </div>
-                  </div>
-                </label>
-                <div class="hero-search-submit-wrap">
-                  <button type="submit" class="hero-search-btn hero-search-btn--immersive" aria-label="Buscar mariachis">Buscar</button>
-                </div>
-              </div>
-            </form>
+            @include('front.partials.search-form', [
+              'eventTypes' => $eventTypes,
+              'serviceTypes' => $serviceTypes,
+              'groupSizeOptions' => $groupSizeOptions,
+              'budgetRanges' => $budgetRanges,
+              'searchCityOptions' => $searchCityOptions,
+              'countryLandingSlug' => $countryLandingSlug,
+            ])
           </div>
         </div>
       </section>
@@ -262,7 +115,7 @@
         <div class="featured-carousel-shell" data-featured-carousel-shell data-reveal>
           <div class="featured-carousel-track" data-featured-carousel>
             @forelse($featuredProfiles as $profile)
-                  @php
+              @php
                 $tags = collect()
                   ->merge($profile->eventTypes->pluck('name')->map(fn ($name) => \Illuminate\Support\Str::slug($name)))
                   ->merge($profile->serviceTypes->pluck('name')->map(fn ($name) => \Illuminate\Support\Str::slug($name)))
@@ -276,6 +129,7 @@
                 $name = $profile->business_name ?: $profile->user?->display_name;
                 $city = $profile->city_name ?: 'Ciudad no definida';
                 $detailUrl = $profile->slug ? route('mariachi.public.show', ['slug' => $profile->slug]) : route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city)]);
+                $isVip = $profile->hasPremiumMarketplaceBadge();
               @endphp
 
               <article
@@ -286,10 +140,13 @@
                 role="link"
                 tabindex="0"
                 aria-label="Abrir anuncio de {{ $name }}"
-                class="featured-promo-card"
+                class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
               >
                 <a href="{{ $detailUrl }}" class="featured-promo-media">
                   <img src="{{ $photoUrl }}" alt="{{ $name }}" />
+                  @if($isVip)
+                    <span class="featured-promo-ribbon">{{ $profile->marketplaceBadgeLabel() }}</span>
+                  @endif
                   <span class="featured-promo-chip">Perfil completo</span>
                   <span class="featured-promo-score">{{ $profile->profile_completion }}%</span>
                 </a>
@@ -396,16 +253,20 @@
                         $photoUrl = $featuredPhoto ? asset('storage/'.$featuredPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
                         $name = $profile->business_name ?: $profile->user?->display_name;
                         $detailUrl = $profile->slug ? route('mariachi.public.show', ['slug' => $profile->slug]) : route('seo.landing.slug', ['slug' => $city['slug']]);
+                        $isVip = $profile->hasPremiumMarketplaceBadge();
                       @endphp
                       <article
                         data-card-url="{{ $detailUrl }}"
                         role="link"
                         tabindex="0"
                         aria-label="Abrir anuncio de {{ $name }}"
-                        class="featured-promo-card"
+                        class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
                       >
                         <a href="{{ $detailUrl }}" class="featured-promo-media">
                           <img src="{{ $photoUrl }}" alt="{{ $name }}" />
+                          @if($isVip)
+                            <span class="featured-promo-ribbon">{{ $profile->marketplaceBadgeLabel() }}</span>
+                          @endif
                           <span class="featured-promo-chip">{{ $city['city'] }}</span>
                           <span class="featured-promo-score">{{ $profile->profile_completion }}%</span>
                         </a>
@@ -544,11 +405,68 @@
           </div>
         </div>
       </section>
+
+      <section class="layout-shell home-trustpilot-shell pb-16">
+        @php
+          $trustpilotReviewCount = (int) ($trustpilot['review_count'] ?? 0);
+          $trustpilotScore = (float) ($trustpilot['trust_score'] ?? 0);
+          $trustpilotReviews = collect($trustpilotReviews ?? [])->values();
+        @endphp
+        <div @class(['trustpilot-home', 'trustpilot-home--with-reviews' => $trustpilotReviews->isNotEmpty()]) data-reveal>
+          <div class="trustpilot-home__summary" aria-label="Resumen de Trustpilot">
+            <div class="trustpilot-home__brand">
+              <span class="trustpilot-home__brand-mark" aria-hidden="true">★</span>
+              <span class="trustpilot-home__brand-name">Trustpilot</span>
+            </div>
+
+            <div class="trustpilot-home__score">
+              <strong>{{ number_format($trustpilotScore, 1) }}</strong>
+              <span>de 5</span>
+            </div>
+
+            <div class="trustpilot-home__stars" aria-hidden="true">
+              @for ($i = 0; $i < 5; $i++)
+                <span class="trustpilot-home__star {{ $i < (int) floor($trustpilotScore) ? 'is-filled' : '' }}">★</span>
+              @endfor
+            </div>
+
+            <p class="trustpilot-home__reviews">
+              {{ number_format($trustpilotReviewCount) }} opinion(es) públicas por ahora
+            </p>
+
+            <div class="trustpilot-home__actions">
+              <a href="{{ $trustpilot['profile_url'] }}" target="_blank" rel="noopener" class="trustpilot-home__primary">
+                Ver perfil en Trustpilot
+              </a>
+            </div>
+          </div>
+
+          @if($trustpilotReviews->isNotEmpty())
+            <div class="trustpilot-home__showcase" aria-label="Opiniones recientes de Trustpilot">
+              @foreach($trustpilotReviews as $review)
+              <article class="trustpilot-home__quote">
+                @if(filled($review['published_label'] ?? ''))
+                  <p class="trustpilot-home__quote-time">{{ $review['published_label'] }}</p>
+                @endif
+                <div class="trustpilot-home__quote-stars" aria-hidden="true">
+                  @for ($i = 0; $i < 5; $i++)
+                    <span class="trustpilot-home__quote-star {{ $i < (int) ($review['stars'] ?? 0) ? 'is-filled' : '' }}">★</span>
+                  @endfor
+                </div>
+                @if(filled($review['title'] ?? ''))
+                  <h3 class="trustpilot-home__quote-title">{{ $review['title'] }}</h3>
+                @endif
+                @if(filled($review['excerpt'] ?? ''))
+                  <p class="trustpilot-home__quote-body">{{ \Illuminate\Support\Str::limit($review['excerpt'], 150) }}</p>
+                @endif
+                @if(filled($review['author'] ?? ''))
+                  <p class="trustpilot-home__quote-author">{{ $review['author'] }}</p>
+                @endif
+              </article>
+              @endforeach
+            </div>
+          @endif
+        </div>
+      </section>
     </main>
-
-    <div data-component="site-footer"></div>
-
-    @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v2"></script>
-  </body>
-</html>
+@endsection

@@ -1,9 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Front;
+namespace App\Services\Front;
 
-use App\Http\Controllers\Controller;
-use App\Models\BlogPost;
 use App\Models\BudgetRange;
 use App\Models\EventType;
 use App\Models\GroupSizeOption;
@@ -11,14 +9,12 @@ use App\Models\MariachiListing;
 use App\Models\MarketplaceCity;
 use App\Models\MarketplaceZone;
 use App\Models\ServiceType;
-use App\Services\Front\SearchFormData;
-use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
 
-class HomeController extends Controller
+class SearchFormData
 {
     /**
      * @var array<string, string>
@@ -32,113 +28,119 @@ class HomeController extends Controller
         'usaquen' => 'Usaquén',
     ];
 
-    public function __invoke(SearchFormData $searchFormData): View
+    /**
+     * @param  Collection<int, MariachiListing>  $publishedProfiles
+     * @param  Collection<int, array{
+     *   city:string,
+     *   slug:string,
+     *   count:int,
+     *   profiles:Collection<int, MariachiListing>
+     * }>|null  $cityShowcase
+     * @return array{
+     *   eventTypes:\Illuminate\Support\Collection,
+     *   serviceTypes:\Illuminate\Support\Collection,
+     *   groupSizeOptions:\Illuminate\Support\Collection,
+     *   budgetRanges:\Illuminate\Support\Collection,
+     *   searchCityOptions:Collection<int, array{
+     *     id:int,
+     *     name:string,
+     *     slug:string,
+     *     count:int,
+     *     sort_order:int,
+     *     zones:Collection<int, array{id:int,name:string,slug:string,count:int,sort_order:int}>
+     *   }>,
+     *   countryLandingSlug:string
+     * }
+     */
+    public function forPublishedProfiles(Collection $publishedProfiles, ?Collection $cityShowcase = null): array
     {
-        $publishedProfiles = MariachiListing::query()
-            ->with([
-                'mariachiProfile.user:id,name,first_name,last_name,status,role',
-                'marketplaceCity:id,name,slug,is_active,show_in_search,sort_order',
-                'photos',
-                'serviceAreas.marketplaceZone:id,marketplace_city_id,name,slug,is_active,show_in_search,sort_order',
-                'serviceAreas.marketplaceZone.city:id,name,slug,is_active,show_in_search,sort_order',
-                'eventTypes:id,name',
-                'serviceTypes:id,name',
-                'budgetRanges:id,name',
-            ])
-            ->published()
-            ->latest('updated_at')
-            ->get();
+        $publishedFilter = fn (Builder $query): Builder => $query->published();
 
-        $zones = $this->buildZones($publishedProfiles);
-        $featuredProfiles = $publishedProfiles->take(8)->values();
-        $cityShowcase = $this->buildCityShowcase($publishedProfiles);
-        $searchFormPayload = $searchFormData->forPublishedProfiles($publishedProfiles, $cityShowcase);
+        $searchCityOptions = $this->buildSearchLocationTree($publishedProfiles);
+        $resolvedCityShowcase = $cityShowcase ?? $this->buildCityShowcase($publishedProfiles);
 
-        $featuredTags = $this->buildFeaturedTags($featuredProfiles);
+        if ($searchCityOptions->isEmpty()) {
+            $searchCityOptions = $this->buildSearchLocationFallback($resolvedCityShowcase);
+        }
 
-        $popularCities = $cityShowcase->take(12)->map(fn (array $city): array => [
-            'name' => $city['city'],
-            'slug' => Str::slug($city['city']),
-        ]);
-
-        $popularEvents = EventType::query()
-            ->where('is_active', true)
-            ->withCount(['mariachiListings as active_profiles_count' => function ($query): void {
-                $query->published();
-            }])
-            ->orderByDesc('active_profiles_count')
-            ->orderBy('name')
-            ->take(10)
-            ->get(['id', 'name']);
-
-        $popularBudgetRanges = BudgetRange::query()
-            ->where('is_active', true)
-            ->withCount(['mariachiListings as active_profiles_count' => function ($query): void {
-                $query->published();
-            }])
-            ->orderByDesc('active_profiles_count')
-            ->orderBy('name')
-            ->take(10)
-            ->get(['id', 'name']);
-
-        $latestBlogPosts = BlogPost::query()
-            ->with([
-                'eventTypes:id,name',
-                'cities:id,name',
-                'zones:id,name,blog_city_id',
-            ])
-            ->published()
-            ->latest('published_at')
-            ->latest('id')
-            ->take(3)
-            ->get();
-
-        $trustpilot = (array) config('services.trustpilot', []);
-        $trustpilotReviews = collect($trustpilot['reviews'] ?? [])
-            ->map(function ($review): ?array {
-                if (! is_array($review)) {
-                    return null;
-                }
-
-                $stars = (int) ($review['stars'] ?? $review['rating'] ?? 0);
-                if (! in_array($stars, [4, 5], true)) {
-                    return null;
-                }
-
-                $publishedAt = $review['published_at'] ?? $review['created_at'] ?? null;
-                $publishedDate = $publishedAt ? CarbonImmutable::parse($publishedAt) : null;
-
-                return [
-                    'stars' => $stars,
-                    'title' => trim((string) ($review['title'] ?? $review['headline'] ?? '')),
-                    'excerpt' => trim((string) ($review['excerpt'] ?? $review['text'] ?? $review['body'] ?? '')),
-                    'author' => trim((string) ($review['author'] ?? $review['consumer_name'] ?? '')),
-                    'published_at' => $publishedDate?->timestamp ?? 0,
-                    'published_label' => $publishedDate?->diffForHumans() ?? '',
-                ];
-            })
-            ->filter()
-            ->sortByDesc('published_at')
-            ->take(3)
-            ->values();
-
-        return view('front.home', [
-            'zones' => $zones,
-            'featuredProfiles' => $featuredProfiles,
-            'featuredTags' => $featuredTags,
-            'cityShowcase' => $cityShowcase,
-            'popularCities' => $popularCities,
-            'popularEvents' => $popularEvents,
-            'popularBudgetRanges' => $popularBudgetRanges,
-            'latestBlogPosts' => $latestBlogPosts,
-            'publishedProfilesCount' => $publishedProfiles->count(),
-            'trustpilot' => $trustpilot,
-            'trustpilotReviews' => $trustpilotReviews,
-            ...$searchFormPayload,
-        ]);
+        return [
+            'eventTypes' => $this->catalogOptionsQuery(EventType::query(), 'event_types', $publishedFilter)->get(
+                $this->catalogColumns('event_types')
+            ),
+            'serviceTypes' => $this->catalogOptionsQuery(ServiceType::query(), 'service_types', $publishedFilter)->get(
+                $this->catalogColumns('service_types')
+            ),
+            'groupSizeOptions' => $this->catalogOptionsQuery(GroupSizeOption::query(), 'group_size_options', $publishedFilter)->get(
+                $this->catalogColumns('group_size_options')
+            ),
+            'budgetRanges' => $this->catalogOptionsQuery(BudgetRange::query(), 'budget_ranges', $publishedFilter)->get(
+                $this->catalogColumns('budget_ranges')
+            ),
+            'searchCityOptions' => $searchCityOptions->values(),
+            'countryLandingSlug' => Str::slug(config('seo.default_country_name', 'Colombia')),
+        ];
     }
 
     /**
+     * @return array{
+     *   eventTypes:\Illuminate\Support\Collection,
+     *   serviceTypes:\Illuminate\Support\Collection,
+     *   groupSizeOptions:\Illuminate\Support\Collection,
+     *   budgetRanges:\Illuminate\Support\Collection,
+     *   searchCityOptions:Collection<int, array{
+     *     id:int,
+     *     name:string,
+     *     slug:string,
+     *     count:int,
+     *     sort_order:int,
+     *     zones:Collection<int, array{id:int,name:string,slug:string,count:int,sort_order:int}>
+     *   }>,
+     *   countryLandingSlug:string,
+     *   cityLinks:Collection<int, array{
+     *     id:int,
+     *     name:string,
+     *     slug:string,
+     *     count:int,
+     *     sort_order:int,
+     *     zones:Collection<int, array{id:int,name:string,slug:string,count:int,sort_order:int}>
+     *   }>
+     * }
+     */
+    public function forFallback(): array
+    {
+        $publishedProfiles = $this->publishedListingsForSearch();
+        $cityShowcase = $this->buildCityShowcase($publishedProfiles);
+        $payload = $this->forPublishedProfiles($publishedProfiles, $cityShowcase);
+
+        return [
+            ...$payload,
+            'cityLinks' => $payload['searchCityOptions']->take(12)->values(),
+        ];
+    }
+
+    /**
+     * @return Collection<int, MariachiListing>
+     */
+    private function publishedListingsForSearch(): Collection
+    {
+        return MariachiListing::query()
+            ->with([
+                'marketplaceCity:id,name,slug,is_active,show_in_search,sort_order',
+                'serviceAreas.marketplaceZone:id,marketplace_city_id,name,slug,is_active,show_in_search,sort_order',
+                'serviceAreas.marketplaceZone.city:id,name,slug,is_active,show_in_search,sort_order',
+            ])
+            ->published()
+            ->latest('updated_at')
+            ->get([
+                'id',
+                'city_name',
+                'marketplace_city_id',
+                'updated_at',
+            ]);
+    }
+
+    /**
+     * @param  Collection<int, MariachiListing>  $profiles
      * @return Collection<int, array{
      *   id:int,
      *   name:string,
@@ -174,10 +176,6 @@ class HomeController extends Controller
         $cities = [];
 
         foreach ($profiles as $profile) {
-            if (! $profile instanceof MariachiListing) {
-                continue;
-            }
-
             $profileId = (int) $profile->id;
             $primaryCitySlug = '';
 
@@ -258,6 +256,7 @@ class HomeController extends Controller
                     }
 
                     $cities[$zoneCitySlug]['zones'][$zoneSlug]['profile_ids'][$profileId] = true;
+
                     continue;
                 }
 
@@ -288,23 +287,21 @@ class HomeController extends Controller
         return collect($cities)
             ->map(function (array $city): array {
                 $zones = collect($city['zones'])
-                    ->map(function (array $zone): array {
-                        return [
-                            'id' => (int) $zone['id'],
-                            'name' => $zone['name'],
-                            'slug' => $zone['slug'],
-                            'sort_order' => (int) $zone['sort_order'],
-                            'count' => count($zone['profile_ids']),
-                        ];
-                    })
+                    ->map(fn (array $zone): array => [
+                        'id' => (int) $zone['id'],
+                        'name' => $zone['name'],
+                        'slug' => $zone['slug'],
+                        'count' => count($zone['profile_ids']),
+                        'sort_order' => (int) $zone['sort_order'],
+                    ])
                     ->filter(fn (array $zone): bool => $zone['count'] > 0)
                     ->sortBy(fn (array $zone): string => str_pad((string) $zone['sort_order'], 8, '0', STR_PAD_LEFT).'|'.$zone['name'])
                     ->values();
 
                 return [
                     'id' => (int) $city['id'],
-                    'name' => $city['name'],
-                    'slug' => $city['slug'],
+                    'name' => (string) $city['name'],
+                    'slug' => (string) $city['slug'],
                     'count' => count($city['profile_ids']),
                     'sort_order' => (int) $city['sort_order'],
                     'zones' => $zones,
@@ -316,6 +313,12 @@ class HomeController extends Controller
     }
 
     /**
+     * @param  Collection<int, array{
+     *   city:string,
+     *   slug:string,
+     *   count:int,
+     *   profiles:Collection<int, MariachiListing>
+     * }>  $cityShowcase
      * @return Collection<int, array{
      *   id:int,
      *   name:string,
@@ -386,72 +389,10 @@ class HomeController extends Controller
         $cities[$cityKey]['sort_order'] = min((int) $cities[$cityKey]['sort_order'], $sortOrder);
     }
 
-    private function buildZones(Collection $profiles): Collection
-    {
-        $zones = [];
-
-        foreach ($profiles as $profile) {
-            if (! $profile instanceof MariachiListing) {
-                continue;
-            }
-
-            foreach ($profile->serviceAreas as $serviceArea) {
-                $zone = $serviceArea->marketplaceZone;
-
-                if (! $zone || ! $zone->is_active || ! $zone->show_in_search) {
-                    continue;
-                }
-
-                $zoneId = (int) $zone->id;
-
-                if (! isset($zones[$zoneId])) {
-                    $cityName = $this->normalizeLocationLabel((string) ($zone->city?->name ?: $profile->city_name));
-                    $citySlug = $this->normalizeLocationSlug((string) ($zone->city?->slug ?: $cityName));
-                    $zones[$zoneId] = [
-                        'id' => $zoneId,
-                        'name' => $this->normalizeLocationLabel((string) $zone->name),
-                        'slug' => $this->normalizeLocationSlug((string) ($zone->slug ?: $zone->name)),
-                        'city_name' => $cityName,
-                        'city_slug' => $citySlug,
-                        'sort_order' => (int) ($zone->sort_order ?? 0),
-                        'cover_path' => null,
-                        'profile_ids' => [],
-                    ];
-                }
-
-                if (! $zones[$zoneId]['cover_path']) {
-                    $zonePhoto = $profile->photos->firstWhere('is_featured', true) ?? $profile->photos->first();
-                    if ($zonePhoto && filled($zonePhoto->path)) {
-                        $zones[$zoneId]['cover_path'] = (string) $zonePhoto->path;
-                    }
-                }
-
-                $zones[$zoneId]['profile_ids'][(int) $profile->id] = true;
-            }
-        }
-
-        return collect($zones)
-            ->map(function (array $zone): array {
-                return [
-                    'name' => $zone['name'],
-                    'slug' => $zone['slug'],
-                    'city_name' => $zone['city_name'],
-                    'city_slug' => $zone['city_slug'],
-                    'sort_order' => $zone['sort_order'],
-                    'cover_url' => $zone['cover_path'] ? asset('storage/'.$zone['cover_path']) : null,
-                    'count' => count($zone['profile_ids']),
-                ];
-            })
-            ->filter(fn (array $zone): bool => $zone['count'] > 0)
-            ->sortBy(fn (array $zone): string => str_pad((string) $zone['sort_order'], 8, '0', STR_PAD_LEFT).'|'.$zone['name'])
-            ->values()
-            ->take(8);
-    }
-
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      */
-    private function catalogOptionsQuery($query, string $table, callable $publishedFilter)
+    private function catalogOptionsQuery($query, string $table, callable $publishedFilter): Builder
     {
         $query
             ->where('is_active', true)
@@ -486,12 +427,21 @@ class HomeController extends Controller
         return $columns;
     }
 
+    /**
+     * @param  Collection<int, MariachiListing>  $profiles
+     * @return Collection<int, array{
+     *   city:string,
+     *   slug:string,
+     *   count:int,
+     *   profiles:Collection<int, MariachiListing>
+     * }>
+     */
     private function buildCityShowcase(Collection $profiles): Collection
     {
         $cities = [];
 
         foreach ($profiles as $profile) {
-            if (! $profile instanceof MariachiListing || ! filled($profile->city_name)) {
+            if (! filled($profile->city_name)) {
                 continue;
             }
 
@@ -550,26 +500,5 @@ class HomeController extends Controller
     private function normalizeLocationSlug(string $value): string
     {
         return Str::slug((string) Str::of($value)->squish());
-    }
-
-    private function buildFeaturedTags(Collection $profiles): Collection
-    {
-        return $profiles
-            ->flatMap(function (MariachiListing $profile): Collection {
-                return collect()
-                    ->merge($profile->eventTypes->pluck('name'))
-                    ->merge($profile->serviceTypes->pluck('name'))
-                    ->merge($profile->budgetRanges->pluck('name'));
-            })
-            ->filter()
-            ->countBy()
-            ->sortDesc()
-            ->keys()
-            ->take(6)
-            ->map(fn (string $label): array => [
-                'label' => $label,
-                'slug' => Str::slug($label),
-            ])
-            ->values();
     }
 }

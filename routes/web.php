@@ -42,6 +42,7 @@ use App\Http\Controllers\Mariachi\MariachiProviderProfileController;
 use App\Http\Controllers\Mariachi\MariachiQuoteConversationController;
 use App\Http\Controllers\Mariachi\MariachiReviewController;
 use App\Http\Controllers\Mariachi\MariachiVerificationController;
+use App\Services\Front\SearchFormData;
 
 $seoReservedPattern = collect(config('seo.reserved_slugs', []))
     ->map(static fn (string $slug): string => preg_quote($slug, '/'))
@@ -270,3 +271,9 @@ Route::post('/mariachi/{slug}/solicitar-presupuesto', [QuoteRequestController::c
 Route::post('/solicitudes-info/{slug}', [ListingInfoRequestController::class, 'store'])->name('listing.info-requests.store');
 
 Route::get('/lang/{locale}', [LanguageController::class, 'swap']);
+
+Route::fallback(function (SearchFormData $searchFormData) {
+    $payload = $searchFormData->forFallback();
+
+    return response()->view('front.errors.404', $payload, 404);
+});

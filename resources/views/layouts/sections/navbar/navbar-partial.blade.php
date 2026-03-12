@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 $authUser = Auth::user();
 $userAvatar = asset('assets/img/avatars/1.png');
+$useIconAvatar = false;
+$iconAvatarClass = 'icon-base ti tabler-user icon-md';
+$iconAvatarTone = 'bg-label-primary';
 $accountHeaderUrl = 'javascript:void(0);';
 $primaryAction = null;
 $secondaryAction = null;
@@ -41,6 +44,9 @@ if ($authUser?->isMariachi()) {
     'label' => 'Solicitudes',
   ];
 } elseif ($authUser?->isAdmin()) {
+  $useIconAvatar = true;
+  $iconAvatarClass = 'icon-base ti tabler-shield-star icon-md';
+  $iconAvatarTone = 'bg-label-success';
   $accountHeaderUrl = Route::has('admin.dashboard') ? route('admin.dashboard') : url('/admin');
   $primaryAction = [
     'url' => $accountHeaderUrl,
@@ -144,7 +150,13 @@ if ($authUser?->isMariachi()) {
     <li class="nav-item navbar-dropdown dropdown-user dropdown">
       <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
         <div class="avatar avatar-online">
-          <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+          @if ($useIconAvatar)
+            <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">
+              <i class="{{ $iconAvatarClass }}"></i>
+            </span>
+          @else
+            <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+          @endif
         </div>
       </a>
       <ul class="dropdown-menu dropdown-menu-end">
@@ -153,7 +165,13 @@ if ($authUser?->isMariachi()) {
             <div class="d-flex align-items-center">
               <div class="flex-shrink-0 me-2">
                 <div class="avatar avatar-online">
-                  <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+                  @if ($useIconAvatar)
+                    <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">
+                      <i class="{{ $iconAvatarClass }}"></i>
+                    </span>
+                  @else
+                    <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+                  @endif
                 </div>
               </div>
               <div class="flex-grow-1">

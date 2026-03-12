@@ -2,6 +2,34 @@
 
 @section('title', 'Mis anuncios')
 
+@section('page-style')
+  <style>
+    .listing-vip-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .listing-vip-ribbon {
+      position: absolute;
+      top: 1rem;
+      right: -2.25rem;
+      z-index: 2;
+      width: 8rem;
+      transform: rotate(45deg);
+      background: linear-gradient(135deg, #ff6b7c 0%, #d92f58 100%);
+      color: #fff;
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 0.3rem 0;
+      box-shadow: 0 14px 28px -18px rgba(217, 47, 88, 0.85);
+      pointer-events: none;
+    }
+  </style>
+@endsection
+
 @section('content')
   @php
     $reviewMap = [
@@ -71,9 +99,13 @@
               $canSubmit = $listing->canBeSubmittedForReview();
               $submitLabel = $listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED ? 'Reenviar a revisión' : 'Enviar a revisión';
               $currentListingIssues = $listingIssues->get($listing->id, []);
+              $isVip = $listing->hasPremiumMarketplaceBadge();
             @endphp
             <div class="col-md-6 col-xl-4">
-              <div class="border rounded p-3 h-100 d-flex flex-column">
+              <div class="border rounded p-3 h-100 d-flex flex-column {{ $isVip ? 'listing-vip-card' : '' }}">
+                @if($isVip)
+                  <span class="listing-vip-ribbon">{{ $listing->marketplaceBadgeLabel() }}</span>
+                @endif
                 @if($photo)
                   <img src="{{ asset('storage/'.$photo->path) }}" alt="{{ $listing->title }}" class="img-fluid rounded mb-3" style="height:160px;object-fit:cover;">
                 @endif

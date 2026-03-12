@@ -645,10 +645,14 @@
                         $relatedPhoto = $related->photos->firstWhere('is_featured', true) ?? $related->photos->first();
                         $relatedPhotoUrl = $relatedPhoto ? asset('storage/'.$relatedPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
                         $relatedName = $related->business_name ?: $related->user?->display_name;
+                        $isVip = $related->hasPremiumMarketplaceBadge();
                       @endphp
-                      <article class="featured-promo-card">
+                      <article class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}">
                         <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $related->slug]) }}">
                           <img src="{{ $relatedPhotoUrl }}" alt="{{ $relatedName }}" loading="lazy" />
+                          @if($isVip)
+                            <span class="featured-promo-ribbon">{{ $related->marketplaceBadgeLabel() }}</span>
+                          @endif
                           <span class="featured-promo-chip">{{ $related->city_name }}</span>
                           <span class="featured-promo-score">{{ $related->profile_completion }}%</span>
                         </a>
@@ -721,10 +725,14 @@
                         $recentPhoto = $recentListing->photos->firstWhere('is_featured', true) ?? $recentListing->photos->first();
                         $recentPhotoUrl = $recentPhoto ? asset('storage/'.$recentPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
                         $recentName = $recentListing->business_name ?: $recentListing->user?->display_name;
+                        $isVip = $recentListing->hasPremiumMarketplaceBadge();
                       @endphp
-                      <article class="featured-promo-card">
+                      <article class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}">
                         <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $recentListing->slug]) }}">
                           <img src="{{ $recentPhotoUrl }}" alt="{{ $recentName }}" loading="lazy" />
+                          @if($isVip)
+                            <span class="featured-promo-ribbon">{{ $recentListing->marketplaceBadgeLabel() }}</span>
+                          @endif
                           <span class="featured-promo-chip">{{ $recentListing->city_name }}</span>
                           <span class="featured-promo-score">{{ $recentListing->profile_completion }}%</span>
                         </a>
