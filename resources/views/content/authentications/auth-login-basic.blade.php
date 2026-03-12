@@ -36,8 +36,7 @@ $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y sol
         <div class="card-body">
           <div class="app-brand justify-content-center mb-6">
             <a href="{{ route('home') }}" class="app-brand-link">
-              <span class="app-brand-logo demo">@include('_partials.macros')</span>
-              <span class="app-brand-text demo text-heading fw-bold">{{ config('variables.templateName') }}</span>
+              <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 42px; width: auto;" />
             </a>
           </div>
 
@@ -92,7 +91,7 @@ $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y sol
           @if ($portal === 'mariachi')
             <p class="text-center mb-0">
               <span>Mariachi nuevo?</span>
-              <a href="{{ route('register') }}"><span>Crear cuenta</span></a>
+              <a href="{{ route('mariachi.register') }}"><span>Crear cuenta</span></a>
             </p>
           @endif
         </div>

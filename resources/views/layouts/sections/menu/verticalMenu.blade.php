@@ -1,6 +1,11 @@
 @php
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 $configData = Helper::appClasses();
+$showWordmarkBrand = (Auth::user()?->isMariachi() ?? false) || request()->routeIs('mariachi.*');
+$brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
+  ? route('mariachi.metrics')
+  : url('/');
 @endphp
 
 <aside id="layout-menu" class="layout-menu menu-vertical menu" @foreach ($configData['menuAttributes'] as $attribute=>
@@ -10,9 +15,13 @@ $configData = Helper::appClasses();
   <!-- ! Hide app brand if navbar-full -->
   @if (!isset($navbarFull))
   <div class="app-brand demo">
-    <a href="{{ url('/') }}" class="app-brand-link">
+    <a href="{{ $brandUrl }}" class="app-brand-link">
+      @if ($showWordmarkBrand)
+      <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 34px; width: auto;" />
+      @else
       <span class="app-brand-logo demo">@include('_partials.macros')</span>
       <span class="app-brand-text demo menu-text fw-bold ms-3">{{ config('variables.templateName') }}</span>
+      @endif
     </a>
 
     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">

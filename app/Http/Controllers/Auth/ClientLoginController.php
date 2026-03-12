@@ -95,6 +95,8 @@ class ClientLoginController extends Controller
         return view('front.auth.client-login-options', [
             'email' => $email,
             'canUsePassword' => $matchedUser?->isClient() === true && $this->userHasPasswordAccess($matchedUser),
+            'showPasswordOption' => $matchedUser === null
+                || ($matchedUser->isClient() && $matchedUser->status === User::STATUS_ACTIVE),
             'magicLinkSent' => $magicLinkSent,
             'magicLinkTtlMinutes' => self::MAGIC_LINK_TTL_MINUTES,
             'magicLinkResendCooldownSeconds' => self::MAGIC_LINK_RESEND_COOLDOWN_SECONDS,
@@ -112,16 +114,17 @@ class ClientLoginController extends Controller
 
         $matchedUser = $this->findUserByEmail($email);
 
-        if (! $matchedUser || ! $matchedUser->isClient() || $matchedUser->status !== User::STATUS_ACTIVE || ! $this->userHasPasswordAccess($matchedUser)) {
+        if ($matchedUser && (! $matchedUser->isClient() || $matchedUser->status !== User::STATUS_ACTIVE)) {
             return redirect()
                 ->route('client.login.email.options')
                 ->withErrors([
-                    'auth' => 'Primero confirma tu acceso con enlace para activar tu cuenta.',
+                    'auth' => 'Este acceso solo está disponible para clientes activos.',
                 ]);
         }
 
         return view('front.auth.client-login-password', [
             'email' => old('email', $email),
+            'canUsePassword' => $matchedUser?->isClient() === true && $this->userHasPasswordAccess($matchedUser),
         ]);
     }
 
@@ -259,12 +262,14 @@ class ClientLoginController extends Controller
 
         return view('front.auth.client-complete-account', [
             'user' => $user,
+            'passwordAlreadySet' => (bool) $request->session()->get('client_onboarding.password_set', false),
         ]);
     }
 
     public function completeAccount(Request $request): RedirectResponse
     {
         $user = $request->user();
+        $passwordAlreadySet = (bool) $request->session()->get('client_onboarding.password_set', false);
 
         if (! $user || ! $user->isClient()) {
             return redirect()->route('client.login');
@@ -291,11 +296,15 @@ class ClientLoginController extends Controller
 
         $user->save();
 
+        $request->session()->forget('client_onboarding.password_set');
+
         return redirect()
             ->intended(route('client.dashboard'))
-            ->with('status', filled($validated['password'] ?? null)
+            ->with('status', $passwordAlreadySet
+                ? 'Cuenta completada. Ya puedes empezar a usar Mariachis.co.'
+                : (filled($validated['password'] ?? null)
                 ? 'Cuenta completada. Ya puedes entrar con contraseña o enlace.'
-                : 'Cuenta completada. Podrás seguir entrando con enlace seguro.');
+                : 'Cuenta completada. Podrás seguir entrando con enlace seguro.'));
     }
 
     public function store(Request $request): RedirectResponse

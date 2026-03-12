@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $emailTitle }}</title>
+    <title>Bienvenido a Mariachis.co</title>
   </head>
   <body style="margin:0;padding:0;background:#f4f6f5;font-family:'Plus Jakarta Sans',Arial,sans-serif;color:#0f172a;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f5;padding:28px 12px;">
@@ -12,49 +12,49 @@
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid rgba(15,23,42,0.08);border-radius:24px;overflow:hidden;box-shadow:0 24px 48px -34px rgba(15,23,42,0.22);">
             <tr>
               <td align="center" style="padding:34px 28px 10px;">
-                <img src="{{ $logoUrl }}" alt="Mariachis.co" style="display:block;max-width:210px;width:100%;height:auto;margin:0 auto 18px;" />
+                <img src="https://mariachis.co/front/assets/logo-wordmark.png" alt="Mariachis.co" style="display:block;max-width:210px;width:100%;height:auto;margin:0 auto 18px;" />
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:0 32px 8px;">
                 <h1 style="margin:0;font-size:38px;line-height:1.06;font-weight:800;color:#101828;">
-                  {{ $emailTitle }}
+                  Bienvenido a Mariachis.co
                 </h1>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:8px 40px 0;">
                 <p style="margin:0;font-size:18px;line-height:1.7;color:#334155;">
-                  {{ $emailLead }}
+                  Tu cuenta de mariachi ya está creada. Verifica tu correo para proteger tu acceso y continuar con la configuración de tu perfil.
                 </p>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:14px 40px 0;">
                 <p style="margin:0;font-size:19px;line-height:1.6;font-weight:800;color:#0f172a;word-break:break-word;">
-                  {{ $email }}
+                  {{ $user->email }}
                 </p>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:28px 32px 0;">
-                <a href="{{ $setupUrl }}" style="display:inline-block;min-width:280px;padding:16px 26px;border-radius:12px;background:#00563b;color:#ffffff;text-decoration:none;font-size:20px;font-weight:800;line-height:1.2;">
-                  {{ $buttonLabel }}
+                <a href="{{ $verifyUrl }}" style="display:inline-block;min-width:280px;padding:16px 26px;border-radius:12px;background:#00563b;color:#ffffff;text-decoration:none;font-size:20px;font-weight:800;line-height:1.2;">
+                  Verificar mi correo
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:18px 32px 0;">
+                <a href="{{ $loginUrl }}" style="font-size:14px;line-height:1.6;font-weight:700;color:#00563b;text-decoration:none;">
+                  Entrar al panel mariachi
                 </a>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:28px 40px 0;">
                 <p style="margin:0;font-size:16px;line-height:1.8;color:#334155;">
-                  {{ $securityLine }}
+                  Este enlace caduca en {{ $expiresInDays }} días. Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicará ningún cambio.
                 </p>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:18px 32px 0;">
-                <a href="{{ $homeUrl }}" style="font-size:14px;line-height:1.6;font-weight:700;color:#00563b;text-decoration:none;">
-                  {{ $homeLabel }}
-                </a>
               </td>
             </tr>
             <tr>
@@ -67,14 +67,14 @@
             <tr>
               <td style="padding:12px 28px 18px;">
                 <div style="padding:16px 18px;border-radius:16px;background:#f8fafc;border:1px solid rgba(148,163,184,0.18);font-size:12px;line-height:1.75;color:#334155;word-break:break-all;text-align:left;">
-                  {{ $setupUrl }}
+                  {{ $verifyUrl }}
                 </div>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:0 32px 34px;">
                 <p style="margin:0;font-size:15px;line-height:1.75;color:#475569;">
-                  {{ $closingLine }}<br />
+                  {{ trim((string) ($user->first_name ?: $user->display_name)) !== '' ? 'Gracias, '.trim((string) ($user->first_name ?: $user->display_name)).'.' : 'Gracias por unirte a Mariachis.co.' }}<br />
                   Equipo Mariachis.co
                 </p>
               </td>

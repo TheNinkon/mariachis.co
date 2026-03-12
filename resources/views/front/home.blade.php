@@ -490,7 +490,7 @@
             <p class="mt-4 max-w-2xl text-sm leading-relaxed text-slate-200">Completa tu perfil y aparecerás automáticamente en los bloques públicos cuando el anuncio esté listo.</p>
           </div>
           <div class="home-artist-cta__action relative z-10 flex items-center md:col-span-4 md:justify-end" data-reveal>
-            <a href="/auth/register-basic" class="home-artist-cta__btn inline-flex rounded-xl bg-brand-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-600">Quiero publicar mi anuncio</a>
+            <a href="{{ route('mariachi.register') }}" target="_blank" rel="noopener" class="home-artist-cta__btn inline-flex rounded-xl bg-brand-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-600">Quiero publicar mi anuncio</a>
           </div>
         </div>
       </section>

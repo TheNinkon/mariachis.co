@@ -6,6 +6,7 @@
 document.addEventListener('DOMContentLoaded', function () {
   (() => {
     const formAuthentication = document.querySelector('#formAuthentication');
+    const passwordToggleGroups = document.querySelectorAll('.form-password-toggle .input-group');
 
     // Form validation for Add new record
     if (formAuthentication && typeof FormValidation !== 'undefined') {
@@ -107,6 +108,40 @@ document.addEventListener('DOMContentLoaded', function () {
       numeralMaskElements.forEach(numeralMaskEl => {
         numeralMaskEl.addEventListener('input', event => {
           numeralMaskEl.value = formatNumeral(event.target.value);
+        });
+      });
+    }
+
+    if (passwordToggleGroups.length > 0) {
+      passwordToggleGroups.forEach(group => {
+        const passwordInput = group.querySelector('input');
+        const toggleTrigger = group.querySelector('.input-group-text');
+        const icon = toggleTrigger?.querySelector('i');
+
+        if (!passwordInput || !toggleTrigger || !icon) {
+          return;
+        }
+
+        const syncToggleState = () => {
+          const isVisible = passwordInput.type === 'text';
+          passwordInput.type = isVisible ? 'password' : 'text';
+          icon.classList.toggle('tabler-eye', !isVisible);
+          icon.classList.toggle('tabler-eye-off', isVisible);
+        };
+
+        toggleTrigger.setAttribute('role', 'button');
+        toggleTrigger.setAttribute('tabindex', '0');
+
+        toggleTrigger.addEventListener('click', event => {
+          event.preventDefault();
+          syncToggleState();
+        });
+
+        toggleTrigger.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            syncToggleState();
+          }
         });
       });
     }

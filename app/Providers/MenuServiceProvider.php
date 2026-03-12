@@ -37,7 +37,7 @@ class MenuServiceProvider extends ServiceProvider
 
       $guestMenu = [
         ['url' => '/admin/login', 'name' => 'Login Interno', 'icon' => 'menu-icon icon-base ti tabler-login', 'slug' => 'login'],
-        ['url' => '/auth/register-basic', 'name' => 'Registro Mariachi', 'icon' => 'menu-icon icon-base ti tabler-user', 'slug' => 'register'],
+        ['url' => '/auth/register', 'name' => 'Registro Mariachi', 'icon' => 'menu-icon icon-base ti tabler-user', 'slug' => 'mariachi.register'],
         ['url' => '/login', 'name' => 'Login Cliente', 'icon' => 'menu-icon icon-base ti tabler-user-circle', 'slug' => 'client.login'],
         ['url' => '/registro', 'name' => 'Registro Cliente', 'icon' => 'menu-icon icon-base ti tabler-user-plus', 'slug' => 'client.register'],
       ];
@@ -48,6 +48,7 @@ class MenuServiceProvider extends ServiceProvider
           ['url' => '/admin/mariachis', 'name' => 'Mariachis', 'icon' => 'menu-icon icon-base ti tabler-list-details', 'slug' => 'admin.mariachis.index'],
           ['url' => '/admin/anuncios', 'name' => 'Anuncios', 'icon' => 'menu-icon icon-base ti tabler-speakerphone', 'slug' => 'admin.listings'],
           ['url' => '/admin/paquetes', 'name' => 'Paquetes', 'icon' => 'menu-icon icon-base ti tabler-package', 'slug' => 'admin.plans.index'],
+          ['url' => '/admin/plantillas-correo', 'name' => 'Plantillas de correo', 'icon' => 'menu-icon icon-base ti tabler-mail', 'slug' => 'admin.email-templates.index'],
           ['url' => '/admin/resenas', 'name' => 'Resenas', 'icon' => 'menu-icon icon-base ti tabler-message-star', 'slug' => 'admin.reviews.index'],
           ['url' => '/admin/verificaciones-perfil', 'name' => 'Verificaciones', 'icon' => 'menu-icon icon-base ti tabler-shield-check', 'slug' => 'admin.profile-verifications.index'],
           ['url' => '/admin/internal-users', 'name' => 'Equipo Interno', 'icon' => 'menu-icon icon-base ti tabler-settings', 'slug' => 'admin.internal-users.index'],

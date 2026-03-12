@@ -104,6 +104,20 @@
             </div>
           </form>
 
+          @if ($showPasswordOption ?? true)
+            <div class="client-auth-divider" aria-hidden="true">
+              <span>o</span>
+            </div>
+
+            <div class="client-auth-form client-auth-form--compact client-auth-form--centered">
+              <div class="client-auth-actions">
+                <a href="{{ route('client.login.password') }}" class="client-auth-btn secondary client-auth-btn--linkish">
+                  O bien, usa la contraseña
+                </a>
+              </div>
+            </div>
+          @endif
+
           <p class="client-auth-copy client-auth-copy--centered">
             Toca el enlace que recibirás por correo para iniciar sesión o crear tu cuenta.
           </p>

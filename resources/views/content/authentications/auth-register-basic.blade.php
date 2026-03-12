@@ -32,15 +32,14 @@ $customizerHidden = 'customizer-hide';
         <div class="card-body">
           <div class="app-brand justify-content-center mb-6">
             <a href="{{ route('home') }}" class="app-brand-link">
-              <span class="app-brand-logo demo">@include('_partials.macros')</span>
-              <span class="app-brand-text demo text-heading fw-bold">{{ config('variables.templateName') }}</span>
+              <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 42px; width: auto;" />
             </a>
           </div>
 
           <h4 class="mb-1">Registro inicial de mariachi</h4>
           <p class="mb-6">Crea tu cuenta y completa tu perfil despues desde tu panel.</p>
 
-          <form class="mb-6" action="{{ route('register.mariachi') }}" method="POST">
+          <form class="mb-6" action="{{ route('mariachi.register.store') }}" method="POST">
             @csrf
             <div class="row g-6">
               <div class="col-md-6 form-control-validation">
@@ -75,7 +74,7 @@ $customizerHidden = 'customizer-hide';
                 @enderror
               </div>
 
-              <div class="col-md-6 form-control-validation">
+              <div class="col-md-6 form-password-toggle form-control-validation">
                 <label class="form-label" for="password">Contrasena</label>
                 <div class="input-group input-group-merge">
                   <input type="password" id="password" class="form-control @error('password') is-invalid @enderror" name="password" placeholder="************" required>
@@ -86,7 +85,7 @@ $customizerHidden = 'customizer-hide';
                 @enderror
               </div>
 
-              <div class="col-md-6 form-control-validation">
+              <div class="col-md-6 form-password-toggle form-control-validation">
                 <label class="form-label" for="password_confirmation">Confirmar contrasena</label>
                 <div class="input-group input-group-merge">
                   <input type="password" id="password_confirmation" class="form-control" name="password_confirmation" placeholder="************" required>
@@ -94,13 +93,6 @@ $customizerHidden = 'customizer-hide';
                 </div>
               </div>
 
-              <div class="col-md-12 form-control-validation">
-                <label for="city_name" class="form-label">Ciudad principal</label>
-                <input type="text" class="form-control @error('city_name') is-invalid @enderror" id="city_name" name="city_name" value="{{ old('city_name') }}" required>
-                @error('city_name')
-                  <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
-              </div>
             </div>
 
             <div class="my-8 form-control-validation">
@@ -118,7 +110,7 @@ $customizerHidden = 'customizer-hide';
 
           <p class="text-center mb-0">
             <span>Ya tienes cuenta?</span>
-            <a href="{{ route('login') }}"><span>Iniciar sesion</span></a>
+            <a href="{{ route('mariachi.login') }}"><span>Iniciar sesion</span></a>
           </p>
         </div>
       </div>

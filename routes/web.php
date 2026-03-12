@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\ProfileVerificationController;
 use App\Http\Controllers\Admin\ReviewModerationController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\AdminPlanController;
+use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Client\ClientFavoriteController;
 use App\Http\Controllers\Client\ClientQuoteConversationController;
 use App\Http\Controllers\Client\ClientReviewController;
@@ -56,6 +57,9 @@ Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
 Route::get('/lista-de-deseos', [PublicListingCollectionController::class, 'wishlist'])->name('public.collections.wishlist');
 Route::get('/vistos-recientemente', [PublicListingCollectionController::class, 'recentlyViewed'])->name('public.collections.recents');
 Route::get('/resolver-anuncios', [PublicListingCollectionController::class, 'resolve'])->name('public.listings.resolve');
+Route::get('/mariachi/verificar-correo/{user}/{hash}', [MariachiRegistrationController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('mariachi.register.verify');
 Route::get('/mariachis/{citySlug}/{scopeSlug}', [SeoLandingController::class, 'showCityCategory'])
     ->where(['citySlug' => $seoLandingSlugPattern, 'scopeSlug' => $seoLandingSlugPattern])
     ->name('seo.landing.city-category');
@@ -78,8 +82,10 @@ Route::middleware('guest')->group(function (): void {
     Route::redirect('/auth/login-basic', '/admin/login', 301);
     Route::post('/auth/login-basic', [LoginController::class, 'store'])->defaults('portal', 'admin');
 
-    Route::get('/auth/register-basic', [MariachiRegistrationController::class, 'create'])->name('register');
-    Route::post('/auth/register-basic', [MariachiRegistrationController::class, 'store'])->name('register.mariachi');
+    Route::get('/auth/register', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
+    Route::post('/auth/register', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
+    Route::redirect('/auth/register-basic', '/auth/register', 301);
+    Route::post('/auth/register-basic', [MariachiRegistrationController::class, 'store']);
 
     Route::get('/auth/forgot-password-basic', [ForgotPasswordController::class, 'create'])->name('password.request');
     Route::post('/auth/forgot-password-basic', [ForgotPasswordController::class, 'store'])->name('password.email');
@@ -129,6 +135,11 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/paquetes/{plan}/editar', [AdminPlanController::class, 'edit'])->name('admin.plans.edit');
         Route::put('/paquetes/{plan}', [AdminPlanController::class, 'update'])->name('admin.plans.update');
         Route::patch('/paquetes/{plan}/toggle-status', [AdminPlanController::class, 'toggleStatus'])->name('admin.plans.toggle-status');
+        Route::get('/plantillas-correo', [AdminEmailTemplateController::class, 'index'])->name('admin.email-templates.index');
+        Route::get('/plantillas-correo/{key}', [AdminEmailTemplateController::class, 'edit'])->name('admin.email-templates.edit');
+        Route::post('/plantillas-correo/{key}/preview', [AdminEmailTemplateController::class, 'preview'])->name('admin.email-templates.preview');
+        Route::patch('/plantillas-correo/{key}', [AdminEmailTemplateController::class, 'update'])->name('admin.email-templates.update');
+        Route::post('/plantillas-correo/{key}/test', [AdminEmailTemplateController::class, 'sendTest'])->name('admin.email-templates.test');
         Route::get('/resenas', [ReviewModerationController::class, 'index'])->name('admin.reviews.index');
         Route::patch('/resenas/{review}/moderar', [ReviewModerationController::class, 'moderate'])->name('admin.reviews.moderate');
         Route::patch('/resenas/{review}/verificacion', [ReviewModerationController::class, 'updateVerification'])->name('admin.reviews.verification');

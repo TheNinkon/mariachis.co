@@ -16,13 +16,19 @@
 
         @if ($linkSent)
           <div>
-            <h1 class="client-auth-subtitle">Se ha enviado un enlace para restablecer o crear una contraseña a</h1>
+            <h1 class="client-auth-subtitle">
+              {{ $intent === 'create'
+                ? 'Hemos enviado un correo para crear tu contraseña a'
+                : 'Hemos enviado un enlace para restablecer tu contraseña a' }}
+            </h1>
             <p class="client-auth-confirm-email client-auth-confirm-email--large">{{ $email }}</p>
           </div>
 
           <div class="client-auth-confirm-copy">
             <p class="client-auth-copy client-auth-copy--centered">
-              Revisa tu bandeja de entrada y toca el enlace para definir tu contraseña.
+              {{ $intent === 'create'
+                ? 'Revisa tu bandeja de entrada y toca el enlace para crear tu contraseña y terminar de preparar tu cuenta.'
+                : 'Revisa tu bandeja de entrada y toca el enlace para definir tu nueva contraseña.' }}
             </p>
             <p class="client-auth-footnote client-auth-footnote--centered">
               ¿No has recibido el enlace? Revisa promociones, spam o correo no deseado.
@@ -38,8 +44,8 @@
           </form>
         @else
           <div>
-            <h1 class="client-auth-subtitle">Crea o restablece tu contraseña</h1>
-            <p class="client-auth-copy">Te enviaremos un enlace para definir una nueva contraseña.</p>
+            <h1 class="client-auth-subtitle">Prepara tu contraseña</h1>
+            <p class="client-auth-copy">Te enviaremos un enlace para crear o actualizar tu contraseña de acceso.</p>
           </div>
 
           <form action="{{ route('client.password.email') }}" method="POST" class="client-auth-form client-auth-form--compact client-auth-form--centered">

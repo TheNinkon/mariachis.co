@@ -4001,6 +4001,40 @@ body[data-page="client-auth"] .public-clean-footer--auth {
   height: 1.15rem;
 }
 
+.client-auth-password-rules {
+  width: min(23rem, 100%);
+  margin: -0.05rem auto 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  color: var(--text-500);
+  font-size: 0.94rem;
+}
+
+.client-auth-password-rules li {
+  position: relative;
+  padding-left: 1.2rem;
+}
+
+.client-auth-password-rules li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: currentColor;
+}
+
+.client-auth-password-rules li.is-valid {
+  color: var(--brand-700);
+}
+
+.client-auth-password-rules li.is-valid::before {
+  content: "✓";
+  font-weight: 800;
+}
+
 .client-auth-error {
   margin: 0.3rem 0 0;
   font-size: 0.76rem;

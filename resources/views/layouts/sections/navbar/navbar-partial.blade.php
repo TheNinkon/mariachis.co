@@ -8,6 +8,10 @@ $accountHeaderUrl = 'javascript:void(0);';
 $primaryAction = null;
 $secondaryAction = null;
 $roleLabel = 'Usuario';
+$showWordmarkBrand = ($authUser?->isMariachi() ?? false) || request()->routeIs('mariachi.*');
+$brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
+  ? route('mariachi.metrics')
+  : url('/');
 
 if ($authUser) {
   $roleLabel = match ((string) $authUser->role) {
@@ -73,9 +77,13 @@ if ($authUser?->isMariachi()) {
 <!--  Brand demo (display only for navbar-full and hide on below xl) -->
 @if (isset($navbarFull))
 <div class="navbar-brand app-brand demo d-none d-xl-flex py-0 me-4 ms-0">
-  <a href="{{ url('/') }}" class="app-brand-link">
+  <a href="{{ $brandUrl }}" class="app-brand-link">
+    @if ($showWordmarkBrand)
+    <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 34px; width: auto;" />
+    @else
     <span class="app-brand-logo demo">@include('_partials.macros')</span>
     <span class="app-brand-text demo menu-text fw-bold">{{ config('variables.templateName') }}</span>
+    @endif
   </a>
 
   <!-- Display menu close icon only for horizontal-menu with navbar-full -->

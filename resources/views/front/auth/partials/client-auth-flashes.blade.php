@@ -1,5 +1,5 @@
 @php
-  $viewErrors = $errors ?? session('errors');
+  $viewErrors = isset($errors) ? $errors : session('errors');
 @endphp
 
 @if (session('status'))
