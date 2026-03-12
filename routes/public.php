@@ -128,8 +128,8 @@ Route::domain($publicHost)->group(function () use (
     Route::get('/admin/{path?}', fn (Request $request, ?string $path = null) => $legacyAdminRedirect($path, $request))
         ->where('path', '.*');
 
-    Route::get('/auth/register', fn (Request $request) => $legacyPartnerRedirect('/register', $request));
-    Route::get('/auth/register-basic', fn (Request $request) => $legacyPartnerRedirect('/register', $request));
+    Route::get('/auth/register', fn (Request $request) => $legacyPartnerRedirect('/signup', $request));
+    Route::get('/auth/register-basic', fn (Request $request) => $legacyPartnerRedirect('/signup', $request));
     Route::get('/auth/forgot-password-basic', fn (Request $request) => $legacyAdminRedirect('/forgot-password', $request));
     Route::get('/auth/reset-password-basic/{token}', fn (Request $request, string $token) => $legacyAdminRedirect('/reset-password/'.$token, $request));
     Route::get('/mariachi', fn (Request $request) => $legacyPartnerRedirect('/login', $request));

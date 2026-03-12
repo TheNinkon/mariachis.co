@@ -102,7 +102,6 @@ $customizerHidden = 'customizer-hide';
                     @enderror
                   </div>
                 </div>
-                <div class="form-text">Selecciona tu indicativo y escribe el numero movil principal del grupo.</div>
               </div>
 
               <div class="col-md-6 form-password-toggle form-control-validation">

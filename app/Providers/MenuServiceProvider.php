@@ -41,7 +41,7 @@ class MenuServiceProvider extends ServiceProvider
 
       $guestMenu = [
         ['url' => $routeUrl('login', [], '/admin/login'), 'name' => 'Login Interno', 'icon' => 'menu-icon icon-base ti tabler-login', 'slug' => 'login'],
-        ['url' => $routeUrl('mariachi.register', [], '/auth/register'), 'name' => 'Registro Mariachi', 'icon' => 'menu-icon icon-base ti tabler-user', 'slug' => 'mariachi.register'],
+        ['url' => $routeUrl('mariachi.register', [], '/signup'), 'name' => 'Registro Mariachi', 'icon' => 'menu-icon icon-base ti tabler-user', 'slug' => 'mariachi.register'],
         ['url' => $routeUrl('client.login', [], '/login'), 'name' => 'Login Cliente', 'icon' => 'menu-icon icon-base ti tabler-user-circle', 'slug' => 'client.login'],
         ['url' => $routeUrl('client.register', [], '/registro'), 'name' => 'Registro Cliente', 'icon' => 'menu-icon icon-base ti tabler-user-plus', 'slug' => 'client.register'],
       ];

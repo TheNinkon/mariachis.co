@@ -19,8 +19,9 @@ Route::domain(config('domains.partner'))->group(function (): void {
             : redirect()->route('mariachi.login');
     });
 
-    Route::redirect('/auth/register-basic', '/register', 301);
-    Route::redirect('/auth/register', '/register', 301);
+    Route::redirect('/auth/register-basic', '/signup', 301);
+    Route::redirect('/auth/register', '/signup', 301);
+    Route::redirect('/register', '/signup', 301);
     Route::redirect('/auth/forgot-password-basic', '/forgot-password', 301);
     Route::redirect('/auth/reset-password-basic/{token}', '/reset-password/{token}', 301);
 
@@ -28,8 +29,8 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::get('/login', [LoginController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.login');
         Route::post('/login', [LoginController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.login.attempt');
 
-        Route::get('/register', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
-        Route::post('/register', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
+        Route::get('/signup', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
+        Route::post('/signup', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.password.request');
         Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.password.email');
