@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\PortalHosts;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ class ResetPasswordController extends Controller
 
         return view('content.authentications.auth-reset-password-basic', [
             'pageConfigs' => $pageConfigs,
+            'portal' => $this->portal($request),
             'request' => $request,
         ]);
     }
@@ -44,8 +46,27 @@ class ResetPasswordController extends Controller
             }
         );
 
-        return $status === Password::PASSWORD_RESET
-            ? redirect()->route('login')->with('status', __($status))
-            : back()->withErrors(['email' => [__($status)]]);
+        if ($status === Password::PASSWORD_RESET) {
+            $loginRoute = $this->portal($request) === 'mariachi'
+                ? 'mariachi.login'
+                : 'login';
+
+            return redirect()->route($loginRoute)->with('status', __($status));
+        }
+
+        return back()->withErrors(['email' => [__($status)]]);
+    }
+
+    private function portal(Request $request): string
+    {
+        $portal = (string) $request->route('portal', '');
+
+        if ($portal !== '') {
+            return $portal;
+        }
+
+        return PortalHosts::portalFromRequest($request) === PortalHosts::PORTAL_PARTNER
+            ? 'mariachi'
+            : 'admin';
     }
 }

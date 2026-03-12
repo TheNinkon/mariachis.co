@@ -21,7 +21,7 @@
         <a class="btn btn-outline-primary" href="{{ route('admin.reviews.index') }}">Moderar resenas</a>
         <a class="btn btn-outline-primary" href="{{ route('admin.internal-users.index') }}">Gestionar equipo interno</a>
         <a class="btn btn-outline-primary" href="{{ route('admin.blog-posts.index') }}">Gestionar blog</a>
-        <form action="{{ route('logout') }}" method="POST">@csrf<button class="btn btn-label-secondary">Cerrar sesion</button></form>
+        <form action="{{ route('admin.logout') }}" method="POST">@csrf<button class="btn btn-label-secondary">Cerrar sesion</button></form>
       </div>
     </div>
   </div>

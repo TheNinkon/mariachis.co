@@ -14,7 +14,7 @@ class PlanSeeder extends Seeder
         $plans = (array) config('monetization.plans', []);
 
         foreach ($plans as $code => $attributes) {
-            Plan::query()->updateOrCreate(
+            $plan = Plan::query()->updateOrCreate(
                 ['code' => $code],
                 [
                     'slug' => (string) Str::slug((string) ($attributes['slug'] ?? $code)),

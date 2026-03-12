@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Services\MailSettingsService;
+use App\Support\PortalHosts;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Vite;
 
@@ -21,6 +25,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(MailSettingsService $mailSettings): void
     {
+        Authenticate::redirectUsing(static function (Request $request): string {
+            return route(PortalHosts::loginRouteNameForRequest($request));
+        });
+
+        RedirectIfAuthenticated::redirectUsing(static function (Request $request): string {
+            return route(PortalHosts::dashboardRouteNameForUser($request->user()));
+        });
+
         $runtimeConfig = $mailSettings->runtimeConfig();
 
         config([

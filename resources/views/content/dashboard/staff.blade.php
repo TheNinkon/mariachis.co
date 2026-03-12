@@ -9,7 +9,7 @@
       <h5 class="mb-1">Panel de equipo interno</h5>
       <p class="mb-0">Acceso limitado para soporte operativo.</p>
     </div>
-    <form action="{{ route('logout') }}" method="POST">@csrf<button class="btn btn-label-secondary">Cerrar sesion</button></form>
+    <form action="{{ route('admin.logout') }}" method="POST">@csrf<button class="btn btn-label-secondary">Cerrar sesion</button></form>
   </div>
 </div>
 

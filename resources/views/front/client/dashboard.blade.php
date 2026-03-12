@@ -46,7 +46,7 @@
         <h1 class="client-panel-title">Hola, {{ $user->display_name }}</h1>
         <p class="client-panel-meta">Solicitudes: {{ $summaryConversationsCount }} · No leídos: {{ $summaryUnreadCount }} · Favoritos: {{ $summaryFavoritesCount }} · Vistos: {{ $summaryRecentViewsCount }}</p>
       </div>
-      <form id="client-logout-form" action="{{ route('logout') }}" method="POST">
+      <form id="client-logout-form" action="{{ route('client.logout') }}" method="POST">
         @csrf
         <button class="client-panel-logout" type="submit">Cerrar sesión</button>
       </form>

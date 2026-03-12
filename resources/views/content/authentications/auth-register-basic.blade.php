@@ -7,7 +7,7 @@ $customizerHidden = 'customizer-hide';
 @section('title', 'Registro Mariachi')
 
 @section('vendor-style')
-@vite(['resources/assets/vendor/libs/@form-validation/form-validation.scss'])
+@vite(['resources/assets/vendor/libs/@form-validation/form-validation.scss', 'resources/assets/vendor/libs/select2/select2.scss'])
 @endsection
 
 @section('page-style')
@@ -17,7 +17,8 @@ $customizerHidden = 'customizer-hide';
 @section('vendor-script')
 @vite(['resources/assets/vendor/libs/@form-validation/popular.js',
 'resources/assets/vendor/libs/@form-validation/bootstrap5.js',
-'resources/assets/vendor/libs/@form-validation/auto-focus.js'])
+'resources/assets/vendor/libs/@form-validation/auto-focus.js',
+'resources/assets/vendor/libs/select2/select2.js'])
 @endsection
 
 @section('page-script')
@@ -67,11 +68,41 @@ $customizerHidden = 'customizer-hide';
               </div>
 
               <div class="col-md-6 form-control-validation">
-                <label for="phone" class="form-label">Telefono movil</label>
-                <input type="text" class="form-control @error('phone') is-invalid @enderror" id="phone" name="phone" value="{{ old('phone') }}" required>
-                @error('phone')
-                  <div class="invalid-feedback">{{ $message }}</div>
-                @enderror
+                <label for="phone_country_iso2" class="form-label">Telefono movil</label>
+                <div class="row g-3">
+                  <div class="col-sm-5">
+                    <select
+                      class="form-select select2-phone-country @error('phone_country_iso2') is-invalid @enderror"
+                      id="phone_country_iso2"
+                      name="phone_country_iso2"
+                      required>
+                      @foreach($phoneCountryOptions as $countryOption)
+                        <option value="{{ $countryOption['iso2'] }}" @selected(old('phone_country_iso2', $defaultPhoneCountryIso2) === $countryOption['iso2'])>
+                          ({{ $countryOption['dial_code'] }}) {{ $countryOption['name'] }}
+                        </option>
+                      @endforeach
+                    </select>
+                    @error('phone_country_iso2')
+                      <div class="invalid-feedback d-block">{{ $message }}</div>
+                    @enderror
+                  </div>
+
+                  <div class="col-sm-7">
+                    <input
+                      type="text"
+                      class="form-control @error('phone_number') is-invalid @enderror"
+                      id="phone_number"
+                      name="phone_number"
+                      value="{{ old('phone_number') }}"
+                      placeholder="300 123 4567"
+                      inputmode="tel"
+                      required>
+                    @error('phone_number')
+                      <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                  </div>
+                </div>
+                <div class="form-text">Selecciona tu indicativo y escribe el numero movil principal del grupo.</div>
               </div>
 
               <div class="col-md-6 form-password-toggle form-control-validation">

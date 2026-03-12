@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\PortalHosts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,7 @@ class LoginController extends Controller
     public function create(Request $request): View
     {
         $pageConfigs = ['myLayout' => 'blank'];
-        $portal = (string) $request->route('portal', 'admin');
+        $portal = $this->portal($request);
 
         return view('content.authentications.auth-login-basic', [
             'pageConfigs' => $pageConfigs,
@@ -47,7 +48,7 @@ class LoginController extends Controller
         }
 
         $userRole = (string) $request->user()?->role;
-        $portal = (string) $request->route('portal', 'admin');
+        $portal = $this->portal($request);
 
         if ($userRole === User::ROLE_CLIENT) {
             Auth::logout();
@@ -101,9 +102,22 @@ class LoginController extends Controller
         return match ($role) {
             User::ROLE_ADMIN => route('admin.dashboard'),
             User::ROLE_STAFF => route('staff.dashboard'),
-            User::ROLE_MARIACHI => route('mariachi.panel'),
+            User::ROLE_MARIACHI => route('mariachi.metrics'),
             User::ROLE_CLIENT => route('client.dashboard'),
             default => route('login'),
         };
+    }
+
+    private function portal(Request $request): string
+    {
+        $portal = (string) $request->route('portal', '');
+
+        if ($portal !== '') {
+            return $portal;
+        }
+
+        return PortalHosts::portalFromRequest($request) === PortalHosts::PORTAL_PARTNER
+            ? 'mariachi'
+            : 'admin';
     }
 }

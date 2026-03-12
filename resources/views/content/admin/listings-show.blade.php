@@ -96,6 +96,8 @@
     document.addEventListener('DOMContentLoaded', function () {
       const navLinks = Array.from(document.querySelectorAll('[data-admin-listing-nav] .nav-link[data-section-target]'));
       const sections = Array.from(document.querySelectorAll('[data-admin-listing-section]'));
+      const mainColumn = document.querySelector('[data-admin-listing-main-col]');
+      const sideColumn = document.querySelector('[data-admin-listing-side-col]');
 
       if (!navLinks.length || !sections.length) {
         return;
@@ -114,6 +116,17 @@
           sectionElement.classList.toggle('d-none', !isActive);
           sectionElement.hidden = !isActive;
         });
+
+        const showSidePanel = nextSection === 'details';
+        if (mainColumn) {
+          mainColumn.classList.toggle('col-lg-8', showSidePanel);
+          mainColumn.classList.toggle('col-lg-12', !showSidePanel);
+        }
+
+        if (sideColumn) {
+          sideColumn.classList.toggle('d-none', !showSidePanel);
+          sideColumn.hidden = !showSidePanel;
+        }
 
         if (syncHash) {
           window.history.replaceState(null, '', `#${nextSection}`);
@@ -277,7 +290,7 @@
   </div>
 
   <div class="row">
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-lg-8" data-admin-listing-main-col>
       <div class="card mb-6 admin-listing-section" id="details" data-admin-listing-section="details">
         <div class="card-datatable">
           <table class="table mb-0">
@@ -537,7 +550,7 @@
       </div>
     </div>
 
-    <div class="col-12 col-lg-4">
+    <div class="col-12 col-lg-4" data-admin-listing-side-col>
       <div class="card mb-6">
         <div class="card-header">
           <h5 class="card-title m-0">Detalles del mariachi</h5>

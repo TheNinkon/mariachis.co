@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\MariachiPasswordResetNotification;
 use App\Notifications\ClientPasswordSetupNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -167,6 +168,12 @@ class User extends Authenticatable
     {
         if ($this->isClient()) {
             $this->notify(new ClientPasswordSetupNotification($token));
+
+            return;
+        }
+
+        if ($this->isMariachi()) {
+            $this->notify(new MariachiPasswordResetNotification($token));
 
             return;
         }

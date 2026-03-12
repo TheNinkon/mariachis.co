@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\PortalHosts;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,9 +20,7 @@ class EnsureUserHasRole
         if ($user->status !== 'active') {
             auth()->logout();
 
-            $loginRoute = $request->is('mariachi/*') ? 'mariachi.login' : 'login';
-
-            return redirect()->route($loginRoute)->withErrors([
+            return redirect()->route(PortalHosts::loginRouteNameForUser($user))->withErrors([
                 'email' => 'Tu cuenta está desactivada. Contacta a soporte.',
             ]);
         }

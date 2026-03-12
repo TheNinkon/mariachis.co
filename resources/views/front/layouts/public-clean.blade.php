@@ -22,6 +22,7 @@
       $isClientAuthFlow = $pageId === 'client-auth';
       $authUser = auth()->user();
       $isClientAuth = $authUser && $authUser->role === \App\Models\User::ROLE_CLIENT;
+      $clientLogoutRoute = \Illuminate\Support\Facades\Route::has('client.logout') ? route('client.logout') : url('/auth/logout');
       $initials = 'C';
       if ($isClientAuth) {
           $first = trim((string) ($authUser->first_name ?? ''));
@@ -79,7 +80,7 @@
                 <a href="{{ route('client.account.recent') }}">Vistos recientemente</a>
                 <a href="{{ route('client.account.profile') }}">Perfil</a>
                 <a href="{{ route('client.account.security') }}">Seguridad</a>
-                <form action="{{ route('logout') }}" method="POST">
+                <form action="{{ $clientLogoutRoute }}" method="POST">
                   @csrf
                   <button type="submit">Cerrar sesión</button>
                 </form>

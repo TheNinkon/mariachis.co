@@ -2,6 +2,8 @@
 
 namespace App\Support\EmailTemplates;
 
+use App\Support\PortalHosts;
+
 class EmailTemplateCatalog
 {
     public const AUDIENCE_CLIENT = 'client';
@@ -445,9 +447,9 @@ HTML,
                     'emailTitle' => 'Bienvenido a Mariachis.co',
                     'emailLead' => 'Tu cuenta de mariachi ya está creada. Verifica tu correo para proteger tu acceso y continuar con la configuración de tu perfil.',
                     'user_email' => 'mariachi.demo@mariachis.co',
-                    'verifyUrl' => 'https://mariachis.co/mariachi/verificar-correo/99/demo-hash?signature=demo',
+                    'verifyUrl' => PortalHosts::absoluteUrl(PortalHosts::partner(), '/verificar-correo/99/demo-hash?signature=demo'),
                     'buttonLabel' => 'Verificar mi correo',
-                    'loginUrl' => 'https://mariachis.co/mariachi/login',
+                    'loginUrl' => PortalHosts::absoluteUrl(PortalHosts::partner(), '/login'),
                     'loginLabel' => 'Entrar al panel mariachi',
                     'expiresInDays' => 7,
                     'securityLine' => 'Este enlace caduca en 7 días. Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicará ningún cambio.',

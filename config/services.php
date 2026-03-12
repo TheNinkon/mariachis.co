@@ -45,6 +45,7 @@ return [
         'display_name' => env('TRUSTPILOT_DISPLAY_NAME', 'Mariachis Colombia'),
         'review_count' => (int) env('TRUSTPILOT_REVIEW_COUNT', 0),
         'trust_score' => (float) env('TRUSTPILOT_TRUST_SCORE', 0),
+        'cache_minutes' => (int) env('TRUSTPILOT_CACHE_MINUTES', 60),
     ],
 
 ];

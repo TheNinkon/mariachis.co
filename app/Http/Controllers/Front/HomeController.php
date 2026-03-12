@@ -12,6 +12,7 @@ use App\Models\MarketplaceCity;
 use App\Models\MarketplaceZone;
 use App\Models\ServiceType;
 use App\Services\Front\SearchFormData;
+use App\Services\Front\TrustpilotProfileData;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -32,7 +33,7 @@ class HomeController extends Controller
         'usaquen' => 'Usaquén',
     ];
 
-    public function __invoke(SearchFormData $searchFormData): View
+    public function __invoke(SearchFormData $searchFormData, TrustpilotProfileData $trustpilotProfileData): View
     {
         $publishedProfiles = MariachiListing::query()
             ->with([
@@ -93,7 +94,7 @@ class HomeController extends Controller
             ->take(3)
             ->get();
 
-        $trustpilot = (array) config('services.trustpilot', []);
+        $trustpilot = $trustpilotProfileData->get();
         $trustpilotReviews = collect($trustpilot['reviews'] ?? [])
             ->map(function ($review): ?array {
                 if (! is_array($review)) {

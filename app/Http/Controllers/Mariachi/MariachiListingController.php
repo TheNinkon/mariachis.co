@@ -1236,7 +1236,7 @@ class MariachiListingController extends Controller
         $user = auth()->user();
 
         $profile = $user->mariachiProfile()->firstOrCreate([], [
-            'city_name' => 'Pendiente',
+            'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 0,
             'stage_status' => 'provider_incomplete',

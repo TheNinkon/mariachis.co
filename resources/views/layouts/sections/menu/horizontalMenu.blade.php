@@ -1,6 +1,13 @@
 @php
   use Illuminate\Support\Facades\Route;
   $configData = Helper::appClasses();
+  $resolveMenuUrl = static function (?string $menuUrl): string {
+      if (! $menuUrl) {
+          return 'javascript:void(0);';
+      }
+
+      return preg_match('/^(https?:)?\/\//i', $menuUrl) ? $menuUrl : url($menuUrl);
+  };
 @endphp
 <!-- Horizontal Menu -->
 <aside id="layout-menu" class="layout-menu-horizontal menu-horizontal  menu bg-menu-theme flex-grow-0"
@@ -35,7 +42,7 @@
 
         {{-- main menu --}}
         <li class="menu-item {{ $activeClass }}">
-          <a href="{{ isset($menu->url) ? url($menu->url) : 'javascript:void(0);' }}"
+          <a href="{{ $resolveMenuUrl($menu->url ?? null) }}"
             class="{{ isset($menu->submenu) ? 'menu-link menu-toggle' : 'menu-link' }}"
             @if (isset($menu->target) and !empty($menu->target)) target="_blank" @endif>
             @isset($menu->icon)

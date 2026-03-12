@@ -1,5 +1,8 @@
 @php
 $customizerHidden = 'customizer-hide';
+$portal = $portal ?? 'admin';
+$formAction = $portal === 'mariachi' ? route('mariachi.password.email') : route('password.email');
+$loginRoute = $portal === 'mariachi' ? route('mariachi.login') : route('login');
 @endphp
 
 @extends('layouts/layoutMaster')
@@ -18,8 +21,7 @@ $customizerHidden = 'customizer-hide';
         <div class="card-body">
           <div class="app-brand justify-content-center mb-6">
             <a href="{{ route('home') }}" class="app-brand-link">
-              <span class="app-brand-logo demo">@include('_partials.macros')</span>
-              <span class="app-brand-text demo text-heading fw-bold">{{ config('variables.templateName') }}</span>
+              <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 42px; width: auto;" />
             </a>
           </div>
 
@@ -30,7 +32,7 @@ $customizerHidden = 'customizer-hide';
             <div class="alert alert-success" role="alert">{{ session('status') }}</div>
           @endif
 
-          <form action="{{ route('password.email') }}" method="POST" class="mb-4">
+          <form action="{{ $formAction }}" method="POST" class="mb-4">
             @csrf
             <div class="mb-6">
               <label for="email" class="form-label">Correo electronico</label>
@@ -44,7 +46,7 @@ $customizerHidden = 'customizer-hide';
           </form>
 
           <p class="text-center mb-0">
-            <a href="{{ route('login') }}">Volver al login</a>
+            <a href="{{ $loginRoute }}">Volver al login</a>
           </p>
         </div>
       </div>

@@ -1,5 +1,7 @@
 @php
 $customizerHidden = 'customizer-hide';
+$portal = $portal ?? 'admin';
+$formAction = $portal === 'mariachi' ? route('mariachi.password.update') : route('password.update');
 @endphp
 
 @extends('layouts/layoutMaster')
@@ -19,7 +21,7 @@ $customizerHidden = 'customizer-hide';
           <h4 class="mb-1">Nueva contrasena</h4>
           <p class="mb-6">Define una contrasena segura para tu cuenta.</p>
 
-          <form action="{{ route('password.update') }}" method="POST">
+          <form action="{{ $formAction }}" method="POST">
             @csrf
             <input type="hidden" name="token" value="{{ $request->route('token') }}">
 

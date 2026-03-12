@@ -2,6 +2,7 @@
 $customizerHidden = 'customizer-hide';
 $portal = $portal ?? 'admin';
 $loginAction = $portal === 'mariachi' ? route('mariachi.login.attempt') : route('login.attempt');
+$forgotPasswordRoute = $portal === 'mariachi' ? route('mariachi.password.request') : route('password.request');
 $panelLabel = $portal === 'mariachi' ? 'Panel mariachi' : 'Panel interno';
 $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y solicitudes' : 'Ingresa para continuar';
 @endphp
@@ -77,7 +78,7 @@ $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y sol
                   <input class="form-check-input" type="checkbox" id="remember" name="remember" />
                   <label class="form-check-label" for="remember">Recordarme</label>
                 </div>
-                <a href="{{ route('password.request') }}">
+                <a href="{{ $forgotPasswordRoute }}">
                   <p class="mb-0">Olvide mi contrasena</p>
                 </a>
               </div>

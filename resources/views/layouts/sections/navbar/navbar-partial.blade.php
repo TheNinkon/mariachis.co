@@ -1,6 +1,7 @@
 @php
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use App\Support\PortalHosts;
 
 $authUser = Auth::user();
 $userAvatar = asset('assets/img/avatars/1.png');
@@ -15,6 +16,12 @@ $showWordmarkBrand = ($authUser?->isMariachi() ?? false) || request()->routeIs('
 $brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
   ? route('mariachi.metrics')
   : url('/');
+$logoutRoute = match (true) {
+  $authUser?->isMariachi() === true => Route::has('partner.logout') ? route('partner.logout') : url('/logout'),
+  $authUser?->isAdmin() === true, $authUser?->isStaff() === true => Route::has('admin.logout') ? route('admin.logout') : url('/logout'),
+  $authUser?->isClient() === true => Route::has('client.logout') ? route('client.logout') : url('/auth/logout'),
+  default => Route::has(PortalHosts::loginRouteNameForRequest(request())) ? route(PortalHosts::loginRouteNameForRequest(request())) : url('/'),
+};
 
 if ($authUser) {
   $roleLabel = match ((string) $authUser->role) {
@@ -32,7 +39,7 @@ if ($authUser?->isMariachi()) {
     ? asset('storage/' . $authUser->mariachiProfile->logo_path)
     : asset('marketplace/img/1.webp');
 
-  $accountHeaderUrl = Route::has('mariachi.metrics') ? route('mariachi.metrics') : url('/mariachi/panel');
+  $accountHeaderUrl = Route::has('mariachi.metrics') ? route('mariachi.metrics') : url('/panel');
   $primaryAction = [
     'url' => Route::has('mariachi.provider-profile.edit') ? route('mariachi.provider-profile.edit') : $accountHeaderUrl,
     'icon' => 'icon-base ti tabler-user me-3 icon-md',
@@ -47,7 +54,7 @@ if ($authUser?->isMariachi()) {
   $useIconAvatar = true;
   $iconAvatarClass = 'icon-base ti tabler-shield-star icon-md';
   $iconAvatarTone = 'bg-label-success';
-  $accountHeaderUrl = Route::has('admin.dashboard') ? route('admin.dashboard') : url('/admin');
+  $accountHeaderUrl = Route::has('admin.dashboard') ? route('admin.dashboard') : url('/');
   $primaryAction = [
     'url' => $accountHeaderUrl,
     'icon' => 'icon-base ti tabler-layout-dashboard me-3 icon-md',
@@ -209,19 +216,19 @@ if ($authUser?->isMariachi()) {
         </li>
         @if (Auth::check())
         <li>
-          <a class="dropdown-item" href="{{ route('logout') }}"
+          <a class="dropdown-item" href="{{ $logoutRoute }}"
             onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
             <i class="icon-base bx bx-power-off icon-md me-3"></i><span>Cerrar sesión</span>
           </a>
         </li>
-        <form method="POST" id="logout-form" action="{{ route('logout') }}">
+        <form method="POST" id="logout-form" action="{{ $logoutRoute }}">
           @csrf
         </form>
         @else
         <li>
           <div class="d-grid px-2 pt-2 pb-1">
             <a class="btn btn-sm btn-danger d-flex"
-              href="{{ Route::has('login') ? route('login') : url('/admin/login') }}" target="_blank">
+              href="{{ $logoutRoute }}" target="_blank">
               <small class="align-middle">Iniciar sesión</small>
               <i class="icon-base ti tabler-login ms-2 icon-14px"></i>
             </a>

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use Throwable;
@@ -18,31 +19,45 @@ use Throwable;
 class MariachiRegistrationController extends Controller
 {
     private const VERIFY_TTL_DAYS = 7;
+    private const DEFAULT_PHONE_COUNTRY_ISO2 = 'CO';
 
     public function create(): View
     {
         $pageConfigs = ['myLayout' => 'blank'];
 
-        return view('content.authentications.auth-register-basic', ['pageConfigs' => $pageConfigs]);
+        return view('content.authentications.auth-register-basic', [
+            'pageConfigs' => $pageConfigs,
+            'phoneCountryOptions' => $this->phoneCountryOptions(),
+            'defaultPhoneCountryIso2' => self::DEFAULT_PHONE_COUNTRY_ISO2,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $phoneCountryOptions = $this->phoneCountryOptions();
+
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:120'],
             'last_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:30'],
+            'phone_country_iso2' => ['required', 'string', 'size:2', Rule::in(array_column($phoneCountryOptions, 'iso2'))],
+            'phone_number' => ['required', 'string', 'max:20', 'regex:/^[0-9\s\-()]{6,20}$/'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'terms' => ['accepted'],
         ]);
+
+        $phoneCountry = $this->findPhoneCountryOption($validated['phone_country_iso2'], $phoneCountryOptions);
+        $formattedPhone = $this->formatPhone(
+            (string) ($phoneCountry['dial_code'] ?? '+57'),
+            $validated['phone_number']
+        );
 
         $user = User::create([
             'name' => trim($validated['first_name'].' '.$validated['last_name']),
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'email' => $validated['email'],
-            'phone' => $validated['phone'],
+            'phone' => $formattedPhone,
             'password' => $validated['password'],
             'role' => User::ROLE_MARIACHI,
             'status' => User::STATUS_ACTIVE,
@@ -51,7 +66,7 @@ class MariachiRegistrationController extends Controller
 
         MariachiProfile::create([
             'user_id' => $user->id,
-            'city_name' => 'Pendiente',
+            'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 10,
             'stage_status' => 'onboarding',
@@ -104,5 +119,38 @@ class MariachiRegistrationController extends Controller
         return redirect()
             ->route('mariachi.provider-profile.edit')
             ->with('status', 'Correo verificado correctamente. Ya puedes completar tu perfil y empezar a publicar.');
+    }
+
+    /**
+     * @return array<int, array{iso2:string,name:string,dial_code:string}>
+     */
+    private function phoneCountryOptions(): array
+    {
+        $options = config('phone_country_codes', []);
+
+        return is_array($options) ? $options : [];
+    }
+
+    /**
+     * @param  array<int, array{iso2:string,name:string,dial_code:string}>  $options
+     * @return array{iso2:string,name:string,dial_code:string}|null
+     */
+    private function findPhoneCountryOption(string $iso2, array $options): ?array
+    {
+        foreach ($options as $option) {
+            if (($option['iso2'] ?? null) === $iso2) {
+                return $option;
+            }
+        }
+
+        return null;
+    }
+
+    private function formatPhone(string $dialCode, string $phoneNumber): string
+    {
+        $normalizedDialCode = '+'.ltrim((string) preg_replace('/\D+/', '', $dialCode), '0');
+        $normalizedPhoneNumber = (string) preg_replace('/\D+/', '', $phoneNumber);
+
+        return trim($normalizedDialCode.' '.$normalizedPhoneNumber);
     }
 }

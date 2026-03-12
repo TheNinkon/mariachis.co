@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
   (() => {
     const formAuthentication = document.querySelector('#formAuthentication');
     const passwordToggleGroups = document.querySelectorAll('.form-password-toggle .input-group');
+    const phoneCountrySelects = document.querySelectorAll('.select2-phone-country');
 
     // Form validation for Add new record
     if (formAuthentication && typeof FormValidation !== 'undefined') {
@@ -142,6 +143,23 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
             syncToggleState();
           }
+        });
+      });
+    }
+
+    if (phoneCountrySelects.length > 0 && window.jQuery && window.jQuery.fn.select2) {
+      phoneCountrySelects.forEach(select => {
+        const $select = window.jQuery(select);
+
+        if ($select.hasClass('select2-hidden-accessible')) {
+          return;
+        }
+
+        $select.wrap('<div class="position-relative"></div>').select2({
+          width: '100%',
+          dropdownAutoWidth: true,
+          dropdownParent: $select.parent(),
+          placeholder: 'Indicativo'
         });
       });
     }
