@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MariachiRegistrationController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Mariachi\MariachiAccountSettingsController;
 use App\Http\Controllers\Mariachi\MariachiDashboardController;
 use App\Http\Controllers\Mariachi\MariachiListingController;
 use App\Http\Controllers\Mariachi\MariachiProviderProfileController;
@@ -59,8 +60,14 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::redirect('/perfil-proveedor', '/perfil', 301);
         Route::get('/perfil', [MariachiProviderProfileController::class, 'edit'])->name('mariachi.provider-profile.edit');
         Route::patch('/perfil', [MariachiProviderProfileController::class, 'update'])->name('mariachi.provider-profile.update');
+        Route::get('/cuenta/seguridad', [MariachiAccountSettingsController::class, 'security'])->name('mariachi.account.security.edit');
+        Route::patch('/cuenta/seguridad', [MariachiAccountSettingsController::class, 'updateSecurity'])->name('mariachi.account.security.update');
+        Route::get('/cuenta/notificaciones', [MariachiAccountSettingsController::class, 'notifications'])->name('mariachi.account.notifications.edit');
+        Route::patch('/cuenta/notificaciones', [MariachiAccountSettingsController::class, 'updateNotifications'])->name('mariachi.account.notifications.update');
+        Route::get('/cuenta/facturacion', [MariachiAccountSettingsController::class, 'billing'])->name('mariachi.account.billing.edit');
         Route::get('/verificacion', [MariachiVerificationController::class, 'edit'])->name('mariachi.verification.edit');
         Route::post('/verificacion', [MariachiVerificationController::class, 'store'])->name('mariachi.verification.store');
+        Route::patch('/verificacion/handle', [MariachiVerificationController::class, 'updateHandle'])->name('mariachi.verification.handle.update');
 
         Route::get('/anuncios', [MariachiListingController::class, 'index'])->name('mariachi.listings.index');
         Route::get('/anuncios/crear', [MariachiListingController::class, 'create'])->name('mariachi.listings.create');

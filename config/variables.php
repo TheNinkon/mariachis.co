@@ -26,9 +26,11 @@ return [
   "gitRepo" => "mariachis-co",
   "gitRepoAccess" => $appUrl,
   "githubFreeUrl" => $appUrl,
-  "facebookUrl" => "https://www.facebook.com/mariachis.co",
-  "twitterUrl" => "https://x.com/mariachisco",
+  "facebookUrl" => env('SOCIAL_FACEBOOK_URL', "https://www.facebook.com/mariachis.co"),
+  "twitterUrl" => env('SOCIAL_X_URL', "https://x.com/mariachisco"),
   "githubUrl" => $appUrl,
   "dribbbleUrl" => $appUrl,
-  "instagramUrl" => "https://www.instagram.com/mariachis.co"
+  "instagramUrl" => env('SOCIAL_INSTAGRAM_URL', "https://www.instagram.com/mariachis.co"),
+  "tiktokUrl" => env('SOCIAL_TIKTOK_URL'),
+  "youtubeUrl" => env('SOCIAL_YOUTUBE_URL')
 ];

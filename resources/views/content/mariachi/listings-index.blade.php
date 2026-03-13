@@ -93,24 +93,6 @@
     <div class="alert alert-danger">{{ $errors->first() }}</div>
   @endif
 
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-6">
-    <div>
-      <h4 class="mb-1">Mis anuncios</h4>
-      <p class="mb-0 text-muted partner-listing-note">
-        Crea todos los anuncios que necesites. Solo se bloquea la apertura de nuevos borradores cuando ya tienes 5 pendientes por terminar o pagar.
-      </p>
-    </div>
-
-    <div class="d-flex flex-wrap gap-2">
-      <a href="{{ route('mariachi.provider-profile.edit') }}" class="btn btn-outline-primary">Perfil proveedor</a>
-      @if($canCreateListingDraft)
-        <a href="{{ route('mariachi.listings.create') }}" class="btn btn-primary">Crear anuncio</a>
-      @else
-        <button type="button" class="btn btn-primary" disabled>Crear anuncio</button>
-      @endif
-    </div>
-  </div>
-
   <div class="card mb-6">
     <div class="card-widget-separator-wrapper">
       <div class="card-body card-widget-separator">
@@ -200,18 +182,14 @@
 
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-      <div>
-        <h5 class="card-title mb-1">Listado de anuncios</h5>
-        <p class="mb-0 text-muted">
-          Los planes limitan fotos, videos, zonas y visibilidad de contacto por anuncio. No limitan la cantidad total de anuncios.
-        </p>
-      </div>
+      <h5 class="card-title mb-0">Listado de anuncios</h5>
 
-      <div class="text-start text-md-end">
-        <small class="text-body-secondary d-block">Plan de referencia del perfil</small>
-        <span class="fw-semibold">{{ $planSummary['name'] }}</span>
-        @if($planSummary['badge_text'])
-          <span class="badge bg-label-primary ms-1">{{ $planSummary['badge_text'] }}</span>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{{ route('mariachi.provider-profile.edit') }}" class="btn btn-outline-primary">Perfil</a>
+        @if($canCreateListingDraft)
+          <a href="{{ route('mariachi.listings.create') }}" class="btn btn-primary">Crear anuncio</a>
+        @else
+          <button type="button" class="btn btn-primary" disabled>Crear anuncio</button>
         @endif
       </div>
     </div>

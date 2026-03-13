@@ -3681,82 +3681,165 @@ body[data-page="client-auth"] {
 
 .public-clean-footer {
   margin-top: 2rem;
-  border-top: 1px solid var(--line-soft);
-  background: #020617;
-  color: #cbd5e1;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.public-clean-footer-inner {
+.public-clean-footer--marketplace {
+  background: var(--u-bg-darker);
+  color: var(--logo-footer-sub);
+}
+
+.public-clean-footer--marketplace .public-clean-footer-inner {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 1.1rem 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.public-clean-footer p {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #94a3b8;
-}
-
-.public-clean-footer-grid {
+  padding: 2.5rem 0 1.1rem;
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 1.2rem;
+  gap: 1.4rem;
 }
 
-.public-clean-footer-grid h3 {
-  margin: 0;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-.public-clean-footer-grid ul {
-  margin: 0.72rem 0 0;
-  padding: 0;
-  list-style: none;
+.public-clean-footer-top {
   display: grid;
-  gap: 0.42rem;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
 }
 
-.public-clean-footer-grid li,
-.public-clean-footer-grid a,
-.public-clean-footer-grid span {
-  font-size: 0.86rem;
-  color: #e2e8f0;
-  text-decoration: none;
+.public-clean-footer-top--solo {
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.public-clean-footer-grid a:hover {
-  color: #fff;
+.public-clean-footer-brand {
+  display: grid;
+  gap: 0.85rem;
 }
 
 .public-clean-footer-text {
-  margin-top: 0.6rem;
-  max-width: 36rem;
+  margin: 0;
+  max-width: 40rem;
+  font-size: 0.96rem;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--logo-footer-sub) 82%, white);
 }
 
-.public-clean-footer-chips {
-  margin-top: 0.65rem;
+.public-clean-footer-socials {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
+.public-clean-footer-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--logo-footer-sub) 74%, white);
+}
+
+.public-clean-footer-social-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.42rem;
+  justify-content: flex-end;
+  gap: 0.7rem;
 }
 
-.public-clean-footer-chips span {
-  border: 1px solid rgba(255, 255, 255, 0.24);
+.public-clean-footer-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.9rem;
+  padding: 0.72rem 1rem;
   border-radius: 999px;
-  padding: 0.24rem 0.56rem;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--logo-footer-word);
+  text-decoration: none;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.public-clean-footer-social:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.public-clean-footer-social__icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.public-clean-footer-social__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.public-clean-footer-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+}
+
+.public-clean-footer-middle {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.6rem 2rem;
+}
+
+.public-clean-footer-column {
+  min-width: 0;
+}
+
+.public-clean-footer-column h3 {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: color-mix(in srgb, var(--logo-footer-sub) 72%, white);
+}
+
+.public-clean-footer-column ul {
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.public-clean-footer-column li,
+.public-clean-footer-column a,
+.public-clean-footer-column span {
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--logo-footer-word) 92%, var(--logo-footer-sub));
+  text-decoration: none;
+}
+
+.public-clean-footer-column a:hover {
+  color: #fff;
+}
+
+.public-clean-footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: color-mix(in srgb, var(--logo-footer-sub) 88%, white);
+}
+
+.public-clean-footer-bottom span,
+.public-clean-footer-bottom a {
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--logo-footer-sub) 88%, white);
+  text-decoration: none;
+}
+
+.public-clean-footer-bottom a:hover {
+  color: #fff;
 }
 
 body[data-page="client-auth"] {
@@ -4508,11 +4591,62 @@ body[data-page="client-auth"] .public-clean-footer--auth {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .public-clean-footer-top,
+  .public-clean-footer-top--solo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-clean-footer-socials {
+    justify-items: start;
+  }
+
+  .public-clean-footer-social-list {
+    justify-content: flex-start;
+  }
+
+  .public-clean-footer-middle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-clean-footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (min-width: 900px) {
-  .public-clean-footer-grid {
-    grid-template-columns: 1.5fr 1fr 1fr;
+  .public-clean-footer-top {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+
+  .public-clean-footer-middle {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .public-clean-footer--marketplace .public-clean-footer-inner {
+    padding-top: 2rem;
+  }
+
+  .public-clean-footer-social-list {
+    width: 100%;
+    gap: 0.55rem;
+  }
+
+  .public-clean-footer-social {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .public-clean-footer-middle {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.35rem;
+  }
+
+  .public-clean-footer-inline {
+    gap: 0.7rem 1rem;
   }
 }
 

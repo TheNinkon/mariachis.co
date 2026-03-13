@@ -15,7 +15,7 @@ class MariachiPanelLayoutTest extends TestCase
             ->get(route('mariachi.metrics'))
             ->assertOk()
             ->assertSee('data-template="horizontal-menu-template"', false)
-            ->assertSee('/mariachi/anuncios', false)
+            ->assertSee('/anuncios', false)
             ->assertSee('Anuncios', false);
     }
 

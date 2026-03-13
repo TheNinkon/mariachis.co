@@ -30,6 +30,7 @@ class MariachiProfile extends Model
         'business_name',
         'logo_path',
         'slug',
+        'slug_locked',
         'responsible_name',
         'short_description',
         'full_description',
@@ -45,6 +46,8 @@ class MariachiProfile extends Model
         'stage_status',
         'verification_status',
         'verification_notes',
+        'verification_expires_at',
+        'notification_preferences',
         'subscription_plan_code',
         'subscription_listing_limit',
         'subscription_active',
@@ -60,8 +63,11 @@ class MariachiProfile extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'travels_to_other_cities' => 'boolean',
+            'slug_locked' => 'boolean',
             'subscription_listing_limit' => 'integer',
             'subscription_active' => 'boolean',
+            'verification_expires_at' => 'datetime',
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -181,6 +187,16 @@ class MariachiProfile extends Model
         return $this->hasMany(VerificationRequest::class)->latest('submitted_at');
     }
 
+    public function verificationPayments(): HasMany
+    {
+        return $this->hasMany(ProfileVerificationPayment::class)->latest('created_at');
+    }
+
+    public function latestVerificationPayment(): HasOne
+    {
+        return $this->hasOne(ProfileVerificationPayment::class)->latestOfMany();
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query
@@ -239,6 +255,10 @@ class MariachiProfile extends Model
 
     public function ensureSlug(): void
     {
+        if ($this->slug_locked) {
+            return;
+        }
+
         $base = Str::slug((string) ($this->business_name ?: $this->user?->display_name ?: 'mariachi'));
         if ($base === '') {
             $base = 'mariachi';
@@ -260,5 +280,14 @@ class MariachiProfile extends Model
         if ($this->slug !== $candidate) {
             $this->forceFill(['slug' => $candidate])->saveQuietly();
         }
+    }
+
+    public function hasActiveVerification(): bool
+    {
+        if ($this->verification_status !== 'verified') {
+            return false;
+        }
+
+        return ! $this->verification_expires_at || $this->verification_expires_at->isFuture();
     }
 }

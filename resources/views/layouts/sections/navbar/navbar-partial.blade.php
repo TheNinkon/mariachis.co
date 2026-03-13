@@ -11,6 +11,7 @@ $iconAvatarTone = 'bg-label-primary';
 $accountHeaderUrl = 'javascript:void(0);';
 $primaryAction = null;
 $secondaryAction = null;
+$quickAction = null;
 $roleLabel = 'Usuario';
 $showWordmarkBrand = ($authUser?->isMariachi() ?? false) || request()->routeIs('mariachi.*');
 $brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
@@ -48,6 +49,11 @@ if ($authUser?->isMariachi()) {
   $secondaryAction = [
     'url' => Route::has('mariachi.quotes.index') ? route('mariachi.quotes.index') : $accountHeaderUrl,
     'icon' => 'icon-base ti tabler-message-circle me-3 icon-md',
+    'label' => 'Solicitudes',
+  ];
+  $quickAction = [
+    'url' => Route::has('mariachi.quotes.index') ? route('mariachi.quotes.index') : url('/solicitudes'),
+    'icon' => 'icon-base ti tabler-message-circle icon-md',
     'label' => 'Solicitudes',
   ];
 } elseif ($authUser?->isAdmin()) {
@@ -153,6 +159,13 @@ if ($authUser?->isMariachi()) {
   <!-- / Style Switcher-->
   @endif
   <ul class="navbar-nav flex-row align-items-center ms-auto">
+    @if ($quickAction)
+    <li class="nav-item me-2">
+      <a class="nav-link d-flex align-items-center justify-content-center rounded-circle" href="{{ $quickAction['url'] }}" aria-label="{{ $quickAction['label'] }}" title="{{ $quickAction['label'] }}">
+        <i class="{{ $quickAction['icon'] }}"></i>
+      </a>
+    </li>
+    @endif
     <!-- User -->
     <li class="nav-item navbar-dropdown dropdown-user dropdown">
       <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">

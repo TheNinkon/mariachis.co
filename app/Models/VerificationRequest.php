@@ -17,6 +17,7 @@ class VerificationRequest extends Model
 
     protected $fillable = [
         'mariachi_profile_id',
+        'profile_verification_payment_id',
         'status',
         'id_document_path',
         'identity_proof_path',
@@ -38,6 +39,11 @@ class VerificationRequest extends Model
     public function mariachiProfile(): BelongsTo
     {
         return $this->belongsTo(MariachiProfile::class);
+    }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(ProfileVerificationPayment::class, 'profile_verification_payment_id');
     }
 
     public function reviewedBy(): BelongsTo

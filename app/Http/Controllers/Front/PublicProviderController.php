@@ -57,7 +57,11 @@ class PublicProviderController extends Controller
             'canonicalUrl' => $canonicalUrl,
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,
-            'verificationLabel' => $profile->verification_status === 'verified' ? 'Perfil verificado' : Str::headline((string) ($profile->verification_status ?: 'publicado')),
+            'verificationLabel' => $profile->hasActiveVerification()
+                ? 'Perfil verificado'
+                : ($profile->verification_status === 'verified'
+                    ? 'Verificacion vencida'
+                    : Str::headline((string) ($profile->verification_status ?: 'publicado'))),
         ]);
     }
 }

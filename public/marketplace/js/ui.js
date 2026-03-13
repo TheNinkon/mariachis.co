@@ -971,11 +971,6 @@
           <div class="space-y-4">
             ${brandLogo("footer")}
             <p class="max-w-lg text-sm text-slate-300">Marketplace para contratar mariachis en Colombia con perfiles reales, contacto directo y búsqueda por ciudad.</p>
-            <div class="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.13em]">
-              <span class="rounded-full border border-white/20 px-3 py-1">SEO local</span>
-              <span class="rounded-full border border-white/20 px-3 py-1">WhatsApp first</span>
-              <span class="rounded-full border border-white/20 px-3 py-1">Mobile</span>
-            </div>
           </div>
           <div>
             <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Ciudades populares</h3>

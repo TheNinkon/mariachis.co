@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-client-auth-v9" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260313-footer-v2" />
     @stack('head')
   </head>
   <body data-page="@yield('page_id', 'client-auth')">
@@ -43,7 +43,16 @@
       }
 
       $footerCities = collect();
+      $footerEvents = collect();
+      $footerZones = collect();
+      $footerResources = collect();
+      $footerSocialLinks = collect();
+      $footerDescription = '';
+      $footerSiteName = 'Mariachis.co';
       if (! $isClientAuthFlow) {
+          $seoSettings = app(\App\Services\Seo\SeoSettingsService::class);
+          $footerSiteName = $seoSettings->siteName();
+          $footerDescription = $seoSettings->defaultMetaDescription();
           $footerCities = \App\Models\MariachiProfile::query()
               ->published()
               ->selectRaw('city_name, count(*) as total')
@@ -53,6 +62,63 @@
               ->orderByDesc('total')
               ->limit(5)
               ->get();
+
+          $preferredEventSlugs = ['bodas', 'cumpleanos', 'aniversarios', 'serenatas', 'corporativos'];
+          $footerEvents = \App\Models\EventType::query()
+              ->active()
+              ->select(['id', 'name', 'slug', 'sort_order'])
+              ->withCount([
+                  'mariachiListings as published_listings_count' => fn ($query) => $query->published(),
+              ])
+              ->get()
+              ->filter(fn (\App\Models\EventType $eventType): bool => (int) $eventType->published_listings_count > 0)
+              ->sortBy(function (\App\Models\EventType $eventType) use ($preferredEventSlugs): string {
+                  $slug = (string) ($eventType->slug ?: \Illuminate\Support\Str::slug($eventType->name));
+                  $priority = array_search($slug, $preferredEventSlugs, true);
+                  $priority = $priority === false ? 99 : $priority;
+
+                  return str_pad((string) $priority, 2, '0', STR_PAD_LEFT)
+                      .'|'.str_pad((string) max(0, 9999 - (int) $eventType->published_listings_count), 4, '0', STR_PAD_LEFT)
+                      .'|'.mb_strtolower((string) $eventType->name);
+              })
+              ->take(5)
+              ->values();
+
+          $preferredZoneSlugs = ['chapinero', 'usaquen', 'suba', 'kennedy'];
+          $footerZones = \App\Models\MarketplaceZone::query()
+              ->with('city:id,name,slug')
+              ->searchVisible()
+              ->select(['id', 'marketplace_city_id', 'name', 'slug', 'sort_order'])
+              ->withCount([
+                  'serviceAreas as published_listings_count' => fn ($query) => $query->whereHas('listing', fn ($listingQuery) => $listingQuery->published()),
+              ])
+              ->get()
+              ->filter(fn (\App\Models\MarketplaceZone $zone): bool => (int) $zone->published_listings_count > 0 && filled($zone->city?->slug))
+              ->sortBy(function (\App\Models\MarketplaceZone $zone) use ($preferredZoneSlugs): string {
+                  $slug = (string) ($zone->slug ?: \Illuminate\Support\Str::slug($zone->name));
+                  $priority = array_search($slug, $preferredZoneSlugs, true);
+                  $priority = $priority === false ? 99 : $priority;
+
+                  return str_pad((string) $priority, 2, '0', STR_PAD_LEFT)
+                      .'|'.str_pad((string) max(0, 9999 - (int) $zone->published_listings_count), 4, '0', STR_PAD_LEFT)
+                      .'|'.mb_strtolower((string) $zone->name);
+              })
+              ->take(5)
+              ->values();
+
+          $footerResources = collect([
+              ['label' => 'Cómo funciona', 'url' => route('home').'#como-funciona'],
+              ['label' => 'Publica tu anuncio', 'url' => route('mariachi.register')],
+              ['label' => 'Blog', 'url' => route('blog.index')],
+              ['label' => 'Centro de ayuda', 'url' => route('static.help')],
+          ]);
+
+          $footerSocialLinks = collect([
+              ['label' => 'Facebook', 'url' => config('variables.facebookUrl'), 'icon' => 'facebook'],
+              ['label' => 'Instagram', 'url' => config('variables.instagramUrl'), 'icon' => 'instagram'],
+              ['label' => 'TikTok', 'url' => config('variables.tiktokUrl'), 'icon' => 'tiktok'],
+              ['label' => 'YouTube', 'url' => config('variables.youtubeUrl'), 'icon' => 'youtube'],
+          ])->filter(fn (array $link): bool => filled($link['url']))->values();
       }
     @endphp
     <header class="public-clean-header">
@@ -112,46 +178,118 @@
         </div>
       </footer>
     @else
-      <footer class="public-clean-footer">
-        <div class="public-clean-footer-inner public-clean-footer-grid layout-shell">
-          <section>
-            <a class="brand-logo brand-logo--footer" href="/" aria-label="mariachis.co">
-              <span class="brand-logo-copy">
-                <span class="brand-logo-word">
-                  <img src="assets/logo-wordmark.png" alt="Mariachis.co" class="brand-logo-image" />
+      <footer class="public-clean-footer public-clean-footer--marketplace">
+        <div class="public-clean-footer-inner layout-shell">
+          <div class="public-clean-footer-top{{ $footerSocialLinks->isEmpty() ? ' public-clean-footer-top--solo' : '' }}">
+            <section class="public-clean-footer-brand">
+              <a class="brand-logo brand-logo--footer" href="/" aria-label="mariachis.co">
+                <span class="brand-logo-copy">
+                  <span class="brand-logo-word">
+                    <img src="assets/logo-wordmark.png" alt="{{ $footerSiteName }}" class="brand-logo-image" />
+                  </span>
+                  <span class="brand-logo-sub">marketplace colombiano</span>
                 </span>
-                <span class="brand-logo-sub">marketplace colombiano</span>
-              </span>
-            </a>
-            <p class="public-clean-footer-text">Marketplace para contratar mariachis en Colombia con perfiles reales, contacto directo y búsqueda por ciudad.</p>
-            <div class="public-clean-footer-chips">
-              <span>SEO local</span>
-              <span>WhatsApp first</span>
-              <span>Mobile</span>
-            </div>
-          </section>
+              </a>
+              <p class="public-clean-footer-text">{{ $footerDescription }}</p>
+            </section>
 
-          <section>
-            <h3>Ciudades populares</h3>
-            <ul>
-              @forelse($footerCities as $city)
-                <li><a href="{{ route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city->city_name)]) }}">Mariachis en {{ $city->city_name }}</a></li>
-              @empty
-                <li><span>Sin ciudades activas todavía</span></li>
-              @endforelse
-            </ul>
-          </section>
+            @if($footerSocialLinks->isNotEmpty())
+              <section class="public-clean-footer-socials" aria-label="Redes sociales">
+                <span class="public-clean-footer-eyebrow">Síguenos</span>
+                <div class="public-clean-footer-social-list">
+                  @foreach($footerSocialLinks as $socialLink)
+                    <a href="{{ $socialLink['url'] }}" target="_blank" rel="noopener noreferrer" class="public-clean-footer-social" aria-label="{{ $socialLink['label'] }}">
+                      <span class="public-clean-footer-social__icon" aria-hidden="true">
+                        @switch($socialLink['icon'])
+                          @case('facebook')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <path d="M14 8h3V4h-3c-2.8 0-5 2.2-5 5v3H6v4h3v4h4v-4h3.2l.8-4H13V9c0-.6.4-1 1-1Z" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            @break
+                          @case('instagram')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+                              <circle cx="12" cy="12" r="4" />
+                              <circle cx="17.5" cy="6.5" r="0.75" fill="currentColor" stroke="none" />
+                            </svg>
+                            @break
+                          @case('tiktok')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <path d="M14 4c.8 2 2.3 3.5 4 4v3a7.1 7.1 0 0 1-4-1.2V15a5 5 0 1 1-5-5h1.2v3H9a2 2 0 1 0 2 2V4h3Z" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            @break
+                          @case('youtube')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                              <path d="M21 12s0-3.3-.4-4.8a2.5 2.5 0 0 0-1.8-1.8C17.3 5 12 5 12 5s-5.3 0-6.8.4a2.5 2.5 0 0 0-1.8 1.8C3 8.7 3 12 3 12s0 3.3.4 4.8a2.5 2.5 0 0 0 1.8 1.8C6.7 19 12 19 12 19s5.3 0 6.8-.4a2.5 2.5 0 0 0 1.8-1.8C21 15.3 21 12 21 12Z" stroke-linecap="round" stroke-linejoin="round" />
+                              <path d="m10 9 5 3-5 3V9Z" fill="currentColor" stroke="none" />
+                            </svg>
+                            @break
+                        @endswitch
+                      </span>
+                      <span>{{ $socialLink['label'] }}</span>
+                    </a>
+                  @endforeach
+                </div>
+              </section>
+            @endif
+          </div>
 
-          <section>
-            <h3>Marketplace</h3>
-            <ul>
-              <li><a href="/#como-funciona">Cómo funciona</a></li>
-              <li><a href="/#soy-mariachi">Publica tu anuncio</a></li>
-              <li><a href="/mariachis/bogota">Anuncios en tu ciudad</a></li>
-              <li><a href="/blog">Blog</a></li>
-              <li><a href="{{ route('static.help') }}">Centro de ayuda</a></li>
-            </ul>
-          </section>
+          <div class="public-clean-footer-divider" role="presentation"></div>
+
+          <div class="public-clean-footer-middle">
+            <section class="public-clean-footer-column">
+              <h3>Ciudades populares</h3>
+              <ul>
+                @forelse($footerCities as $city)
+                  <li><a href="{{ route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city->city_name)]) }}">Mariachis en {{ $city->city_name }}</a></li>
+                @empty
+                  <li><span>Sin ciudades activas todavía</span></li>
+                @endforelse
+              </ul>
+            </section>
+
+            <section class="public-clean-footer-column">
+              <h3>Eventos destacados</h3>
+              <ul>
+                @forelse($footerEvents as $eventType)
+                  <li><a href="{{ route('seo.landing.slug', ['slug' => $eventType->slug ?: \Illuminate\Support\Str::slug($eventType->name)]) }}">Mariachis para {{ \Illuminate\Support\Str::lower($eventType->name) }}</a></li>
+                @empty
+                  <li><span>Próximamente más eventos destacados</span></li>
+                @endforelse
+              </ul>
+            </section>
+
+            <section class="public-clean-footer-column">
+              <h3>Zonas destacadas</h3>
+              <ul>
+                @forelse($footerZones as $zone)
+                  <li><a href="{{ route('seo.landing.city-category', ['citySlug' => $zone->city->slug, 'scopeSlug' => $zone->slug]) }}">{{ $zone->name }}, {{ $zone->city->name }}</a></li>
+                @empty
+                  <li><span>Próximamente más zonas destacadas</span></li>
+                @endforelse
+              </ul>
+            </section>
+
+            <section class="public-clean-footer-column">
+              <h3>Recursos</h3>
+              <ul>
+                @foreach($footerResources as $resource)
+                  <li><a href="{{ $resource['url'] }}">{{ $resource['label'] }}</a></li>
+                @endforeach
+              </ul>
+            </section>
+          </div>
+
+          <div class="public-clean-footer-divider" role="presentation"></div>
+
+          <div class="public-clean-footer-bottom">
+            <span>&copy; {{ now()->year }} {{ $footerSiteName }}</span>
+            <nav class="public-clean-footer-inline" aria-label="Enlaces legales">
+              <a href="{{ route('static.terms') }}">Términos y condiciones</a>
+              <a href="{{ route('static.privacy') }}">Privacidad y cookies</a>
+              <a href="{{ route('home') }}#como-funciona">Cómo funciona</a>
+            </nav>
+          </div>
         </div>
       </footer>
     @endif

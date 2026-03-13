@@ -223,7 +223,7 @@ class PublicMariachiController extends Controller
             'averageRating' => $averageRating,
             'ratingDistribution' => $ratingDistribution,
             'reviewPhotoGallery' => $reviewPhotoGallery,
-            'isVerifiedProfile' => $providerProfile?->verification_status === 'verified',
+            'isVerifiedProfile' => (bool) $providerProfile?->hasActiveVerification(),
             'hasPremiumBadge' => (bool) $planCapabilities['has_premium_badge'],
         ]);
     }

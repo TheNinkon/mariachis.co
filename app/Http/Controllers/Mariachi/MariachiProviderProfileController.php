@@ -30,9 +30,7 @@ class MariachiProviderProfileController extends Controller
 
         $validated = $request->validate([
             'business_name' => ['required', 'string', 'max:140'],
-            'responsible_name' => ['required', 'string', 'max:140'],
             'short_description' => ['required', 'string', 'max:280'],
-            'city_name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
             'whatsapp' => ['nullable', 'string', 'max:30'],
@@ -55,9 +53,7 @@ class MariachiProviderProfileController extends Controller
 
         $profile->update([
             'business_name' => $validated['business_name'],
-            'responsible_name' => $validated['responsible_name'],
             'short_description' => $validated['short_description'],
-            'city_name' => $validated['city_name'],
             'whatsapp' => $validated['whatsapp'] ?: null,
             'website' => $validated['website'] ?: null,
             'instagram' => $validated['instagram'] ?: null,
@@ -96,9 +92,6 @@ class MariachiProviderProfileController extends Controller
             'profile_completion' => 0,
             'stage_status' => 'provider_incomplete',
             'verification_status' => 'unverified',
-            'subscription_plan_code' => 'basic',
-            'subscription_listing_limit' => 1,
-            'subscription_active' => true,
         ]);
     }
 }
