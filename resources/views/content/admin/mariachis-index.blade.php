@@ -194,8 +194,8 @@
               $statusClass = $mariachi->status === User::STATUS_ACTIVE ? 'bg-label-success' : 'bg-label-secondary';
               $avatarUrl = $profile?->logo_path ? asset('storage/'.$profile->logo_path) : asset('marketplace/img/1.webp');
               $mainName = $profile?->business_name ?: $mariachi->display_name;
-              $publicProfileUrl = Route::has('mariachi.public.show') && filled($profile?->slug)
-                ? route('mariachi.public.show', ['slug' => $profile->slug])
+              $publicProfileUrl = Route::has('mariachi.provider.public.show') && filled($profile?->slug)
+                ? route('mariachi.provider.public.show', ['handle' => $profile->slug])
                 : null;
             @endphp
             <tr>

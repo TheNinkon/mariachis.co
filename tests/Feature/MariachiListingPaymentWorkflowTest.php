@@ -176,6 +176,67 @@ class MariachiListingPaymentWorkflowTest extends TestCase
         );
     }
 
+    public function test_mariachi_can_pause_and_resume_only_after_listing_is_published(): void
+    {
+        Storage::fake('public');
+        $this->configureNequi();
+
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $listing = $this->createCompleteListing($mariachi);
+        $plan = Plan::query()->active()->public()->firstOrFail();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.pause', $listing))
+            ->assertSessionHasErrors('listing');
+
+        $this->submitPendingPayment($mariachi, $listing, $plan);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.listings.moderate', $listing), [
+                'action' => 'approve',
+            ])
+            ->assertRedirect();
+
+        $listing->refresh();
+        $subscription = Subscription::query()->where('mariachi_profile_id', $listing->mariachi_profile_id)->latest('id')->firstOrFail();
+        $subscriptionEndsAt = optional($subscription->ends_at)->toISOString();
+        $subscriptionRenewsAt = optional($subscription->renews_at)->toISOString();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.pause', $listing))
+            ->assertRedirect();
+
+        $listing->refresh();
+        $subscription->refresh();
+
+        $this->assertSame(MariachiListing::STATUS_PAUSED, $listing->status);
+        $this->assertFalse($listing->is_active);
+        $this->assertNotNull($listing->deactivated_at);
+        $this->assertSame($subscriptionEndsAt, optional($subscription->ends_at)->toISOString());
+        $this->assertSame($subscriptionRenewsAt, optional($subscription->renews_at)->toISOString());
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.resume', $listing))
+            ->assertRedirect();
+
+        $listing->refresh();
+        $subscription->refresh();
+
+        $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
+        $this->assertTrue($listing->is_active);
+        $this->assertNull($listing->deactivated_at);
+        $this->assertSame($subscriptionEndsAt, optional($subscription->ends_at)->toISOString());
+        $this->assertSame($subscriptionRenewsAt, optional($subscription->renews_at)->toISOString());
+    }
+
     private function configureNequi(): void
     {
         app(SystemSettingService::class)->putString(NequiPaymentSettingsService::KEY_PHONE, '3001234567');

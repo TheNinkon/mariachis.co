@@ -23,9 +23,12 @@
       <div>
         <h5 class="mb-1">Perfil del proveedor</h5>
         <p class="mb-1">Verificacion: <span class="badge bg-label-{{ $profile->verification_status === 'verified' ? 'success' : 'warning' }}">{{ $profile->verification_status }}</span></p>
-        <small class="text-muted">Este perfil concentra informacion general del grupo. Los detalles viven en anuncios/servicios.</small>
+        <small class="text-muted">Este perfil concentra informacion general del grupo. El nombre de marca se usa para crear tu URL pública tipo <strong>/@handle</strong>.</small>
       </div>
       <div class="text-end">
+        @if (Route::has('mariachi.provider.public.show') && filled($profile->slug))
+          <a href="{{ route('mariachi.provider.public.show', ['handle' => $profile->slug]) }}" target="_blank" class="btn btn-outline-secondary">Ver perfil publico</a>
+        @endif
         <a href="{{ route('mariachi.verification.edit') }}" class="btn btn-outline-primary">Verificacion</a>
         <a href="{{ route('mariachi.listings.index') }}" class="btn btn-primary">Gestionar anuncios</a>
       </div>
@@ -41,8 +44,9 @@
 
         <div class="row g-4">
           <div class="col-md-6">
-            <label class="form-label">Nombre del grupo</label>
+            <label class="form-label">Nombre del grupo / marca</label>
             <input class="form-control" name="business_name" value="{{ old('business_name', $profile->business_name) }}" required />
+            <small class="text-muted d-block mt-1">Se convertirá en tu URL pública de marca. Ejemplo: <code>/@{{ $profile->slug ?: 'mariachi-vargas-de-bogota' }}</code></small>
           </div>
           <div class="col-md-6">
             <label class="form-label">Ciudad principal</label>

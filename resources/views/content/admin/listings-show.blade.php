@@ -185,6 +185,7 @@
     $coverPhoto = $listing->photos->first();
     $latestPayment = $listing->latestPayment;
     $pendingPayment = $latestPayment?->status === \App\Models\ListingPayment::STATUS_PENDING ? $latestPayment : null;
+    $renderedFaqs = $listing->renderedFaqRows(true);
     $listingInitials = collect(preg_split('/\s+/', trim($listing->title ?: $providerName)))
       ->filter()
       ->take(2)
@@ -240,10 +241,10 @@
       [
         'name' => 'FAQs',
         'detail' => 'Preguntas frecuentes del anuncio',
-        'sub' => $listing->faqs->isNotEmpty() ? $listing->faqs->first()->question : 'Sin preguntas frecuentes',
-        'state' => $listing->faqs->isNotEmpty() ? 'Completo' : 'Vacio',
-        'stateClass' => $listing->faqs->isNotEmpty() ? 'success' : 'secondary',
-        'qty' => $listing->faqs->count(),
+        'sub' => $renderedFaqs->isNotEmpty() ? $renderedFaqs->first()['question'] : 'Sin preguntas frecuentes',
+        'state' => $renderedFaqs->isNotEmpty() ? 'Completo' : 'Vacio',
+        'stateClass' => $renderedFaqs->isNotEmpty() ? 'success' : 'secondary',
+        'qty' => $renderedFaqs->count(),
         'signal' => 'Soporte',
         'thumb' => null,
       ],
@@ -522,10 +523,13 @@
           <h5 class="card-title m-0">Preguntas frecuentes</h5>
         </div>
         <div class="card-body">
-          @forelse ($listing->faqs as $faq)
+          @forelse ($renderedFaqs as $faq)
             <div class="border rounded p-3 mb-3">
-              <p class="fw-semibold mb-1">{{ $faq->question }}</p>
-              <p class="mb-0 text-body-secondary">{{ $faq->answer }}</p>
+              <div class="d-flex justify-content-between gap-3 flex-wrap">
+                <p class="fw-semibold mb-1">{{ $faq['question'] }}</p>
+                <span class="badge bg-label-{{ $faq['is_system'] ? 'success' : 'primary' }}">{{ $faq['is_system'] ? 'Sistema' : 'Mariachi' }}</span>
+              </div>
+              <p class="mb-0 text-body-secondary">{{ $faq['answer'] }}</p>
             </div>
           @empty
             <p class="mb-0 text-body-secondary">Este anuncio no tiene preguntas frecuentes.</p>

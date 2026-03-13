@@ -13,6 +13,7 @@ use App\Http\Controllers\Front\HomeController;
 use App\Http\Controllers\Front\ListingInfoRequestController;
 use App\Http\Controllers\Front\PublicListingCollectionController;
 use App\Http\Controllers\Front\PublicMariachiController;
+use App\Http\Controllers\Front\PublicProviderController;
 use App\Http\Controllers\Front\QuoteRequestController;
 use App\Http\Controllers\Front\SeoLandingController;
 use App\Http\Controllers\language\LanguageController;
@@ -68,6 +69,9 @@ Route::domain($publicHost)->group(function () use (
     Route::get('/lista-de-deseos', [PublicListingCollectionController::class, 'wishlist'])->name('public.collections.wishlist');
     Route::get('/vistos-recientemente', [PublicListingCollectionController::class, 'recentlyViewed'])->name('public.collections.recents');
     Route::get('/resolver-anuncios', [PublicListingCollectionController::class, 'resolve'])->name('public.listings.resolve');
+    Route::get('/@{handle}', [PublicProviderController::class, 'show'])
+        ->where('handle', '[a-z0-9-]+')
+        ->name('mariachi.provider.public.show');
     Route::get('/mariachis/{citySlug}/{scopeSlug}', [SeoLandingController::class, 'showCityCategory'])
         ->where(['citySlug' => $seoLandingSlugPattern, 'scopeSlug' => $seoLandingSlugPattern])
         ->name('seo.landing.city-category');

@@ -69,6 +69,8 @@ class MariachiProviderProfileController extends Controller
             'stage_status' => 'provider_ready',
         ]);
 
+        $profile->ensureSlug();
+
         $user->update([
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?: null,

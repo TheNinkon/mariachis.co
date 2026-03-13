@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -268,6 +269,22 @@ class MariachiListing extends Model
             && $this->is_active;
     }
 
+    public function canOwnerPause(): bool
+    {
+        return $this->review_status === self::REVIEW_APPROVED
+            && $this->status === self::STATUS_ACTIVE
+            && $this->is_active
+            && $this->hasEffectivePlan();
+    }
+
+    public function canOwnerResume(): bool
+    {
+        return $this->review_status === self::REVIEW_APPROVED
+            && $this->status === self::STATUS_PAUSED
+            && ! $this->is_active
+            && $this->hasEffectivePlan();
+    }
+
     public function canBeSubmittedForReview(): bool
     {
         return in_array($this->review_status, [self::REVIEW_DRAFT, self::REVIEW_REJECTED], true)
@@ -354,6 +371,84 @@ class MariachiListing extends Model
         };
     }
 
+    /**
+     * @return \Illuminate\Support\Collection<int, array{question:string,answer:string,is_system:bool,sort_order:int,is_visible:bool}>
+     */
+    public function systemFaqRows(): Collection
+    {
+        $this->loadMissing([
+            'eventTypes:id,name',
+            'serviceTypes:id,name',
+            'groupSizeOptions:id,name,sort_order',
+        ]);
+
+        $groupSizeSummary = $this->sentenceFromNames($this->groupSizeOptions->pluck('name'));
+        $eventSummary = $this->sentenceFromNames($this->eventTypes->pluck('name'));
+        $serviceSummary = $this->sentenceFromNames($this->serviceTypes->pluck('name'));
+        $priceLabel = $this->base_price !== null
+            ? '$'.number_format((float) $this->base_price, 0, ',', '.').' COP'
+            : null;
+
+        $rows = [
+            [
+                'question' => '¿Cuántos integrantes son?',
+                'answer' => $groupSizeSummary !== ''
+                    ? 'Este anuncio opera en formatos como '.$groupSizeSummary.'. Si necesitas un formato puntual, puedes pedirlo en la cotización.'
+                    : 'La cantidad de integrantes se ajusta según el show solicitado. Usa la cotización para pedir una propuesta acorde a tu evento.',
+            ],
+            [
+                'question' => '¿Qué tipo de eventos atienden?',
+                'answer' => $eventSummary !== ''
+                    ? 'Atienden eventos como '.$eventSummary.'.'
+                    : ($serviceSummary !== ''
+                        ? 'Ofrecen formatos como '.$serviceSummary.' y otros shows bajo solicitud.'
+                        : 'Atienden serenatas, celebraciones privadas y eventos corporativos según disponibilidad.'),
+            ],
+            [
+                'question' => '¿Cómo puedo solicitar más información?',
+                'answer' => $priceLabel
+                    ? 'Puedes dejar tu solicitud desde el formulario del anuncio. El precio base actual inicia desde '.$priceLabel.' y luego se ajusta según fecha, ciudad y formato.'
+                    : 'Puedes dejar tu solicitud desde el formulario del anuncio y el mariachi responderá con una propuesta según fecha, ciudad y formato.',
+            ],
+        ];
+
+        return collect($rows)->values()->map(
+            fn (array $row, int $index): array => [
+                'question' => $row['question'],
+                'answer' => $row['answer'],
+                'is_system' => true,
+                'sort_order' => $index + 1,
+                'is_visible' => true,
+            ]
+        );
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array{question:string,answer:string,is_system:bool,sort_order:int,is_visible:bool}>
+     */
+    public function renderedFaqRows(bool $includeHiddenUserFaqs = false): Collection
+    {
+        $userFaqs = $this->relationLoaded('faqs')
+            ? $this->faqs
+            : $this->faqs()->orderBy('sort_order')->get();
+
+        if (! $includeHiddenUserFaqs) {
+            $userFaqs = $userFaqs->where('is_visible', true)->values();
+        }
+
+        return $this->systemFaqRows()->concat(
+            $userFaqs->values()->map(
+                fn (MariachiListingFaq $faq, int $index): array => [
+                    'question' => trim((string) $faq->question),
+                    'answer' => trim((string) $faq->answer),
+                    'is_system' => false,
+                    'sort_order' => max(4, (int) $faq->sort_order ?: $index + 4),
+                    'is_visible' => (bool) $faq->is_visible,
+                ]
+            )->filter(fn (array $faq): bool => $faq['question'] !== '' && $faq['answer'] !== '')
+        )->values();
+    }
+
     public function getBusinessNameAttribute(): ?string
     {
         return $this->mariachiProfile?->business_name;
@@ -416,6 +511,37 @@ class MariachiListing extends Model
         if ($this->slug !== $targetSlug) {
             $this->forceFill(['slug' => $targetSlug])->saveQuietly();
         }
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>|array<int, string>  $names
+     */
+    private function sentenceFromNames(Collection|array $names): string
+    {
+        $values = collect($names)
+            ->map(fn (mixed $name): string => trim((string) $name))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $count = $values->count();
+
+        if ($count === 0) {
+            return '';
+        }
+
+        if ($count === 1) {
+            return (string) $values->first();
+        }
+
+        if ($count === 2) {
+            return $values->implode(' y ');
+        }
+
+        $head = $values->slice(0, -1)->implode(', ');
+        $tail = $values->last();
+
+        return $head.' y '.$tail;
     }
 
     private function buildUniqueSlug(): string

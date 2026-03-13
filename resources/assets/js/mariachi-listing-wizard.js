@@ -1,3 +1,5 @@
+import Sortable from 'sortablejs';
+
 'use strict';
 
 (function () {
@@ -12,7 +14,7 @@
   const stepLinks = Array.from(document.querySelectorAll('[data-step-link]'));
   const listingId = wizardElement?.dataset.listingId || '';
   const stepStorageKey = listingId ? `listing_wizard_step_${listingId}` : null;
-  const stepOrder = ['basic', 'location', 'filters', 'photos', 'videos', 'final'];
+  const stepOrder = ['basic', 'location', 'filters', 'faqs', 'photos', 'videos', 'final'];
   const legacyStepAliases = {
     media: 'photos',
     review: 'final'
@@ -225,6 +227,14 @@
   const zoneUpgradeTile = zonePicker?.querySelector('[data-zone-upgrade]');
   const zoneFeedback = document.querySelector('[data-zone-feedback]');
   const maxZones = Number(zonePicker?.getAttribute('data-max-zones') || 0);
+  const basePriceRange = document.querySelector('[data-base-price-range]');
+  const basePriceHidden = document.getElementById('listing-base-price-hidden');
+  const basePriceDisplay = document.querySelector('[data-base-price-display]');
+  const faqList = document.querySelector('[data-faq-list]');
+  const faqAddButton = document.querySelector('[data-faq-add]');
+  const faqCountTarget = document.querySelector('[data-faq-count]');
+  const faqTemplate = document.getElementById('listing-faq-item-template');
+  const maxFaqItems = Number(faqList?.getAttribute('data-faq-max') || 10);
   const zonesById = new Map(
     locationZones.map(zone => [Number(zone.id), { id: Number(zone.id), city_id: Number(zone.city_id), name: zone.name }])
   );
@@ -365,6 +375,98 @@
         // handled inside autosave
       });
     }, 1200);
+  };
+
+  const copFormatter = new Intl.NumberFormat('es-CO');
+  const basePriceRangeMax = Number(basePriceRange?.getAttribute('max') || 4000000);
+  const basePriceRangeStep = Number(basePriceRange?.getAttribute('step') || 5000);
+
+  const normalizePriceValue = value => {
+    const parsed = Number.parseFloat(String(value ?? '').replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return null;
+    }
+
+    const rounded = Math.round(parsed / Math.max(basePriceRangeStep, 1)) * Math.max(basePriceRangeStep, 1);
+    return Math.min(basePriceRangeMax, Math.max(0, rounded));
+  };
+
+  const renderBasePrice = value => {
+    if (!basePriceDisplay) {
+      return;
+    }
+
+    if (value === null) {
+      basePriceDisplay.textContent = '$—';
+      return;
+    }
+
+    basePriceDisplay.textContent = `$${copFormatter.format(value)}`;
+  };
+
+  const syncBasePriceControls = rawValue => {
+    if (!basePriceRange || !basePriceHidden) {
+      return;
+    }
+
+    const normalized = normalizePriceValue(rawValue);
+    basePriceRange.value = String(normalized ?? 0);
+    basePriceHidden.value = normalized === null ? '' : String(normalized);
+    renderBasePrice(normalized);
+  };
+
+  const updateFaqCount = () => {
+    if (!faqList) {
+      return;
+    }
+
+    const count = faqList.querySelectorAll('[data-faq-item]').length;
+
+    if (faqCountTarget) {
+      faqCountTarget.textContent = String(count);
+    }
+
+    if (faqAddButton instanceof HTMLButtonElement) {
+      faqAddButton.disabled = count >= maxFaqItems;
+    }
+  };
+
+  const bindFaqItem = item => {
+    if (!(item instanceof HTMLElement) || item.dataset.faqBound === 'true') {
+      return;
+    }
+
+    item.dataset.faqBound = 'true';
+
+    const removeButton = item.querySelector('[data-faq-remove]');
+    if (removeButton instanceof HTMLButtonElement) {
+      removeButton.addEventListener('click', () => {
+        item.remove();
+        updateFaqCount();
+        queueAutosave();
+      });
+    }
+  };
+
+  const addFaqItem = () => {
+    if (!faqList || !faqTemplate || faqList.querySelectorAll('[data-faq-item]').length >= maxFaqItems) {
+      return;
+    }
+
+    const fragment = faqTemplate.content.cloneNode(true);
+    const item = fragment.firstElementChild;
+    if (!(item instanceof HTMLElement)) {
+      return;
+    }
+
+    bindFaqItem(item);
+    faqList.appendChild(item);
+    updateFaqCount();
+
+    const firstField = item.querySelector('input[name="faq_question[]"]');
+    if (firstField instanceof HTMLInputElement) {
+      firstField.focus();
+    }
   };
 
   const normalize = value =>
@@ -1193,6 +1295,49 @@
   if (zoneSearchInput) {
     zoneSearchInput.addEventListener('input', () => {
       renderZonePicker();
+    });
+  }
+
+  if (basePriceRange) {
+    syncBasePriceControls(basePriceHidden?.value ?? basePriceRange.value);
+
+    basePriceRange.addEventListener('input', event => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+
+      syncBasePriceControls(target.value);
+    });
+
+    basePriceRange.addEventListener('change', event => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+
+      syncBasePriceControls(target.value);
+    });
+  }
+
+  if (faqList) {
+    Array.from(faqList.querySelectorAll('[data-faq-item]')).forEach(bindFaqItem);
+    updateFaqCount();
+
+    Sortable.create(faqList, {
+      animation: 180,
+      handle: '[data-faq-handle]',
+      ghostClass: 'sortable-ghost',
+      onEnd: () => {
+        updateFaqCount();
+        queueAutosave();
+      }
+    });
+  }
+
+  if (faqAddButton instanceof HTMLButtonElement) {
+    faqAddButton.addEventListener('click', () => {
+      addFaqItem();
     });
   }
 

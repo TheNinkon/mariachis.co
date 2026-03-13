@@ -71,6 +71,8 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::get('/anuncios/{listing}/editar', [MariachiListingController::class, 'edit'])->name('mariachi.listings.edit');
         Route::patch('/anuncios/{listing}/autosave', [MariachiListingController::class, 'autosave'])->name('mariachi.listings.autosave');
         Route::patch('/anuncios/{listing}', [MariachiListingController::class, 'update'])->name('mariachi.listings.update');
+        Route::post('/anuncios/{listing}/pause', [MariachiListingController::class, 'pause'])->name('mariachi.listings.pause');
+        Route::post('/anuncios/{listing}/resume', [MariachiListingController::class, 'resume'])->name('mariachi.listings.resume');
         Route::post('/anuncios/{listing}/enviar-revision', [MariachiListingController::class, 'submitForReview'])->name('mariachi.listings.submit-review');
         Route::post('/anuncios/{listing}/fotos', [MariachiListingController::class, 'uploadPhoto'])->name('mariachi.listings.photos.store');
         Route::delete('/anuncios/{listing}/fotos/{photo}', [MariachiListingController::class, 'deletePhoto'])->name('mariachi.listings.photos.delete');

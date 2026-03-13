@@ -47,7 +47,7 @@ class MariachiListingController extends Controller
     {
         $profile = $this->providerProfile();
         $listings = $profile->listings()
-            ->with(['photos', 'videos', 'serviceAreas', 'eventTypes:id,name', 'latestPayment'])
+            ->with(['mariachiProfile.activeSubscription.plan', 'photos', 'videos', 'serviceAreas', 'eventTypes:id,name', 'latestPayment'])
             ->latest('updated_at')
             ->get();
 
@@ -403,11 +403,6 @@ class MariachiListingController extends Controller
             'travels_to_other_cities' => ['nullable', 'boolean'],
             'zone_ids' => ['nullable', 'array'],
             'zone_ids.*' => ['integer', Rule::exists('marketplace_zones', 'id')],
-            'status' => ['nullable', Rule::in([
-                MariachiListing::STATUS_DRAFT,
-                MariachiListing::STATUS_ACTIVE,
-                MariachiListing::STATUS_PAUSED,
-            ])],
             'event_type_ids' => ['nullable', 'array'],
             'event_type_ids.*' => ['integer', Rule::exists('event_types', 'id')],
             'service_type_ids' => ['nullable', 'array'],
@@ -424,15 +419,6 @@ class MariachiListingController extends Controller
             'suggest_service_type' => ['nullable', 'string', 'max:120'],
             'suggest_zone' => ['nullable', 'string', 'max:120'],
         ]);
-
-        $status = $validated['status'] ?? $listing->status;
-        if ($status === MariachiListing::STATUS_ACTIVE && ! $listing->hasEffectivePlan()) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'status' => 'Para activar el anuncio primero debes elegir un plan en el paso final o pedir al admin que te asigne uno privado.',
-                ]);
-        }
 
         [$city, $cityName] = $this->resolveListingCity($validated, $listing);
         [$zones, $zoneName] = $this->resolveListingZones($validated, $city);
@@ -477,10 +463,6 @@ class MariachiListingController extends Controller
             'google_place_id' => $validated['google_place_id'] ?? null,
             'google_location_payload' => $this->decodeGooglePayload($validated['google_location_payload'] ?? null),
             'travels_to_other_cities' => $request->boolean('travels_to_other_cities'),
-            'status' => $status,
-            'is_active' => $status === MariachiListing::STATUS_ACTIVE,
-            'activated_at' => $status === MariachiListing::STATUS_ACTIVE ? ($listing->activated_at ?? now()) : $listing->activated_at,
-            'deactivated_at' => $status === MariachiListing::STATUS_ACTIVE ? null : now(),
         ] + $reviewResetPayload);
 
         $listing->eventTypes()->sync($validated['event_type_ids'] ?? []);
@@ -528,12 +510,6 @@ class MariachiListingController extends Controller
             'travels_to_other_cities' => ['nullable', 'boolean'],
             'zone_ids' => ['nullable', 'array'],
             'zone_ids.*' => ['integer', Rule::exists('marketplace_zones', 'id')],
-            'status' => ['nullable', Rule::in([
-                MariachiListing::STATUS_DRAFT,
-                MariachiListing::STATUS_AWAITING_PLAN,
-                MariachiListing::STATUS_ACTIVE,
-                MariachiListing::STATUS_PAUSED,
-            ])],
             'event_type_ids' => ['nullable', 'array'],
             'event_type_ids.*' => ['integer', Rule::exists('event_types', 'id')],
             'service_type_ids' => ['nullable', 'array'],
@@ -555,11 +531,6 @@ class MariachiListingController extends Controller
         $syncAll = $request->boolean('autosave_sync');
         [$city, $cityName] = $this->resolveListingCity($validated, $listing);
         [$zones, $zoneName] = $this->resolveListingZones($validated, $city);
-
-        $currentStatus = array_key_exists('status', $validated) ? $validated['status'] : $listing->status;
-        if ($currentStatus === MariachiListing::STATUS_ACTIVE && ! $listing->hasEffectivePlan()) {
-            $currentStatus = MariachiListing::STATUS_AWAITING_PLAN;
-        }
 
         $travelsToOtherCities = array_key_exists('travels_to_other_cities', $validated)
             ? $request->boolean('travels_to_other_cities')
@@ -586,10 +557,6 @@ class MariachiListingController extends Controller
                 ? $this->decodeGooglePayload($validated['google_location_payload'] ?? null)
                 : $listing->google_location_payload,
             'travels_to_other_cities' => $travelsToOtherCities,
-            'status' => $currentStatus,
-            'is_active' => $currentStatus === MariachiListing::STATUS_ACTIVE,
-            'activated_at' => $currentStatus === MariachiListing::STATUS_ACTIVE ? ($listing->activated_at ?? now()) : $listing->activated_at,
-            'deactivated_at' => $currentStatus === MariachiListing::STATUS_ACTIVE ? null : ($listing->deactivated_at ?? now()),
         ] + $reviewResetPayload);
 
         if ($syncAll || array_key_exists('event_type_ids', $validated)) {
@@ -645,6 +612,45 @@ class MariachiListingController extends Controller
             'status' => (string) $listing->status,
             'review_status' => (string) $listing->review_status,
         ]);
+    }
+
+    public function pause(MariachiListing $listing): RedirectResponse
+    {
+        $this->ensureOwned($listing);
+
+        if (! $listing->canOwnerPause()) {
+            throw ValidationException::withMessages([
+                'listing' => 'Solo puedes pausar anuncios ya publicados, aprobados y con plan activo.',
+            ]);
+        }
+
+        $listing->update([
+            'status' => MariachiListing::STATUS_PAUSED,
+            'is_active' => false,
+            'deactivated_at' => now(),
+        ]);
+
+        return back()->with('status', 'Anuncio pausado. El tiempo de tu plan sigue corriendo normalmente.');
+    }
+
+    public function resume(MariachiListing $listing): RedirectResponse
+    {
+        $this->ensureOwned($listing);
+
+        if (! $listing->canOwnerResume()) {
+            throw ValidationException::withMessages([
+                'listing' => 'Solo puedes reanudar anuncios aprobados que hoy estén pausados.',
+            ]);
+        }
+
+        $listing->update([
+            'status' => MariachiListing::STATUS_ACTIVE,
+            'is_active' => true,
+            'activated_at' => $listing->activated_at ?? now(),
+            'deactivated_at' => null,
+        ]);
+
+        return back()->with('status', 'Anuncio reanudado. El plan no se reinicia; continúa con el tiempo restante.');
     }
 
     public function uploadPhoto(Request $request, MariachiListing $listing): RedirectResponse
@@ -1043,7 +1049,7 @@ class MariachiListingController extends Controller
         $listing->faqs()->delete();
         $questions = (array) ($validated['faq_question'] ?? []);
         $answers = (array) ($validated['faq_answer'] ?? []);
-        $order = 1;
+        $order = 4;
 
         foreach ($questions as $index => $question) {
             $q = trim((string) $question);
@@ -1463,7 +1469,7 @@ class MariachiListingController extends Controller
                 && $listing->groupSizeOptions()->count() > 0
                 && $listing->budgetRanges()->count() > 0,
             'coverage' => ! $listing->travels_to_other_cities || $listing->serviceAreas()->count() > 0,
-            'faqs' => $listing->faqs()->count() > 0,
+            'faqs' => $listing->renderedFaqRows()->isNotEmpty(),
         ];
 
         $completed = count(array_filter($checks));

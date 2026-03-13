@@ -23,6 +23,8 @@
     }
 
     .listing-zone-panel--localities {
+      position: relative;
+      isolation: isolate;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
@@ -30,6 +32,7 @@
       overflow-y: auto;
       padding: 0.9rem !important;
       scrollbar-gutter: stable;
+      background: #fff;
     }
 
     .listing-zone-panel__header {
@@ -42,15 +45,24 @@
       gap: 0.75rem;
       flex-wrap: wrap;
       padding-bottom: 0.6rem;
-      background: linear-gradient(180deg, #fff 0%, #fff 82%, rgba(255, 255, 255, 0.88) 100%);
+      background: #fff;
       border-bottom: 1px solid rgba(75, 70, 92, 0.08);
     }
 
+    .listing-zone-panel__header-main {
+      width: 100%;
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
     .listing-zone-panel__search {
-      position: sticky;
-      top: 0;
-      z-index: 3;
+      width: 100%;
       background: #fff;
+      z-index: 3;
+      padding-bottom: 0.1rem;
     }
 
     .listing-zone-list,
@@ -266,6 +278,145 @@
       gap: 1rem;
     }
 
+    .listing-base-price-card {
+      display: grid;
+      gap: 0.85rem;
+      padding: 1rem;
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      background: linear-gradient(180deg, rgba(0, 86, 59, 0.05), rgba(255, 255, 255, 0.98));
+    }
+
+    .listing-base-price-card__value {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .listing-base-price-card__amount {
+      font-size: 1.55rem;
+      line-height: 1;
+      font-weight: 800;
+      color: #00563b;
+      letter-spacing: -0.02em;
+    }
+
+    .listing-base-price-card__range {
+      width: 100%;
+      accent-color: #00563b;
+    }
+
+    .listing-base-price-card__scale {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      color: #8a8d93;
+    }
+
+    .listing-inline-note {
+      font-size: 0.8rem;
+      line-height: 1.35;
+      color: #8a8d93;
+    }
+
+    .listing-owner-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .listing-faq-shell {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      background: #fff;
+      padding: 1rem;
+    }
+
+    .listing-faq-system-list,
+    .listing-faq-user-list {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .listing-faq-card {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 0.9rem;
+      padding: 0.95rem 1rem;
+      background: #fff;
+    }
+
+    .listing-faq-card--system {
+      background: linear-gradient(180deg, rgba(0, 86, 59, 0.05), rgba(255, 255, 255, 0.98));
+      border-color: rgba(0, 86, 59, 0.16);
+    }
+
+    .listing-faq-card__head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .listing-faq-card__question {
+      font-weight: 700;
+      color: #444050;
+      line-height: 1.3;
+      margin: 0;
+    }
+
+    .listing-faq-card__answer {
+      margin: 0;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #6d6b77;
+    }
+
+    .listing-faq-user-card {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 0.9rem;
+      background: #fff;
+      padding: 0.95rem;
+      box-shadow: 0 12px 28px -28px rgba(75, 70, 92, 0.5);
+    }
+
+    .listing-faq-user-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .listing-faq-user-card__tools {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .listing-faq-handle {
+      border: 0;
+      background: transparent;
+      color: #8a8d93;
+      cursor: grab;
+      padding: 0.15rem;
+      line-height: 1;
+    }
+
+    .listing-faq-handle:active {
+      cursor: grabbing;
+    }
+
+    .listing-faq-user-list .sortable-ghost {
+      opacity: 0.5;
+    }
+
     .listing-location-trigger {
       min-width: 7rem;
     }
@@ -320,6 +471,10 @@
 
       .listing-step-actions .btn {
         width: 100%;
+      }
+
+      .listing-owner-actions {
+        justify-content: flex-start;
       }
     }
   </style>
@@ -379,6 +534,7 @@
       ?: $extractPayloadComponent($decodedGooglePayload, ['administrative_area_level_5']);
     $pendingLocalityName = old('suggest_zone', ($selectedCityId > 0 && $displayZoneName !== '' && ! $primaryZoneId ? $displayZoneName : ''));
 
+    $systemFaqRows = $listing->systemFaqRows();
     $faqRows = old('faq_question')
       ? collect(old('faq_question'))->map(function ($question, $index) {
           return ['question' => $question, 'answer' => old('faq_answer')[$index] ?? ''];
@@ -389,8 +545,8 @@
       $faqRows = collect([['question' => '', 'answer' => '']]);
     }
 
-    $status = old('status', $listing->status);
-    $hasPlan = $listing->hasEffectivePlan();
+    $basePriceValue = old('base_price', $listing->base_price);
+    $basePriceValue = filled($basePriceValue) ? (int) round((float) $basePriceValue) : null;
     $reviewMap = [
       \App\Models\MariachiListing::REVIEW_DRAFT => ['label' => 'Borrador de revision', 'class' => 'secondary'],
       \App\Models\MariachiListing::REVIEW_PENDING => ['label' => 'En revision', 'class' => 'warning'],
@@ -414,6 +570,8 @@
     $videoCount = $listing->videos->count();
     $canAddMorePhotos = $photoCount < $maxPhotos;
     $canAddMoreVideos = $videoCount < $maxVideos;
+    $canPauseListing = $listing->canOwnerPause();
+    $canResumeListing = $listing->canOwnerResume();
   @endphp
 
   @if(session('status'))
@@ -494,10 +652,24 @@
           <div class="small text-muted mt-1">Último envío a revisión: {{ $listing->submitted_for_review_at->format('Y-m-d H:i') }}</div>
         @endif
       </div>
-      <div class="d-flex align-items-center gap-2 flex-wrap">
+      <div class="listing-owner-actions">
         <span class="badge bg-label-secondary" data-autosave-status>Autoguardado listo</span>
         <small class="text-muted" data-autosave-time></small>
+        @if($canPauseListing)
+          <form method="POST" action="{{ route('mariachi.listings.pause', ['listing' => $listing->id]) }}" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-warning">Pausar anuncio</button>
+          </form>
+        @elseif($canResumeListing)
+          <form method="POST" action="{{ route('mariachi.listings.resume', ['listing' => $listing->id]) }}" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-outline-success">Reanudar anuncio</button>
+          </form>
+        @endif
         <a href="{{ route('mariachi.listings.index') }}" class="btn btn-outline-secondary">Volver</a>
+        @if($canPauseListing || $canResumeListing)
+          <span class="listing-inline-note">Pausar solo oculta el anuncio; el tiempo del plan sigue corriendo.</span>
+        @endif
       </div>
     </div>
   </div>
@@ -529,7 +701,17 @@
           <span class="bs-stepper-circle"><i class="icon-base ti tabler-adjustments-horizontal icon-sm"></i></span>
           <span class="bs-stepper-label">
             <span class="bs-stepper-title">Filtros</span>
-            <span class="bs-stepper-subtitle">Servicios, FAQ y estado</span>
+            <span class="bs-stepper-subtitle">Servicios y filtros</span>
+          </span>
+        </button>
+      </div>
+      <div class="line"></div>
+      <div class="step" data-target="#step-faqs" data-step-key="faqs">
+        <button type="button" class="step-trigger">
+          <span class="bs-stepper-circle"><i class="icon-base ti tabler-help-circle icon-sm"></i></span>
+          <span class="bs-stepper-label">
+            <span class="bs-stepper-title">FAQs</span>
+            <span class="bs-stepper-subtitle">Sistema + personalizadas</span>
           </span>
         </button>
       </div>
@@ -600,7 +782,36 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Precio base</label>
-              <input type="number" step="0.01" min="0" class="form-control" name="base_price" value="{{ old('base_price', $listing->base_price) }}" placeholder="Ej: 450000" />
+              <div class="listing-base-price-card">
+                <div class="listing-base-price-card__value">
+                  <div>
+                    <div class="small text-muted">Desde</div>
+                    <div class="listing-base-price-card__amount" data-base-price-display>{{ $basePriceValue !== null ? '$'.number_format($basePriceValue, 0, ',', '.') : '$—' }}</div>
+                  </div>
+                  <span class="badge bg-label-success">COP</span>
+                </div>
+                <input
+                  type="range"
+                  id="listing-base-price-range"
+                  class="listing-base-price-card__range"
+                  min="0"
+                  max="4000000"
+                  step="5000"
+                  value="{{ $basePriceValue ?? 0 }}"
+                  data-base-price-range
+                />
+                <input
+                  type="hidden"
+                  name="base_price"
+                  id="listing-base-price-hidden"
+                  value="{{ $basePriceValue !== null ? $basePriceValue : '' }}"
+                />
+                <div class="listing-base-price-card__scale">
+                  <span>$0</span>
+                  <span>$4.000.000</span>
+                </div>
+                <div class="listing-inline-note">Muévelo para definir un precio base sin decimales. Luego puedes cerrar por encima según fecha, ciudad y formato.</div>
+              </div>
             </div>
             <div class="col-12">
               <label class="form-label">Descripción corta</label>
@@ -716,12 +927,14 @@
                   <div class="col-lg-6">
                     <div class="listing-zone-panel listing-zone-panel--localities h-100">
                       <div class="listing-zone-panel__header">
-                        <div>
-                          <h6 class="mb-1">Localidades disponibles</h6>
-                          <small class="text-muted">Solo del catálogo oficial de la ciudad principal.</small>
+                        <div class="listing-zone-panel__header-main">
+                          <div>
+                            <h6 class="mb-1">Localidades disponibles</h6>
+                            <small class="text-muted">Solo del catálogo oficial de la ciudad principal.</small>
+                          </div>
                         </div>
                         <div class="listing-zone-panel__search">
-                          <input type="search" class="form-control form-control-sm" style="max-width: 220px;" placeholder="Buscar localidad" data-zone-search>
+                          <input type="search" class="form-control form-control-sm" placeholder="Buscar localidad" data-zone-search>
                         </div>
                       </div>
                       <div class="listing-zone-list listing-zone-list--compact" data-zone-available></div>
@@ -730,11 +943,13 @@
                   <div class="col-lg-6">
                     <div class="listing-zone-panel listing-zone-panel--localities h-100">
                       <div class="listing-zone-panel__header">
-                        <div>
-                          <h6 class="mb-1">Localidades seleccionadas (<span data-zone-count>0</span> / {{ $maxZones }})</h6>
-                          <small class="text-muted">La localidad principal se detecta automáticamente y cuenta dentro del límite.</small>
+                        <div class="listing-zone-panel__header-main">
+                          <div>
+                            <h6 class="mb-1">Localidades seleccionadas (<span data-zone-count>0</span> / {{ $maxZones }})</h6>
+                            <small class="text-muted">La localidad principal se detecta automáticamente y cuenta dentro del límite.</small>
+                          </div>
+                          <span class="badge bg-label-primary">Máx {{ $maxZones }}</span>
                         </div>
-                        <span class="badge bg-label-primary">Máx {{ $maxZones }}</span>
                       </div>
                       <div class="listing-zone-list listing-zone-list--compact" data-zone-selected></div>
                       <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="listing-upgrade-tile listing-upgrade-tile--compact text-decoration-none" data-zone-upgrade data-step-link="location" hidden>
@@ -816,34 +1031,95 @@
               @endforeach
             </div>
 
-            <div class="col-md-6">
-              <label class="form-label">Estado del anuncio</label>
-              @if($hasPlan)
-                <select class="form-select" name="status">
-                  @foreach([\App\Models\MariachiListing::STATUS_DRAFT, \App\Models\MariachiListing::STATUS_ACTIVE, \App\Models\MariachiListing::STATUS_PAUSED] as $statusOption)
-                    <option value="{{ $statusOption }}" @selected($status === $statusOption)>{{ $statusOption }}</option>
-                  @endforeach
-                </select>
-              @else
-                <input type="hidden" name="status" value="{{ \App\Models\MariachiListing::STATUS_DRAFT }}" />
-                <div class="alert alert-warning mb-0">
-                  El anuncio permanecerá en <strong>borrador</strong> hasta que elijas plan en el paso final.
+            <div class="col-12 d-flex justify-content-between">
+              <button type="button" class="btn btn-label-secondary" data-step-prev>
+                <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
+              </button>
+              <button type="button" class="btn btn-primary" data-step-next>
+                Ir a FAQs <i class="icon-base ti tabler-arrow-right icon-xs ms-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="step-faqs" class="content" data-step-key="faqs">
+          <div class="row g-4">
+            <div class="col-12">
+              <div class="listing-faq-shell">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <h5 class="mb-1">FAQs del sistema</h5>
+                    <p class="listing-step-note mb-0">Estas 3 preguntas se generan automáticamente con la información del anuncio y siempre se muestran primero.</p>
+                  </div>
+                  <span class="badge bg-label-success">Fijas</span>
                 </div>
-              @endif
+                <div class="listing-faq-system-list">
+                  @foreach($systemFaqRows as $faq)
+                    <article class="listing-faq-card listing-faq-card--system">
+                      <div class="listing-faq-card__head">
+                        <p class="listing-faq-card__question">{{ $faq['question'] }}</p>
+                        <span class="badge bg-label-success">Sistema</span>
+                      </div>
+                      <p class="listing-faq-card__answer">{{ $faq['answer'] }}</p>
+                    </article>
+                  @endforeach
+                </div>
+              </div>
             </div>
 
             <div class="col-12">
-              <h6 class="mb-3">Preguntas frecuentes</h6>
-              @foreach($faqRows->take(5) as $index => $faq)
-                <div class="row g-2 mb-3">
-                  <div class="col-md-5">
-                    <input class="form-control" name="faq_question[]" value="{{ $faq['question'] }}" placeholder="Pregunta frecuente">
+              <div class="listing-faq-shell">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <h5 class="mb-1">FAQs personalizadas</h5>
+                    <p class="listing-step-note mb-0">Agrega respuestas propias para tu anuncio. Puedes reordenarlas entre sí sin mover las 3 del sistema.</p>
                   </div>
-                  <div class="col-md-7">
-                    <input class="form-control" name="faq_answer[]" value="{{ $faq['answer'] }}" placeholder="Respuesta">
-                  </div>
+                  <span class="badge bg-label-primary"><span data-faq-count>{{ $faqRows->count() }}</span> / 10</span>
                 </div>
-              @endforeach
+
+                <div class="listing-faq-user-list" data-faq-list data-faq-max="10">
+                  @foreach($faqRows as $faq)
+                    <article class="listing-faq-user-card" data-faq-item>
+                      <div class="listing-faq-user-card__head">
+                        <div>
+                          <h6 class="mb-1">FAQ adicional</h6>
+                          <small class="text-muted">Visible después de las 3 automáticas.</small>
+                        </div>
+                        <div class="listing-faq-user-card__tools">
+                          <button type="button" class="listing-faq-handle" data-faq-handle aria-label="Reordenar pregunta">
+                            <i class="icon-base ti tabler-grip-vertical icon-sm"></i>
+                          </button>
+                          <button type="button" class="btn btn-sm btn-outline-danger" data-faq-remove>Quitar</button>
+                        </div>
+                      </div>
+                      <div class="row g-3">
+                        <div class="col-md-5">
+                          <label class="form-label">Pregunta</label>
+                          <input class="form-control" name="faq_question[]" value="{{ $faq['question'] }}" placeholder="Ej: ¿Cuánto dura la serenata?" maxlength="240">
+                        </div>
+                        <div class="col-md-7">
+                          <label class="form-label">Respuesta</label>
+                          <textarea class="form-control" name="faq_answer[]" rows="2" placeholder="Responde con información clara para el cliente." maxlength="2000">{{ $faq['answer'] }}</textarea>
+                        </div>
+                      </div>
+                    </article>
+                  @endforeach
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mt-3">
+                  <small class="text-muted">Máximo 10 FAQs personalizadas. Si dejas una vacía, no se guardará.</small>
+                  <button type="button" class="btn btn-outline-primary" data-faq-add>
+                    <i class="icon-base ti tabler-plus icon-xs me-1"></i>Agregar otra pregunta
+                  </button>
+                </div>
+
+                @error('faq_question')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+                @error('faq_answer')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+              </div>
             </div>
 
             <div class="col-12 d-flex justify-content-between">
@@ -857,6 +1133,33 @@
           </div>
         </div>
       </form>
+
+      <template id="listing-faq-item-template">
+        <article class="listing-faq-user-card" data-faq-item>
+          <div class="listing-faq-user-card__head">
+            <div>
+              <h6 class="mb-1">FAQ adicional</h6>
+              <small class="text-muted">Visible después de las 3 automáticas.</small>
+            </div>
+            <div class="listing-faq-user-card__tools">
+              <button type="button" class="listing-faq-handle" data-faq-handle aria-label="Reordenar pregunta">
+                <i class="icon-base ti tabler-grip-vertical icon-sm"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-faq-remove>Quitar</button>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Pregunta</label>
+              <input class="form-control" name="faq_question[]" value="" placeholder="Ej: ¿Cuánto dura la serenata?" maxlength="240">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Respuesta</label>
+              <textarea class="form-control" name="faq_answer[]" rows="2" placeholder="Responde con información clara para el cliente." maxlength="2000"></textarea>
+            </div>
+          </div>
+        </article>
+      </template>
 
       <div id="step-photos" class="content" data-step-key="photos">
         <div class="row g-6">

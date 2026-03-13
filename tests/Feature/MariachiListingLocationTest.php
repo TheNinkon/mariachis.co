@@ -201,4 +201,58 @@ class MariachiListingLocationTest extends TestCase
             'name' => 'Belén',
         ]);
     }
+
+    public function test_custom_faqs_are_stored_after_the_three_system_rows(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Centro',
+            'responsible_name' => 'Carlos',
+            'subscription_plan_code' => 'basic',
+            'subscription_listing_limit' => 1,
+            'subscription_active' => true,
+        ]);
+
+        $listing = MariachiListing::query()->create([
+            'mariachi_profile_id' => $profile->id,
+            'title' => 'Mariachi para eventos',
+            'short_description' => 'Serenatas y bodas',
+            'description' => 'Show completo.',
+            'base_price' => 350000,
+            'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('mariachi.listings.update', ['listing' => $listing->id]), [
+                'title' => $listing->title,
+                'short_description' => $listing->short_description,
+                'description' => $listing->description,
+                'base_price' => 350000,
+                'faq_question' => ['¿Cuánto dura el show?'],
+                'faq_answer' => ['La duración se acuerda según el evento.'],
+            ])
+            ->assertRedirect();
+
+        $listing->refresh()->load('faqs');
+        $renderedFaqs = $listing->renderedFaqRows();
+
+        $this->assertDatabaseHas('mariachi_listing_faqs', [
+            'mariachi_listing_id' => $listing->id,
+            'question' => '¿Cuánto dura el show?',
+            'sort_order' => 4,
+        ]);
+        $this->assertCount(4, $renderedFaqs);
+        $this->assertTrue($renderedFaqs->take(3)->every(fn (array $faq): bool => $faq['is_system'] === true));
+        $this->assertFalse($renderedFaqs->last()['is_system']);
+        $this->assertSame('¿Cuánto dura el show?', $renderedFaqs->last()['question']);
+    }
 }

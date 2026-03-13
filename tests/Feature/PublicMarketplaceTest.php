@@ -46,6 +46,69 @@ class PublicMarketplaceTest extends TestCase
         $response->assertSee('Mariachi de Prueba');
     }
 
+    public function test_public_provider_handle_page_is_accessible_for_published_profiles(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Vargas de Bogotá',
+            'responsible_name' => 'Responsable',
+            'short_description' => 'Perfil oficial del grupo.',
+            'profile_completed' => true,
+            'profile_completion' => 100,
+            'stage_status' => 'profile_complete',
+            'verification_status' => 'verified',
+        ]);
+        $profile->ensureSlug();
+
+        MariachiListing::query()->create([
+            'mariachi_profile_id' => $profile->id,
+            'slug' => 'anuncio-vargas-bogota',
+            'title' => 'Serenatas Mariachi Vargas',
+            'short_description' => 'Anuncio principal',
+            'city_name' => 'Bogota',
+            'status' => MariachiListing::STATUS_ACTIVE,
+            'review_status' => MariachiListing::REVIEW_APPROVED,
+            'is_active' => true,
+            'listing_completed' => true,
+            'listing_completion' => 100,
+        ]);
+
+        $response = $this->get('/@'.$profile->slug);
+
+        $response->assertOk();
+        $response->assertSee('Mariachi Vargas de Bogotá');
+        $response->assertSee('Serenatas Mariachi Vargas');
+        $response->assertSee('rel="canonical"', false);
+    }
+
+    public function test_public_provider_handle_page_returns_404_when_profile_is_not_published(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Privado',
+            'responsible_name' => 'Responsable',
+            'short_description' => 'Perfil no publicado.',
+            'profile_completed' => false,
+            'profile_completion' => 20,
+            'stage_status' => 'profile_incomplete',
+        ]);
+        $profile->ensureSlug();
+
+        $this->get('/@'.$profile->slug)->assertNotFound();
+    }
+
     public function test_city_zone_route_is_accessible(): void
     {
         $this->createPublishedListing('Bogota', 'mariachi-bogota-seo', 'Chapinero');

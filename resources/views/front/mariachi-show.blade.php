@@ -611,58 +611,19 @@
             <section id="faqs" class="listing-flow-section" data-reveal>
               <h2>Preguntas frecuentes</h2>
 
+              @php($renderedFaqs = $profile->renderedFaqRows())
               <div data-accordion class="mt-4 space-y-3">
-                @if($profile->faqs->isNotEmpty())
-                  @foreach($profile->faqs->where('is_visible', true)->values() as $index => $faq)
-                    <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">
-                      <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-{{ $index + 1 }}" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
-                        {{ $faq->question }}
-                        <span data-accordion-icon>+</span>
-                      </button>
-                      <div id="faq-listing-{{ $index + 1 }}" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
-                        {{ $faq->answer }}
-                      </div>
-                    </div>
-                  @endforeach
-                @else
+                @foreach($renderedFaqs as $index => $faq)
                   <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">
-                    <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-1" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
-                      Cuanto cuesta una serenata con {{ $h1 }}?
+                    <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-{{ $index + 1 }}" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
+                      {{ $faq['question'] }}
                       <span data-accordion-icon>+</span>
                     </button>
-                    <div id="faq-listing-1" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
-                      {{ $profile->base_price ? 'El precio base inicia desde $'.number_format((float) $profile->base_price, 0, ',', '.').' COP.' : 'El valor se define segun fecha, ciudad y tipo de evento.' }}
+                    <div id="faq-listing-{{ $index + 1 }}" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+                      {{ $faq['answer'] }}
                     </div>
                   </div>
-
-                  <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">
-                    <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-2" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
-                      Que zonas cubre este mariachi?
-                      <span data-accordion-icon>+</span>
-                    </button>
-                    <div id="faq-listing-2" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
-                      @if($coverageAreas->isNotEmpty())
-                        {{ $coverageAreas->join(', ') }}.
-                      @else
-                        Actualmente opera en {{ $profile->city_name ?: 'su ciudad principal' }}.
-                      @endif
-                    </div>
-                  </div>
-
-                  <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">
-                    <button data-accordion-trigger aria-expanded="false" aria-controls="faq-listing-3" class="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-bold text-slate-900" type="button">
-                      Como puedo pedir mas informacion?
-                      <span data-accordion-icon>+</span>
-                    </button>
-                    <div id="faq-listing-3" class="hidden border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
-                      @if($whatsappUrl || $phoneUrl)
-                        Puedes escribir por WhatsApp, llamar o usar el boton "Quiero mas informacion" para dejar tus datos.
-                      @else
-                        Usa el boton "Quiero mas informacion" para dejar tus datos y recibir respuesta del mariachi.
-                      @endif
-                    </div>
-                  </div>
-                @endif
+                @endforeach
               </div>
             </section>
 

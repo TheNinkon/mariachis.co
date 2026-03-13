@@ -169,6 +169,17 @@
                   @else
                     <a href="{{ route('mariachi.listings.edit', ['listing' => $listing->id]) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                   @endif
+                  @if($listing->canOwnerPause())
+                    <form method="POST" action="{{ route('mariachi.listings.pause', ['listing' => $listing->id]) }}">
+                      @csrf
+                      <button type="submit" class="btn btn-sm btn-outline-warning">Pausar</button>
+                    </form>
+                  @elseif($listing->canOwnerResume())
+                    <form method="POST" action="{{ route('mariachi.listings.resume', ['listing' => $listing->id]) }}">
+                      @csrf
+                      <button type="submit" class="btn btn-sm btn-outline-success">Reanudar</button>
+                    </form>
+                  @endif
                   <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="btn btn-sm btn-outline-secondary">Plan</a>
                   @if($canSubmit && $currentListingIssues === [])
                     <form method="POST" action="{{ route('mariachi.listings.submit-review', ['listing' => $listing->id]) }}">
