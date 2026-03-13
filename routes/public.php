@@ -143,6 +143,7 @@ Route::domain($publicHost)->group(function () use (
             'solicitudes',
             'opiniones',
             'profile',
+            'perfil',
             'perfil-proveedor',
             'verificacion',
             'anuncios',

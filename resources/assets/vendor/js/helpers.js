@@ -1184,9 +1184,15 @@ const Helpers = {
       toggler.forEach(el => {
         el.addEventListener('click', e => {
           e.preventDefault()
-          const formPasswordToggle = el.closest('.form-password-toggle')
+          e.stopPropagation()
+          const trigger = e.currentTarget
+          const formPasswordToggle = trigger.closest('.form-password-toggle')
           const formPasswordToggleIcon = formPasswordToggle.querySelector('i')
-          const formPasswordToggleInput = formPasswordToggle.querySelector('input')
+          const controlTrigger = trigger.closest('[data-password-toggle]') || trigger
+          const controlledInputId = controlTrigger.getAttribute('aria-controls')
+          const formPasswordToggleInput = controlledInputId
+            ? document.getElementById(controlledInputId)
+            : formPasswordToggle.querySelector('input')
 
           if (formPasswordToggleInput.getAttribute('type') === 'text') {
             formPasswordToggleInput.setAttribute('type', 'password')

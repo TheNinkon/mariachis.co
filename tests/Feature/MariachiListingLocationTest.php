@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogSuggestion;
 use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\MarketplaceCity;
 use App\Models\MarketplaceZone;
 use App\Models\User;
+use Database\Seeders\MarketplaceZoneSeederBogotaMedellin;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -99,5 +101,104 @@ class MariachiListingLocationTest extends TestCase
         $this->assertSame('abc123', $listing->google_location_payload['place_id'] ?? null);
         $this->assertCount(1, $listing->serviceAreas);
         $this->assertSame($zone->id, $listing->serviceAreas->first()->marketplace_zone_id);
+    }
+
+    public function test_autosave_creates_zone_suggestion_with_city_context_when_zone_is_not_in_catalog(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Centro',
+            'responsible_name' => 'Carlos',
+            'subscription_plan_code' => 'basic',
+            'subscription_listing_limit' => 1,
+            'subscription_active' => true,
+        ]);
+
+        $city = MarketplaceCity::query()->create([
+            'name' => 'Bogota',
+            'slug' => 'bogota',
+            'is_active' => true,
+            'sort_order' => 1,
+            'is_featured' => true,
+            'show_in_search' => true,
+        ]);
+
+        $listing = MariachiListing::query()->create([
+            'mariachi_profile_id' => $profile->id,
+            'title' => 'Mariachi para eventos',
+            'short_description' => 'Serenatas y bodas',
+            'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'is_active' => false,
+        ]);
+
+        $payload = [
+            'marketplace_city_id' => $city->id,
+            'city_name' => 'Bogota',
+            'zone_name' => 'Bosa',
+            'suggest_zone' => 'Bosa',
+            'autosave_sync' => '1',
+        ];
+
+        $this->actingAs($user)
+            ->patch(route('mariachi.listings.autosave', ['listing' => $listing->id]), $payload)
+            ->assertOk();
+
+        $suggestion = CatalogSuggestion::query()
+            ->where('catalog_type', CatalogSuggestion::TYPE_ZONE)
+            ->where('proposed_slug', 'bosa')
+            ->firstOrFail();
+
+        $this->assertSame('Bosa', $suggestion->proposed_name);
+        $this->assertSame(CatalogSuggestion::STATUS_PENDING, $suggestion->status);
+        $this->assertSame($city->id, $suggestion->context_data['marketplace_city_id'] ?? null);
+
+        $this->actingAs($user)
+            ->patch(route('mariachi.listings.autosave', ['listing' => $listing->id]), $payload)
+            ->assertOk();
+
+        $this->assertSame(
+            1,
+            CatalogSuggestion::query()
+                ->where('catalog_type', CatalogSuggestion::TYPE_ZONE)
+                ->where('proposed_slug', 'bosa')
+                ->where('context_data->marketplace_city_id', $city->id)
+                ->count()
+        );
+    }
+
+    public function test_official_locality_seeder_populates_bogota_and_medellin_catalogs(): void
+    {
+        $this->seed(MarketplaceZoneSeederBogotaMedellin::class);
+
+        $bogota = MarketplaceCity::query()->where('slug', 'bogota')->firstOrFail();
+        $medellin = MarketplaceCity::query()->where('slug', 'medellin')->firstOrFail();
+
+        $this->assertSame('Bogotá', $bogota->name);
+        $this->assertSame('Medellín', $medellin->name);
+        $this->assertSame(20, MarketplaceZone::query()->where('marketplace_city_id', $bogota->id)->count());
+        $this->assertSame(16, MarketplaceZone::query()->where('marketplace_city_id', $medellin->id)->count());
+        $this->assertDatabaseHas('marketplace_zones', [
+            'marketplace_city_id' => $bogota->id,
+            'slug' => 'bosa',
+            'name' => 'Bosa',
+        ]);
+        $this->assertDatabaseHas('marketplace_zones', [
+            'marketplace_city_id' => $bogota->id,
+            'slug' => 'san-cristobal',
+            'name' => 'San Cristóbal',
+        ]);
+        $this->assertDatabaseHas('marketplace_zones', [
+            'marketplace_city_id' => $medellin->id,
+            'slug' => 'belen',
+            'name' => 'Belén',
+        ]);
     }
 }

@@ -40,7 +40,7 @@ $customizerHidden = 'customizer-hide';
           <h4 class="mb-1">Registro inicial de mariachi</h4>
           <p class="mb-6">Crea tu cuenta y completa tu perfil despues desde tu panel.</p>
 
-          <form class="mb-6" action="{{ route('mariachi.register.store') }}" method="POST">
+          <form id="formAuthentication" class="mb-6" action="{{ route('mariachi.register.store') }}" method="POST">
             @csrf
             <div class="row g-6">
               <div class="col-md-6 form-control-validation">
@@ -108,7 +108,14 @@ $customizerHidden = 'customizer-hide';
                 <label class="form-label" for="password">Contrasena</label>
                 <div class="input-group input-group-merge">
                   <input type="password" id="password" class="form-control @error('password') is-invalid @enderror" name="password" placeholder="************" required>
-                  <span class="input-group-text cursor-pointer"><i class="icon-base ti tabler-eye-off"></i></span>
+                  <button
+                    type="button"
+                    class="input-group-text cursor-pointer"
+                    aria-label="Mostrar u ocultar contraseña"
+                    aria-controls="password"
+                    data-password-toggle>
+                    <i class="icon-base ti tabler-eye-off"></i>
+                  </button>
                 </div>
                 @error('password')
                   <div class="invalid-feedback d-block">{{ $message }}</div>
@@ -119,7 +126,14 @@ $customizerHidden = 'customizer-hide';
                 <label class="form-label" for="password_confirmation">Confirmar contrasena</label>
                 <div class="input-group input-group-merge">
                   <input type="password" id="password_confirmation" class="form-control" name="password_confirmation" placeholder="************" required>
-                  <span class="input-group-text cursor-pointer"><i class="icon-base ti tabler-eye-off"></i></span>
+                  <button
+                    type="button"
+                    class="input-group-text cursor-pointer"
+                    aria-label="Mostrar u ocultar contraseña"
+                    aria-controls="password_confirmation"
+                    data-password-toggle>
+                    <i class="icon-base ti tabler-eye-off"></i>
+                  </button>
                 </div>
               </div>
 

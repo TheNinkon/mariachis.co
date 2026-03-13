@@ -38,6 +38,12 @@
       'approved' => ['label' => 'Aprobado', 'class' => 'success'],
       'rejected' => ['label' => 'Rechazado', 'class' => 'danger'],
     ];
+    $paymentMap = [
+      \App\Models\MariachiListing::PAYMENT_NONE => ['label' => 'Sin pago', 'class' => 'secondary'],
+      \App\Models\MariachiListing::PAYMENT_PENDING => ['label' => 'Pago en revision', 'class' => 'warning'],
+      \App\Models\MariachiListing::PAYMENT_APPROVED => ['label' => 'Pago aprobado', 'class' => 'success'],
+      \App\Models\MariachiListing::PAYMENT_REJECTED => ['label' => 'Pago rechazado', 'class' => 'danger'],
+    ];
   @endphp
 
   @if(session('status'))
@@ -96,6 +102,7 @@
             @php
               $photo = $listing->photos->firstWhere('is_featured', true) ?? $listing->photos->first();
               $reviewMeta = $reviewMap[$listing->review_status] ?? ['label' => $listing->reviewStatusLabel(), 'class' => 'secondary'];
+              $paymentMeta = $paymentMap[$listing->payment_status] ?? ['label' => $listing->paymentStatusLabel(), 'class' => 'secondary'];
               $canSubmit = $listing->canBeSubmittedForReview();
               $submitLabel = $listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED ? 'Reenviar a revisión' : 'Enviar a revisión';
               $currentListingIssues = $listingIssues->get($listing->id, []);
@@ -113,6 +120,7 @@
                 <p class="mb-2 text-muted">{{ $listing->city_name ?: 'Sin ciudad' }}</p>
                 <p class="mb-2">Estado: <span class="badge bg-label-{{ $listing->is_active ? 'success' : 'warning' }}">{{ $listing->status }}</span></p>
                 <p class="mb-2">Revision: <span class="badge bg-label-{{ $reviewMeta['class'] }}">{{ $reviewMeta['label'] }}</span></p>
+                <p class="mb-2">Pago: <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span></p>
                 <p class="mb-3">Plan: <strong>{{ $listing->effectivePlanCode() ?: 'sin seleccionar' }}</strong></p>
                 <p class="mb-3">Completitud: <strong>{{ $listing->listing_completion }}%</strong></p>
 
@@ -124,6 +132,15 @@
                   <div class="alert alert-danger py-2 px-3 mb-3">
                     <p class="mb-1 fw-semibold">Motivo del rechazo</p>
                     <p class="mb-0 small">{{ $listing->rejection_reason }}</p>
+                  </div>
+                @elseif($listing->isPaymentRejected() && $listing->latestPayment?->rejection_reason)
+                  <div class="alert alert-danger py-2 px-3 mb-3">
+                    <p class="mb-1 fw-semibold">Pago rechazado</p>
+                    <p class="mb-0 small">{{ $listing->latestPayment->rejection_reason }}</p>
+                  </div>
+                @elseif($listing->isPaymentPending())
+                  <div class="alert alert-warning py-2 px-3 mb-3">
+                    <p class="mb-0 small">Comprobante enviado. No puedes editar el anuncio mientras el admin valida el pago.</p>
                   </div>
                 @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_PENDING)
                   <div class="alert alert-warning py-2 px-3 mb-3">
@@ -147,8 +164,8 @@
                 @endif
 
                 <div class="d-flex flex-wrap gap-2 mt-auto">
-                  @if($listing->isPendingReview())
-                    <button type="button" class="btn btn-sm btn-outline-primary" disabled>En revisión</button>
+                  @if($listing->isPendingReview() || $listing->isPaymentPending())
+                    <button type="button" class="btn btn-sm btn-outline-primary" disabled>{{ $listing->isPaymentPending() ? 'Pago en revisión' : 'En revisión' }}</button>
                   @else
                     <a href="{{ route('mariachi.listings.edit', ['listing' => $listing->id]) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                   @endif

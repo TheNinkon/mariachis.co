@@ -1,6 +1,11 @@
 (function () {
   const FAVORITES_KEY = "mariachi_market_favorites_v1";
 
+  function extractNumericId(value) {
+    const match = String(value || "").match(/(\d+)$/);
+    return match ? Number(match[1]) : 0;
+  }
+
   function getStoredFavorites() {
     try {
       const raw = window.localStorage.getItem(FAVORITES_KEY);
@@ -17,6 +22,36 @@
     } catch (_error) {
       // noop
     }
+  }
+
+  function hasFavorite(favorites, id) {
+    if (favorites.has(id)) {
+      return true;
+    }
+
+    const numericId = extractNumericId(id);
+    if (!numericId) {
+      return false;
+    }
+
+    return Array.from(favorites).some(function (value) {
+      return extractNumericId(value) === numericId;
+    });
+  }
+
+  function removeFavoriteAliases(favorites, id) {
+    const numericId = extractNumericId(id);
+
+    Array.from(favorites).forEach(function (value) {
+      if (value === id) {
+        favorites.delete(value);
+        return;
+      }
+
+      if (numericId && extractNumericId(value) === numericId) {
+        favorites.delete(value);
+      }
+    });
   }
 
   function ensureToast() {
@@ -98,24 +133,27 @@
       }
 
       if (button.getAttribute("data-initial-favorited") === "true") {
+        removeFavoriteAliases(favorites, id);
         favorites.add(id);
       }
 
-      setButtonState(button, favorites.has(id));
+      setButtonState(button, hasFavorite(favorites, id));
 
       button.addEventListener("click", function () {
-        const nextActive = !favorites.has(id);
+        const nextActive = !hasFavorite(favorites, id);
 
         if (nextActive) {
+          removeFavoriteAliases(favorites, id);
           favorites.add(id);
         } else {
-          favorites.delete(id);
+          removeFavoriteAliases(favorites, id);
         }
 
         setStoredFavorites(favorites);
         document.querySelectorAll(`[data-listing-favorite="${id}"]`).forEach((node) => {
           setButtonState(node, nextActive);
         });
+        document.dispatchEvent(new CustomEvent("favorites:changed"));
         syncFavorite(button, nextActive);
         showToast(nextActive ? "Guardado en favoritos" : "Quitado de favoritos");
       });

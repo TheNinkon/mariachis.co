@@ -3,17 +3,27 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\ListingPayment;
 use App\Models\MariachiListing;
+use App\Models\Plan;
+use App\Services\PlanAssignmentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AdminListingModerationController extends Controller
 {
+    public function __construct(
+        private readonly PlanAssignmentService $planAssignmentService
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $reviewStatus = (string) $request->query('review_status', 'all');
+        $paymentStatus = (string) $request->query('payment_status', 'all');
         $city = trim((string) $request->query('city', ''));
         $search = trim((string) $request->query('search', ''));
         $reason = trim((string) $request->query('reason', ''));
@@ -30,6 +40,10 @@ class AdminListingModerationController extends Controller
 
         if ($reviewStatus !== 'all' && in_array($reviewStatus, MariachiListing::REVIEW_STATUSES, true)) {
             $listingsQuery->where('review_status', $reviewStatus);
+        }
+
+        if ($paymentStatus !== 'all' && in_array($paymentStatus, MariachiListing::PAYMENT_STATUSES, true)) {
+            $listingsQuery->where('payment_status', $paymentStatus);
         }
 
         if ($city !== '') {
@@ -60,6 +74,12 @@ class AdminListingModerationController extends Controller
 
         $listings = $listingsQuery
             ->orderByRaw("
+                case payment_status
+                    when 'pending' then 0
+                    when 'rejected' then 1
+                    when 'approved' then 2
+                    else 3
+                end,
                 case review_status
                     when 'pending' then 0
                     when 'rejected' then 1
@@ -83,6 +103,7 @@ class AdminListingModerationController extends Controller
             'approved' => (int) ($statusTotals[MariachiListing::REVIEW_APPROVED] ?? 0),
             'rejected' => (int) ($statusTotals[MariachiListing::REVIEW_REJECTED] ?? 0),
             'live' => MariachiListing::query()->published()->count(),
+            'payment_pending' => MariachiListing::query()->where('payment_status', MariachiListing::PAYMENT_PENDING)->count(),
             'total' => MariachiListing::query()->count(),
         ];
 
@@ -96,11 +117,13 @@ class AdminListingModerationController extends Controller
         return view('content.admin.listings-index', [
             'listings' => $listings,
             'reviewStatus' => $reviewStatus,
+            'paymentStatus' => $paymentStatus,
             'city' => $city,
             'search' => $search,
             'reason' => $reason,
             'cities' => $cities,
             'statuses' => MariachiListing::REVIEW_STATUSES,
+            'paymentStatuses' => MariachiListing::PAYMENT_STATUSES,
             'statusTotals' => $statusTotals,
             'listingMetrics' => $listingMetrics,
         ]);
@@ -120,7 +143,10 @@ class AdminListingModerationController extends Controller
             'groupSizeOptions:id,name',
             'budgetRanges:id,name',
             'reviewedBy:id,name,first_name,last_name',
+            'latestPayment.reviewedBy:id,name,first_name,last_name',
         ])->loadCount(['quoteConversations', 'reviews']);
+
+        $latestPayment = $listing->latestPayment;
 
         $activityTimeline = collect([
             [
@@ -129,6 +155,26 @@ class AdminListingModerationController extends Controller
                 'meta' => 'Creacion inicial',
                 'at' => $listing->created_at,
                 'point' => 'primary',
+            ],
+            [
+                'title' => 'Comprobante enviado',
+                'body' => 'El mariachi envio un comprobante manual por Nequi para este anuncio.',
+                'meta' => $latestPayment
+                    ? '$'.number_format((int) $latestPayment->amount_cop, 0, ',', '.').' COP · '.strtoupper($latestPayment->method)
+                    : 'Pago manual',
+                'at' => $latestPayment?->created_at,
+                'point' => 'warning',
+            ],
+            [
+                'title' => $latestPayment?->status === ListingPayment::STATUS_REJECTED
+                    ? 'Pago rechazado'
+                    : 'Pago validado',
+                'body' => $latestPayment?->status === ListingPayment::STATUS_REJECTED
+                    ? 'El comprobante fue rechazado y el anuncio sigue sin publicarse.'
+                    : 'El pago fue validado y ya puede activar beneficios y publicación.',
+                'meta' => $latestPayment?->reviewedBy?->display_name ?: 'Revision de pago',
+                'at' => $latestPayment?->reviewed_at,
+                'point' => $latestPayment?->status === ListingPayment::STATUS_REJECTED ? 'danger' : 'success',
             ],
             [
                 'title' => 'Enviado a revision',
@@ -177,6 +223,19 @@ class AdminListingModerationController extends Controller
             'rejection_reason' => ['nullable', 'string', 'max:2000', 'required_if:action,reject'],
         ]);
 
+        $pendingPayment = $listing->payments()
+            ->where('status', ListingPayment::STATUS_PENDING)
+            ->latest('id')
+            ->first();
+
+        if ($pendingPayment) {
+            if ($validated['action'] === 'approve') {
+                return $this->approvePendingPayment($request, $listing, $pendingPayment);
+            }
+
+            return $this->rejectPendingPayment($request, $listing, $pendingPayment, (string) $validated['rejection_reason']);
+        }
+
         $payload = [
             'reviewed_by_user_id' => $request->user()->id,
             'reviewed_at' => now(),
@@ -202,5 +261,98 @@ class AdminListingModerationController extends Controller
         return redirect()
             ->route('admin.listings.show', $listing)
             ->with('status', 'Anuncio rechazado y devuelto al mariachi.');
+    }
+
+    private function approvePendingPayment(Request $request, MariachiListing $listing, ListingPayment $payment): RedirectResponse
+    {
+        $profile = $listing->mariachiProfile;
+        abort_unless($profile, 404);
+
+        $plan = Plan::query()->where('code', $payment->plan_code)->first();
+
+        if (! $plan) {
+            return redirect()
+                ->route('admin.listings.show', $listing)
+                ->withErrors([
+                    'payment' => 'No encontramos el plan asociado a este comprobante. Revisa la configuracion del catalogo de planes.',
+                ]);
+        }
+
+        $reviewerId = $request->user()->id;
+
+        DB::transaction(function () use ($listing, $payment, $profile, $plan, $reviewerId): void {
+            $payment->update([
+                'status' => ListingPayment::STATUS_APPROVED,
+                'reviewed_by' => $reviewerId,
+                'reviewed_at' => now(),
+                'rejection_reason' => null,
+            ]);
+
+            $this->planAssignmentService->assignToProfile(
+                $profile,
+                $plan,
+                $listing,
+                'nequi_manual_payment',
+                [
+                    'listing_payment_id' => $payment->id,
+                    'reviewed_by_user_id' => $reviewerId,
+                    'method' => $payment->method,
+                ],
+                true
+            );
+
+            $listing->update([
+                'selected_plan_code' => $payment->plan_code,
+                'plan_selected_at' => $listing->plan_selected_at ?? $payment->created_at ?? now(),
+                'payment_status' => MariachiListing::PAYMENT_APPROVED,
+                'review_status' => MariachiListing::REVIEW_APPROVED,
+                'submitted_for_review_at' => $listing->submitted_for_review_at ?? $payment->created_at ?? now(),
+                'reviewed_at' => now(),
+                'reviewed_by_user_id' => $reviewerId,
+                'rejection_reason' => null,
+                'status' => MariachiListing::STATUS_ACTIVE,
+                'is_active' => true,
+                'activated_at' => $listing->activated_at ?? now(),
+                'deactivated_at' => null,
+            ]);
+        });
+
+        return redirect()
+            ->route('admin.listings.show', $listing)
+            ->with('status', 'Pago aprobado. La suscripcion quedo activa y el anuncio ya puede publicarse.');
+    }
+
+    private function rejectPendingPayment(
+        Request $request,
+        MariachiListing $listing,
+        ListingPayment $payment,
+        string $reason
+    ): RedirectResponse {
+        $reviewerId = $request->user()->id;
+
+        DB::transaction(function () use ($listing, $payment, $reviewerId, $reason): void {
+            $payment->update([
+                'status' => ListingPayment::STATUS_REJECTED,
+                'reviewed_by' => $reviewerId,
+                'reviewed_at' => now(),
+                'rejection_reason' => $reason,
+            ]);
+
+            $listing->update([
+                'payment_status' => MariachiListing::PAYMENT_REJECTED,
+                'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
+                'is_active' => false,
+                'review_status' => MariachiListing::REVIEW_DRAFT,
+                'submitted_for_review_at' => null,
+                'reviewed_at' => null,
+                'reviewed_by_user_id' => null,
+                'rejection_reason' => null,
+                'deactivated_at' => now(),
+            ]);
+        });
+
+        return redirect()
+            ->route('admin.listings.show', $listing)
+            ->with('status', 'Pago rechazado. El mariachi puede volver a intentar con un nuevo comprobante.');
     }
 }

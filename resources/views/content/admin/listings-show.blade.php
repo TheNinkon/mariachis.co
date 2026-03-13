@@ -88,6 +88,13 @@
     .admin-listing-section.d-none {
       display: none !important;
     }
+
+    .admin-payment-proof {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      background: rgba(34, 41, 47, 0.03);
+    }
   </style>
 @endsection
 
@@ -158,15 +165,26 @@
     $operationalMap = [
       'draft' => ['label' => 'Borrador', 'class' => 'secondary'],
       'awaiting_plan' => ['label' => 'Sin plan', 'class' => 'warning'],
+      'awaiting_payment' => ['label' => 'Esperando pago', 'class' => 'warning'],
       'active' => ['label' => 'Activo', 'class' => 'success'],
       'paused' => ['label' => 'Pausado', 'class' => 'secondary'],
     ];
 
+    $paymentMap = [
+      'none' => ['label' => 'Sin pago', 'class' => 'secondary'],
+      'pending' => ['label' => 'Pago en revision', 'class' => 'warning'],
+      'approved' => ['label' => 'Pago aprobado', 'class' => 'success'],
+      'rejected' => ['label' => 'Pago rechazado', 'class' => 'danger'],
+    ];
+
     $reviewMeta = $statusMap[$listing->review_status] ?? ['label' => $listing->reviewStatusLabel(), 'class' => 'secondary'];
     $operationalMeta = $operationalMap[$listing->status] ?? ['label' => \Illuminate\Support\Str::headline($listing->status ?: 'draft'), 'class' => 'secondary'];
+    $paymentMeta = $paymentMap[$listing->payment_status] ?? ['label' => $listing->paymentStatusLabel(), 'class' => 'secondary'];
     $providerName = $listing->mariachiProfile?->business_name ?: $listing->mariachiProfile?->user?->display_name ?: 'Mariachi';
     $providerUser = $listing->mariachiProfile?->user;
     $coverPhoto = $listing->photos->first();
+    $latestPayment = $listing->latestPayment;
+    $pendingPayment = $latestPayment?->status === \App\Models\ListingPayment::STATUS_PENDING ? $latestPayment : null;
     $listingInitials = collect(preg_split('/\s+/', trim($listing->title ?: $providerName)))
       ->filter()
       ->take(2)
@@ -247,11 +265,12 @@
   @endif
 
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-6 row-gap-4">
-    <div class="d-flex flex-column justify-content-center">
+      <div class="d-flex flex-column justify-content-center">
       <div class="mb-1">
         <span class="h5">Anuncio #{{ $listing->id }}</span>
         <span class="badge bg-label-{{ $reviewMeta['class'] }} me-1 ms-2">{{ $reviewMeta['label'] }}</span>
         <span class="badge bg-label-{{ $operationalMeta['class'] }}">{{ $operationalMeta['label'] }}</span>
+        <span class="badge bg-label-{{ $paymentMeta['class'] }} ms-1">{{ $paymentMeta['label'] }}</span>
       </div>
       <p class="mb-0">
         {{ optional($listing->submitted_for_review_at ?: $listing->updated_at)->format('d/m/Y H:i') ?: 'Sin fecha registrada' }}
@@ -606,6 +625,10 @@
             <span>{{ \Illuminate\Support\Str::headline($listing->selected_plan_code ?: 'sin plan') }}</span>
           </div>
           <div class="d-flex justify-content-start mb-2">
+            <span class="w-px-140 text-heading">Pago:</span>
+            <span>{{ $paymentMeta['label'] }}</span>
+          </div>
+          <div class="d-flex justify-content-start mb-2">
             <span class="w-px-140 text-heading">Viaja a otras:</span>
             <span>{{ $listing->travels_to_other_cities ? 'Si' : 'No' }}</span>
           </div>
@@ -613,6 +636,91 @@
             <span class="w-px-140 text-heading">Visible ahora:</span>
             <span>{{ $listing->isApprovedForMarketplace() ? 'Si' : 'No' }}</span>
           </div>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-header d-flex justify-content-between">
+          <h5 class="card-title m-0">Pago (Nequi)</h5>
+          <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
+        </div>
+        <div class="card-body">
+          @if ($latestPayment)
+            <div class="mb-3">
+              <small class="text-body-secondary d-block mb-1">Plan solicitado</small>
+              <div class="fw-medium">{{ \Illuminate\Support\Str::headline($latestPayment->plan_code) }}</div>
+            </div>
+
+            <div class="mb-3">
+              <small class="text-body-secondary d-block mb-1">Monto</small>
+              <div class="fw-medium">${{ number_format((int) $latestPayment->amount_cop, 0, ',', '.') }} COP</div>
+            </div>
+
+            <div class="mb-3">
+              <small class="text-body-secondary d-block mb-1">Enviado</small>
+              <div class="fw-medium">{{ $latestPayment->created_at?->format('d/m/Y H:i') ?: 'Sin fecha' }}</div>
+              <div class="text-body-secondary">Metodo {{ strtoupper($latestPayment->method) }}</div>
+            </div>
+
+            @if ($latestPayment->reference_text)
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Referencia</small>
+                <div class="fw-medium">{{ $latestPayment->reference_text }}</div>
+              </div>
+            @endif
+
+            @if ($latestPayment->proof_path)
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-2">Comprobante</small>
+                <a href="{{ asset('storage/'.$latestPayment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="d-block border rounded overflow-hidden">
+                  <img src="{{ asset('storage/'.$latestPayment->proof_path) }}" alt="Comprobante Nequi" class="admin-payment-proof" />
+                </a>
+                <a href="{{ asset('storage/'.$latestPayment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-2">Abrir comprobante</a>
+              </div>
+            @endif
+
+            @if ($latestPayment->reviewed_at)
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Revision del pago</small>
+                <div class="fw-medium">{{ $latestPayment->reviewed_at->format('d/m/Y H:i') }}</div>
+                <div class="text-body-secondary">{{ $latestPayment->reviewedBy?->display_name ?: 'Sin revisor asignado' }}</div>
+              </div>
+            @endif
+
+            @if ($latestPayment->rejection_reason)
+              <div class="alert alert-danger py-2 px-3">
+                <p class="mb-1 fw-semibold">Motivo del rechazo del pago</p>
+                <p class="mb-0">{{ $latestPayment->rejection_reason }}</p>
+              </div>
+            @endif
+
+            @if ($pendingPayment)
+              <div class="d-grid gap-3">
+                <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
+                  @csrf
+                  @method('PATCH')
+                  <input type="hidden" name="action" value="approve" />
+                  <button type="submit" class="btn btn-success w-100">Aprobar pago y publicar</button>
+                </form>
+
+                <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
+                  @csrf
+                  @method('PATCH')
+                  <input type="hidden" name="action" value="reject" />
+                  <label class="form-label mb-1">Rechazar pago con motivo</label>
+                  <textarea
+                    name="rejection_reason"
+                    rows="4"
+                    class="form-control"
+                    placeholder="Explica por que el comprobante no es valido"
+                    required>{{ old('rejection_reason', $latestPayment->status === 'rejected' ? $latestPayment->rejection_reason : '') }}</textarea>
+                  <button type="submit" class="btn btn-outline-danger w-100 mt-2">Rechazar pago</button>
+                </form>
+              </div>
+            @endif
+          @else
+            <div class="text-body-secondary">Todavia no hay comprobante cargado para este anuncio.</div>
+          @endif
         </div>
       </div>
 
@@ -644,28 +752,34 @@
             </div>
           @endif
 
-          <div class="d-grid gap-3">
-            <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
-              @csrf
-              @method('PATCH')
-              <input type="hidden" name="action" value="approve" />
-              <button type="submit" class="btn btn-success w-100">Aprobar anuncio</button>
-            </form>
+          @if ($pendingPayment)
+            <div class="alert alert-warning mb-0">
+              Primero valida el comprobante en el bloque de pago. Esa accion es la que activa beneficios y publicación.
+            </div>
+          @else
+            <div class="d-grid gap-3">
+              <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="action" value="approve" />
+                <button type="submit" class="btn btn-success w-100">Aprobar anuncio</button>
+              </form>
 
-            <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
-              @csrf
-              @method('PATCH')
-              <input type="hidden" name="action" value="reject" />
-              <label class="form-label mb-1">Rechazar con motivo</label>
-              <textarea
-                name="rejection_reason"
-                rows="4"
-                class="form-control"
-                placeholder="Explica al mariachi exactamente que debe corregir"
-                required>{{ old('rejection_reason', $listing->review_status === 'rejected' ? $listing->rejection_reason : '') }}</textarea>
-              <button type="submit" class="btn btn-outline-danger w-100 mt-2">Rechazar anuncio</button>
-            </form>
-          </div>
+              <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="action" value="reject" />
+                <label class="form-label mb-1">Rechazar con motivo</label>
+                <textarea
+                  name="rejection_reason"
+                  rows="4"
+                  class="form-control"
+                  placeholder="Explica al mariachi exactamente que debe corregir"
+                  required>{{ old('rejection_reason', $listing->review_status === 'rejected' ? $listing->rejection_reason : '') }}</textarea>
+                <button type="submit" class="btn btn-outline-danger w-100 mt-2">Rechazar anuncio</button>
+              </form>
+            </div>
+          @endif
         </div>
       </div>
 

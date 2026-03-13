@@ -55,9 +55,10 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::post('/opiniones/{review}/reportar', [MariachiReviewController::class, 'report'])->name('mariachi.reviews.report');
         Route::post('/solicitudes/{conversation}/responder', [MariachiQuoteConversationController::class, 'reply'])->name('mariachi.quotes.reply');
         Route::patch('/solicitudes/{conversation}/estado', [MariachiQuoteConversationController::class, 'updateStatus'])->name('mariachi.quotes.status');
-        Route::get('/profile', fn () => redirect()->route('mariachi.provider-profile.edit'))->name('mariachi.profile.index');
-        Route::get('/perfil-proveedor', [MariachiProviderProfileController::class, 'edit'])->name('mariachi.provider-profile.edit');
-        Route::patch('/perfil-proveedor', [MariachiProviderProfileController::class, 'update'])->name('mariachi.provider-profile.update');
+        Route::redirect('/profile', '/perfil', 301)->name('mariachi.profile.index');
+        Route::redirect('/perfil-proveedor', '/perfil', 301);
+        Route::get('/perfil', [MariachiProviderProfileController::class, 'edit'])->name('mariachi.provider-profile.edit');
+        Route::patch('/perfil', [MariachiProviderProfileController::class, 'update'])->name('mariachi.provider-profile.update');
         Route::get('/verificacion', [MariachiVerificationController::class, 'edit'])->name('mariachi.verification.edit');
         Route::post('/verificacion', [MariachiVerificationController::class, 'store'])->name('mariachi.verification.store');
 
@@ -66,6 +67,7 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::post('/anuncios', [MariachiListingController::class, 'store'])->name('mariachi.listings.store');
         Route::get('/anuncios/{listing}/planes', [MariachiListingController::class, 'plans'])->name('mariachi.listings.plans');
         Route::post('/anuncios/{listing}/planes', [MariachiListingController::class, 'selectPlan'])->name('mariachi.listings.plans.select');
+        Route::post('/anuncios/{listing}/pagos/nequi', [MariachiListingController::class, 'storeNequiPayment'])->name('mariachi.listings.payments.nequi.store');
         Route::get('/anuncios/{listing}/editar', [MariachiListingController::class, 'edit'])->name('mariachi.listings.edit');
         Route::patch('/anuncios/{listing}/autosave', [MariachiListingController::class, 'autosave'])->name('mariachi.listings.autosave');
         Route::patch('/anuncios/{listing}', [MariachiListingController::class, 'update'])->name('mariachi.listings.update');

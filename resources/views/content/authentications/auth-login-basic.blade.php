@@ -48,7 +48,7 @@ $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y sol
             <div class="alert alert-success" role="alert">{{ session('status') }}</div>
           @endif
 
-          <form class="mb-4" action="{{ $loginAction }}" method="POST">
+          <form id="formAuthentication" class="mb-4" action="{{ $loginAction }}" method="POST">
             @csrf
 
             <div class="mb-6 form-control-validation">
@@ -65,7 +65,14 @@ $supportText = $portal === 'mariachi' ? 'Ingresa para gestionar tu anuncio y sol
               <div class="input-group input-group-merge">
                 <input type="password" id="password" class="form-control @error('password') is-invalid @enderror" name="password"
                   placeholder="************" aria-describedby="password" />
-                <span class="input-group-text cursor-pointer"><i class="icon-base ti tabler-eye-off"></i></span>
+                <button
+                  type="button"
+                  class="input-group-text cursor-pointer"
+                  aria-label="Mostrar u ocultar contraseña"
+                  aria-controls="password"
+                  data-password-toggle>
+                  <i class="icon-base ti tabler-eye-off"></i>
+                </button>
               </div>
               @error('password')
                 <div class="invalid-feedback d-block">{{ $message }}</div>

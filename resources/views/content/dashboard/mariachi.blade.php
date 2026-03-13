@@ -8,6 +8,7 @@
     'active' => ['label' => 'Activo', 'class' => 'success'],
     'draft' => ['label' => 'Borrador', 'class' => 'secondary'],
     'awaiting_plan' => ['label' => 'Sin plan', 'class' => 'warning'],
+    'awaiting_payment' => ['label' => 'Esperando pago', 'class' => 'warning'],
     'paused' => ['label' => 'Pausado', 'class' => 'danger'],
   ];
 

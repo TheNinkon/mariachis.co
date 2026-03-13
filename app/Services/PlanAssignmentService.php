@@ -15,9 +15,10 @@ class PlanAssignmentService
         Plan $plan,
         ?MariachiListing $listing = null,
         string $source = 'manual_selection',
-        array $metadata = []
+        array $metadata = [],
+        bool $publishListing = false
     ): Subscription {
-        return DB::transaction(function () use ($profile, $plan, $listing, $source, $metadata): Subscription {
+        return DB::transaction(function () use ($profile, $plan, $listing, $source, $metadata, $publishListing): Subscription {
             $profile->subscriptions()
                 ->where('status', Subscription::STATUS_ACTIVE)
                 ->update([
@@ -46,7 +47,7 @@ class PlanAssignmentService
                 'default_mariachi_listing_id' => $profile->default_mariachi_listing_id ?: $listing?->id,
             ]);
 
-            if ($listing) {
+            if ($listing && $publishListing) {
                 $listing->update([
                     'selected_plan_code' => $plan->code,
                     'plan_selected_at' => now(),

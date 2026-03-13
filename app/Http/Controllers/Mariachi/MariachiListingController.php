@@ -7,6 +7,7 @@ use App\Models\BudgetRange;
 use App\Models\CatalogSuggestion;
 use App\Models\EventType;
 use App\Models\GroupSizeOption;
+use App\Models\ListingPayment;
 use App\Models\MariachiListing;
 use App\Models\MariachiListingPhoto;
 use App\Models\MariachiListingVideo;
@@ -18,6 +19,7 @@ use App\Models\ServiceType;
 use App\Services\EntitlementsService;
 use App\Services\GoogleMapsSettingsService;
 use App\Services\MediaProtectionService;
+use App\Services\NequiPaymentSettingsService;
 use App\Services\PlanAssignmentService;
 use App\Services\SubscriptionCapabilityService;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +38,8 @@ class MariachiListingController extends Controller
         private readonly EntitlementsService $entitlementsService,
         private readonly PlanAssignmentService $planAssignmentService,
         private readonly MediaProtectionService $mediaProtectionService,
-        private readonly GoogleMapsSettingsService $googleMapsSettings
+        private readonly GoogleMapsSettingsService $googleMapsSettings,
+        private readonly NequiPaymentSettingsService $nequiSettings
     ) {
     }
 
@@ -44,7 +47,7 @@ class MariachiListingController extends Controller
     {
         $profile = $this->providerProfile();
         $listings = $profile->listings()
-            ->with(['photos', 'videos', 'serviceAreas', 'eventTypes:id,name'])
+            ->with(['photos', 'videos', 'serviceAreas', 'eventTypes:id,name', 'latestPayment'])
             ->latest('updated_at')
             ->get();
 
@@ -134,25 +137,28 @@ class MariachiListingController extends Controller
         abort_unless($profile, 404);
 
         return view('content.mariachi.listings-plans', [
-            'listing' => $listing->loadMissing('mariachiProfile.subscriptions.plan'),
+            'listing' => $listing->loadMissing('mariachiProfile.subscriptions.plan', 'latestPayment.reviewedBy'),
             'capabilities' => $this->capabilityService->resolveCapabilities($profile),
             'planSummary' => $this->entitlementsService->summary($profile),
             'plans' => $this->availablePlans(),
+            'nequi' => $this->nequiSettings->publicConfig(),
         ]);
     }
 
-    public function selectPlan(Request $request, MariachiListing $listing): RedirectResponse
+    public function selectPlan(Request $request, MariachiListing $listing): RedirectResponse|JsonResponse
     {
         $this->ensureOwned($listing);
         $this->refreshListingProgress($listing);
         $listing->refresh();
 
         if (! $listing->listing_completed) {
-            return redirect()
-                ->route('mariachi.listings.edit', ['listing' => $listing->id])
-                ->withErrors([
-                    'plan_code' => 'Completa primero la informacion del anuncio (datos, ubicacion, filtros y fotos) antes de seleccionar plan.',
-                ]);
+            return $this->planSelectionResponse(
+                $request,
+                false,
+                'Completa primero la informacion del anuncio (datos, ubicacion, filtros y fotos) antes de seleccionar plan.',
+                route('mariachi.listings.edit', ['listing' => $listing->id]),
+                422
+            );
         }
 
         $plans = $this->availablePlans();
@@ -174,18 +180,146 @@ class MariachiListingController extends Controller
             ->first();
         abort_unless($planModel, 422);
 
-        $this->planAssignmentService->assignToProfile($profile, $planModel, $listing, 'manual_selection');
+        if ($listing->payment_status === MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $planCode) {
+            return $this->planSelectionResponse(
+                $request,
+                true,
+                'Ese plan ya esta aprobado para este anuncio.',
+                route('mariachi.listings.plans', ['listing' => $listing->id])
+            );
+        }
+
+        if ($listing->isPaymentPending()) {
+            return $this->planSelectionResponse(
+                $request,
+                false,
+                'Ya enviaste un comprobante. Espera la validacion del admin antes de cambiar el plan.',
+                route('mariachi.listings.plans', ['listing' => $listing->id]),
+                409
+            );
+        }
+
+        $listing->update([
+            'selected_plan_code' => $planCode,
+            'plan_selected_at' => now(),
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
+            'is_active' => false,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'submitted_for_review_at' => null,
+            'reviewed_at' => null,
+            'reviewed_by_user_id' => null,
+            'rejection_reason' => null,
+            'deactivated_at' => now(),
+        ]);
 
         $this->refreshListingProgress($listing->refresh());
 
+        return $this->planSelectionResponse(
+            $request,
+            true,
+            'Plan seleccionado ('.$selectedPlan['name'].'). Ahora paga por Nequi y sube el comprobante.',
+            route('mariachi.listings.plans', ['listing' => $listing->id])
+        );
+    }
+
+    public function storeNequiPayment(Request $request, MariachiListing $listing): RedirectResponse
+    {
+        $this->ensureOwned($listing);
+        $this->refreshListingProgress($listing);
+        $listing->refresh();
+
+        if (! $this->nequiSettings->publicConfig()['is_configured']) {
+            return back()->withErrors([
+                'proof_image' => 'El pago por Nequi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.',
+            ]);
+        }
+
+        if ($listing->isPaymentPending()) {
+            return back()->withErrors([
+                'proof_image' => 'Ya enviaste un comprobante. Debes esperar la validacion del admin.',
+            ]);
+        }
+
+        if (! $listing->listing_completed) {
+            return back()->withErrors([
+                'proof_image' => 'Completa primero la informacion del anuncio antes de enviar el pago.',
+            ]);
+        }
+
+        $plans = $this->availablePlans();
+        $validated = $request->validate([
+            'listing_id' => ['required', 'integer'],
+            'plan_code' => ['required', Rule::in(array_keys($plans))],
+            'amount_cop' => ['required', 'integer', 'min:0'],
+            'proof_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'reference_text' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        if ((int) $validated['listing_id'] !== (int) $listing->id) {
+            abort(422);
+        }
+
+        $planCode = $validated['plan_code'];
+        $selectedPlan = $plans[$planCode];
+        $profile = $listing->mariachiProfile;
+        abort_unless($profile, 404);
+
+        $planModel = Plan::query()
+            ->active()
+            ->public()
+            ->where('code', $planCode)
+            ->first();
+        abort_unless($planModel, 422);
+
+        if ((int) $validated['amount_cop'] !== (int) $selectedPlan['price_cop']) {
+            return back()->withErrors([
+                'amount_cop' => 'El monto enviado no coincide con el valor configurado para este plan.',
+            ]);
+        }
+
+        $proofPath = $request->file('proof_image')->store('listing-payment-proofs', 'public');
+
+        $listing->payments()->create([
+            'mariachi_profile_id' => $profile->id,
+            'plan_code' => $planCode,
+            'amount_cop' => (int) $selectedPlan['price_cop'],
+            'method' => ListingPayment::METHOD_NEQUI,
+            'proof_path' => $proofPath,
+            'status' => ListingPayment::STATUS_PENDING,
+            'reference_text' => $validated['reference_text'] ?? null,
+        ]);
+
+        $listing->update([
+            'selected_plan_code' => $planCode,
+            'plan_selected_at' => now(),
+            'payment_status' => MariachiListing::PAYMENT_PENDING,
+            'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
+            'is_active' => false,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'submitted_for_review_at' => null,
+            'reviewed_at' => null,
+            'reviewed_by_user_id' => null,
+            'rejection_reason' => null,
+            'deactivated_at' => now(),
+        ]);
+
         return redirect()
-            ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Plan seleccionado ('.$selectedPlan['name'].'). Ahora envía el anuncio a revisión para publicarlo.');
+            ->route('mariachi.listings.plans', ['listing' => $listing->id])
+            ->with('status', 'Comprobante enviado. El equipo admin validara tu pago antes de publicar el anuncio.');
     }
 
     public function edit(MariachiListing $listing): View|RedirectResponse
     {
         $this->ensureOwned($listing);
+
+        if ($listing->isPaymentPending()) {
+            return redirect()
+                ->route('mariachi.listings.plans', ['listing' => $listing->id])
+                ->withErrors([
+                    'listing' => 'Pago enviado, esperando validacion. No puedes editar este anuncio mientras revisamos el comprobante.',
+                ]);
+        }
 
         if ($listing->isPendingReview()) {
             return redirect()
@@ -206,6 +340,7 @@ class MariachiListingController extends Controller
             'serviceTypes:id,name,slug,icon,sort_order',
             'groupSizeOptions:id,name,slug,icon,sort_order',
             'budgetRanges:id,name,slug,icon,sort_order',
+            'latestPayment.reviewedBy',
         ]);
 
         $profile = $listing->mariachiProfile;
@@ -231,7 +366,7 @@ class MariachiListingController extends Controller
             'budgetRanges' => BudgetRange::query()->active()->ordered()->get(['id', 'name', 'slug', 'icon']),
             'cities' => MarketplaceCity::query()->active()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'zones' => MarketplaceZone::query()
-                ->active()
+                ->searchVisible()
                 ->with('city:id,name')
                 ->orderBy('marketplace_city_id')
                 ->orderBy('sort_order')
@@ -528,7 +663,6 @@ class MariachiListingController extends Controller
 
         $validated = $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'title' => ['nullable', 'string', 'max:120'],
         ]);
 
         $file = $request->file('photo');
@@ -538,7 +672,7 @@ class MariachiListingController extends Controller
 
         $photo = $listing->photos()->create([
             'path' => $path,
-            'title' => $validated['title'] ?? null,
+            'title' => null,
             'sort_order' => $sortOrder,
             'is_featured' => $listing->photos()->count() === 0,
             'image_hash' => $hash,
@@ -796,18 +930,27 @@ class MariachiListingController extends Controller
             return;
         }
 
-        CatalogSuggestion::query()->firstOrCreate(
-            [
-                'catalog_type' => $catalogType,
-                'proposed_slug' => $slug,
-                'status' => CatalogSuggestion::STATUS_PENDING,
-            ],
-            [
-                'proposed_name' => $name,
-                'context_data' => $contextData === [] ? null : $contextData,
-                'submitted_by_user_id' => $submittedByUserId,
-            ]
-        );
+        $pendingQuery = CatalogSuggestion::query()
+            ->where('catalog_type', $catalogType)
+            ->where('proposed_slug', $slug)
+            ->where('status', CatalogSuggestion::STATUS_PENDING);
+
+        if ($catalogType === CatalogSuggestion::TYPE_ZONE && isset($contextData['marketplace_city_id'])) {
+            $pendingQuery->where('context_data->marketplace_city_id', (int) $contextData['marketplace_city_id']);
+        }
+
+        if ($pendingQuery->exists()) {
+            return;
+        }
+
+        CatalogSuggestion::query()->create([
+            'catalog_type' => $catalogType,
+            'proposed_name' => $name,
+            'proposed_slug' => $slug,
+            'context_data' => $contextData === [] ? null : $contextData,
+            'status' => CatalogSuggestion::STATUS_PENDING,
+            'submitted_by_user_id' => $submittedByUserId,
+        ]);
     }
 
     /**
@@ -1024,8 +1167,38 @@ class MariachiListingController extends Controller
         abort_unless($listing->mariachiProfile?->user_id === auth()->id(), 403);
     }
 
+    private function planSelectionResponse(
+        Request $request,
+        bool $ok,
+        string $message,
+        string $redirectTo,
+        int $status = 200
+    ): RedirectResponse|JsonResponse {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => $ok,
+                'message' => $message,
+                'redirect_to' => $redirectTo,
+            ], $status);
+        }
+
+        if ($ok) {
+            return redirect()->to($redirectTo)->with('status', $message);
+        }
+
+        return redirect()->to($redirectTo)->withErrors([
+            'plan_code' => $message,
+        ]);
+    }
+
     private function ensureOwnerCanModifyListing(MariachiListing $listing): void
     {
+        if ($listing->isPaymentPending()) {
+            throw ValidationException::withMessages([
+                'listing' => 'Pago enviado, esperando validacion. No puedes editar este anuncio mientras revisamos el comprobante.',
+            ]);
+        }
+
         if ($listing->isPendingReview()) {
             throw ValidationException::withMessages([
                 'listing' => 'Este anuncio esta en revision. Debes esperar la decision del equipo admin antes de editarlo.',

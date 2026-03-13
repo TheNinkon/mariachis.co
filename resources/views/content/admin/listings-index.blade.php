@@ -102,8 +102,16 @@
     $operationalMap = [
       'draft' => ['label' => 'Borrador', 'class' => 'secondary'],
       'awaiting_plan' => ['label' => 'Sin plan', 'class' => 'warning'],
+      'awaiting_payment' => ['label' => 'Esperando pago', 'class' => 'warning'],
       'active' => ['label' => 'Activo', 'class' => 'success'],
       'paused' => ['label' => 'Pausado', 'class' => 'secondary'],
+    ];
+
+    $paymentMap = [
+      'none' => ['label' => 'Sin pago', 'class' => 'secondary'],
+      'pending' => ['label' => 'Pago en revision', 'class' => 'warning'],
+      'approved' => ['label' => 'Pago aprobado', 'class' => 'success'],
+      'rejected' => ['label' => 'Pago rechazado', 'class' => 'danger'],
     ];
   @endphp
 
@@ -196,6 +204,7 @@
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="badge bg-label-primary">Total {{ number_format($listingMetrics['total']) }}</span>
+          <span class="badge bg-label-warning">Pagos pendientes {{ number_format($listingMetrics['payment_pending']) }}</span>
           <span class="badge bg-label-dark">Pagina {{ $listings->currentPage() }} / {{ $listings->lastPage() }}</span>
         </div>
       </div>
@@ -207,6 +216,16 @@
             <option value="all" @selected($reviewStatus === 'all')>Todos</option>
             @foreach ($statuses as $statusOption)
               <option value="{{ $statusOption }}" @selected($reviewStatus === $statusOption)>{{ $statusMap[$statusOption]['label'] ?? \Illuminate\Support\Str::headline($statusOption) }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Estado de pago</label>
+          <select name="payment_status" class="form-select">
+            <option value="all" @selected($paymentStatus === 'all')>Todos</option>
+            @foreach ($paymentStatuses as $paymentOption)
+              <option value="{{ $paymentOption }}" @selected($paymentStatus === $paymentOption)>{{ $paymentMap[$paymentOption]['label'] ?? \Illuminate\Support\Str::headline($paymentOption) }}</option>
             @endforeach
           </select>
         </div>
@@ -267,6 +286,7 @@
             @php
               $reviewMeta = $statusMap[$listing->review_status] ?? ['label' => $listing->reviewStatusLabel(), 'class' => 'secondary', 'icon' => 'tabler-circle'];
               $operationalMeta = $operationalMap[$listing->status] ?? ['label' => \Illuminate\Support\Str::headline($listing->status ?: 'draft'), 'class' => 'secondary'];
+              $paymentMeta = $paymentMap[$listing->payment_status] ?? ['label' => $listing->paymentStatusLabel(), 'class' => 'secondary'];
               $providerUser = $listing->mariachiProfile?->user;
               $providerName = $listing->mariachiProfile?->business_name ?: $providerUser?->display_name ?: 'Mariachi sin nombre';
               $thumb = $listing->photos->first();
@@ -364,6 +384,7 @@
               <td>
                 <div class="d-flex flex-column gap-2">
                   <span class="badge bg-label-{{ $operationalMeta['class'] }}">{{ $operationalMeta['label'] }}</span>
+                  <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
                   <span class="badge bg-label-{{ $listing->isApprovedForMarketplace() ? 'success' : 'secondary' }}">
                     {{ $listing->isApprovedForMarketplace() ? 'Visible' : 'No visible' }}
                   </span>

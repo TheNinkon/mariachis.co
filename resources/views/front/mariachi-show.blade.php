@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="assets/theme.css?v=20260311-listing-v8" />
+    <link rel="stylesheet" href="assets/theme.css?v=20260313-listing-v10" />
     <script type="application/ld+json">{!! $schemaJson !!}</script>
   </head>
   <body data-page="listing" class="has-mobile-cta font-sans text-slate-900 antialiased">
@@ -85,7 +85,11 @@
         ->unique(fn (array $item): string => $item['type'].'|'.$item['src'])
         ->values();
       $heroGalleryItems = $galleryItems->take(3)->values();
+      $hasGalleryOverflow = $galleryItems->count() > $heroGalleryItems->count();
       $heroRailItems = $heroGalleryItems;
+      $heroRailOverflowPreview = $hasGalleryOverflow
+        ? ($galleryItems->get($heroGalleryItems->count()) ?? $heroGalleryItems->last())
+        : null;
       $primaryGalleryItem = $galleryItems->first();
       $galleryPhotosCount = $photoGalleryItems->count();
       $galleryVideosCount = $videoGalleryItems->count();
@@ -136,6 +140,9 @@
       $favoriteDestroyUrl = auth()->user()?->role === \App\Models\User::ROLE_CLIENT
         ? route('client.favorites.destroy', ['slug' => $profile->slug])
         : null;
+      $shareEmailSubject = 'Mira este mariachi en Mariachis.co';
+      $shareEmailBody = 'He encontrado este mariachi en Mariachis.co y he pensado que te podria interesar: '.$h1."\r\n\r\n".'Echale un vistazo: '.url()->current();
+      $shareEmailHref = 'mailto:?subject='.rawurlencode($shareEmailSubject).'&body='.rawurlencode($shareEmailBody);
       $currentListingPayload = [
         'id' => $profile->id,
         'slug' => $profile->slug,
@@ -180,35 +187,6 @@
             <p class="listing-shell-context">{{ $listingContextLabel }}</p>
             <div class="listing-shell-title-row">
               <h1 class="listing-shell-title">{{ $h1 }}</h1>
-
-              <div class="listing-shell-actions" data-share-box>
-                <button type="button" data-share-native class="listing-hero-action-btn">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12v6.75m9-6.75V4.5m0 0L12 9m4.5-4.5L21 9M3 15.75V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18v-2.25" />
-                  </svg>
-                  <span>Compartir</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="listing-hero-action-btn listing-hero-action-btn--favorite {{ $isFavorited ? 'is-active' : '' }}"
-                  data-listing-favorite="{{ $favoriteKey }}"
-                  data-initial-favorited="{{ $isFavorited ? 'true' : 'false' }}"
-                  @if($favoriteStoreUrl)
-                    data-sync-store-url="{{ $favoriteStoreUrl }}"
-                    data-sync-destroy-url="{{ $favoriteDestroyUrl }}"
-                  @endif
-                  aria-label="{{ $isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos' }}"
-                  aria-pressed="{{ $isFavorited ? 'true' : 'false' }}"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="{{ $isFavorited ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-listing-favorite-icon>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  <span data-listing-favorite-label>{{ $isFavorited ? 'Guardado' : 'Guardar' }}</span>
-                </button>
-
-                <p data-share-status class="listing-share-status hidden">Enlace copiado</p>
-              </div>
             </div>
 
             <div class="listing-shell-meta" aria-label="Resumen del anuncio">
@@ -231,7 +209,7 @@
                 <script type="application/json" data-gallery-slides>@json($galleryItems->values()->all())</script>
                 <div class="listing-showcase__grid listing-showcase__grid--viator {{ $heroGalleryItems->count() === 1 ? 'listing-showcase__grid--single' : '' }}">
                   @if($galleryItems->count() > 1)
-                    <div class="listing-showcase__rail listing-showcase__rail--viator" data-listing-gallery-rail data-count="{{ $heroRailItems->count() }}" aria-label="Miniaturas del anuncio">
+                    <div class="listing-showcase__rail listing-showcase__rail--viator" data-listing-gallery-rail data-count="{{ $heroRailItems->count() + ($hasGalleryOverflow ? 1 : 0) }}" aria-label="Miniaturas del anuncio">
                       @foreach($heroRailItems as $index => $media)
                         <button
                           data-gallery-item
@@ -255,6 +233,24 @@
                           @endif
                         </button>
                       @endforeach
+
+                      @if($hasGalleryOverflow && $heroRailOverflowPreview)
+                        <button
+                          type="button"
+                          class="listing-showcase__thumb listing-showcase__thumb--viator listing-showcase__thumb--more"
+                          data-open-gallery-overflow
+                          aria-label="Ver mas fotos y videos"
+                        >
+                          @if($heroRailOverflowPreview['thumb'])
+                            <img src="{{ $heroRailOverflowPreview['thumb'] }}" alt="Ver mas del anuncio" loading="lazy" class="h-full w-full object-cover" />
+                          @else
+                            <span class="listing-showcase__thumb-fallback">Ver mas</span>
+                          @endif
+                          <span class="listing-showcase__shade"></span>
+                          <span class="listing-showcase__more-badge">+{{ $galleryItems->count() - $heroGalleryItems->count() }}</span>
+                          <span class="listing-showcase__more-label">Ver más</span>
+                        </button>
+                      @endif
                     </div>
                   @endif
 
@@ -275,26 +271,79 @@
                             <span>{{ $galleryVideosCount }} video(s)</span>
                           @endif
                         </div>
-                      </div>
 
-                      <div class="listing-showcase__floating listing-showcase__floating--bottom">
-                        <div class="listing-showcase__inline-tools">
-                          <button type="button" class="listing-showcase__nav-btn" data-gallery-inline-prev aria-label="Elemento anterior">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        <div class="listing-showcase__overlay-actions">
+                          <div class="listing-share-box" data-share-box>
+                            <button type="button" class="listing-hero-action-btn listing-hero-action-btn--overlay" data-share-toggle aria-expanded="false">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12v6.75m9-6.75V4.5m0 0L12 9m4.5-4.5L21 9M3 15.75V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18v-2.25" />
+                              </svg>
+                              <span>Compartir</span>
+                              <svg xmlns="http://www.w3.org/2000/svg" class="listing-hero-action-btn__chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+
+                            <div class="listing-share-dropdown hidden" data-share-menu>
+                              <button type="button" class="listing-share-option" data-share-copy>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 6.364 6.364l-4.242 4.243a4.5 4.5 0 0 1-6.364-6.364m-2.122-2.122a4.5 4.5 0 0 1 6.364-6.364l1.757 1.757" />
+                                </svg>
+                                <span>Copiar enlace</span>
+                              </button>
+                              <a href="{{ $shareEmailHref }}" class="listing-share-option" data-share-email>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 7.5v9A2.25 2.25 0 0 1 19.5 18.75h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0l-7.5-4.615A2.25 2.25 0 0 1 2.25 7.743V7.5" />
+                                </svg>
+                                <span>Dirección de correo electrónico</span>
+                              </a>
+                            </div>
+
+                            <p data-share-status class="listing-share-status hidden">Enlace copiado</p>
+                          </div>
+
+                          <button
+                            type="button"
+                            class="listing-hero-action-btn listing-hero-action-btn--overlay listing-hero-action-btn--favorite {{ $isFavorited ? 'is-active' : '' }}"
+                            data-listing-favorite="{{ $favoriteKey }}"
+                            data-initial-favorited="{{ $isFavorited ? 'true' : 'false' }}"
+                            @if($favoriteStoreUrl)
+                              data-sync-store-url="{{ $favoriteStoreUrl }}"
+                              data-sync-destroy-url="{{ $favoriteDestroyUrl }}"
+                            @endif
+                            aria-label="{{ $isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos' }}"
+                            aria-pressed="{{ $isFavorited ? 'true' : 'false' }}"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="{{ $isFavorited ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-listing-favorite-icon>
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                             </svg>
-                          </button>
-                          <span class="listing-showcase__inline-counter" data-gallery-inline-counter>1 / {{ $heroGalleryItems->count() }}</span>
-                          <button type="button" class="listing-showcase__nav-btn" data-gallery-inline-next aria-label="Elemento siguiente">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
+                            <span data-listing-favorite-label>{{ $isFavorited ? 'Guardado' : 'Añadir a la lista de deseos' }}</span>
                           </button>
                         </div>
+                      </div>
 
-                        <button type="button" class="listing-showcase__cta" data-open-gallery-modal>
-                          Ver galería completa
-                        </button>
+                      <button type="button" class="listing-showcase__stage-nav listing-showcase__stage-nav--prev" data-gallery-inline-prev aria-label="Elemento anterior">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button type="button" class="listing-showcase__stage-nav listing-showcase__stage-nav--next" data-gallery-inline-next aria-label="Elemento siguiente">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+
+                      <div class="listing-showcase__floating listing-showcase__floating--bottom">
+                        <span class="listing-showcase__inline-counter" data-gallery-inline-counter>1 / {{ $heroGalleryItems->count() }}</span>
+                        @if($hasGalleryOverflow)
+                          <button type="button" class="listing-showcase__cta hidden" data-gallery-inline-more>
+                            Ver más
+                          </button>
+                        @else
+                          <button type="button" class="listing-showcase__cta" data-open-gallery-modal>
+                            Ver galería completa
+                          </button>
+                        @endif
                       </div>
                     </div>
                   </div>
@@ -354,7 +403,7 @@
             </div>
           </aside>
 
-          <div class="listing-page-content space-y-6 md:col-span-8">
+          <div class="listing-page-content md:col-span-8">
             <div class="listing-anchor-sentinel" data-listing-anchor-sentinel aria-hidden="true"></div>
             <div class="listing-anchor-shell" data-reveal data-listing-anchor-shell>
               <nav class="listing-anchor-nav" data-listing-anchor-nav>
@@ -812,6 +861,55 @@
         </div>
 
         <div class="gallery-modal__stage-shell">
+          <div class="gallery-modal__floating-actions">
+            <div class="listing-share-box" data-share-box>
+              <button type="button" class="listing-hero-action-btn listing-hero-action-btn--overlay" data-share-toggle aria-expanded="false">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12v6.75m9-6.75V4.5m0 0L12 9m4.5-4.5L21 9M3 15.75V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18v-2.25" />
+                </svg>
+                <span>Compartir</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="listing-hero-action-btn__chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+
+              <div class="listing-share-dropdown hidden" data-share-menu>
+                <button type="button" class="listing-share-option" data-share-copy>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 6.364 6.364l-4.242 4.243a4.5 4.5 0 0 1-6.364-6.364m-2.122-2.122a4.5 4.5 0 0 1 6.364-6.364l1.757 1.757" />
+                  </svg>
+                  <span>Copiar enlace</span>
+                </button>
+                <a href="{{ $shareEmailHref }}" class="listing-share-option" data-share-email>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 7.5v9A2.25 2.25 0 0 1 19.5 18.75h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0l-7.5-4.615A2.25 2.25 0 0 1 2.25 7.743V7.5" />
+                  </svg>
+                  <span>Dirección de correo electrónico</span>
+                </a>
+              </div>
+
+              <p data-share-status class="listing-share-status hidden">Enlace copiado</p>
+            </div>
+
+            <button
+              type="button"
+              class="listing-hero-action-btn listing-hero-action-btn--overlay listing-hero-action-btn--favorite {{ $isFavorited ? 'is-active' : '' }}"
+              data-listing-favorite="{{ $favoriteKey }}"
+              data-initial-favorited="{{ $isFavorited ? 'true' : 'false' }}"
+              @if($favoriteStoreUrl)
+                data-sync-store-url="{{ $favoriteStoreUrl }}"
+                data-sync-destroy-url="{{ $favoriteDestroyUrl }}"
+              @endif
+              aria-label="{{ $isFavorited ? 'Quitar de favoritos' : 'Guardar en favoritos' }}"
+              aria-pressed="{{ $isFavorited ? 'true' : 'false' }}"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="{{ $isFavorited ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-listing-favorite-icon>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span data-listing-favorite-label>{{ $isFavorited ? 'Guardado' : 'Añadir a la lista de deseos' }}</span>
+            </button>
+          </div>
+
           <button type="button" data-gallery-prev class="gallery-modal__nav gallery-modal__nav--prev" aria-label="Anterior">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -890,10 +988,10 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-listing-v8"></script>
-    <script src="js/listing-gallery.js?v=20260311-listing-v3"></script>
+    <script src="js/ui.js?v=20260312-listing-v9"></script>
+    <script src="js/listing-gallery.js?v=20260312-listing-v4"></script>
     <script src="js/listing-lead-modal.js?v=20260311-listing-v1"></script>
-    <script src="js/listing-favorites.js?v=20260311-listing-v1"></script>
+    <script src="js/listing-favorites.js?v=20260313-listing-v2"></script>
     <script src="js/public-listing-collections.js?v=20260311-listing-collections-v1"></script>
   </body>
 </html>

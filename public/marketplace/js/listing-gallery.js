@@ -99,7 +99,12 @@
     const inlineCounter = root.querySelector("[data-gallery-inline-counter]");
     const inlinePrev = root.querySelector("[data-gallery-inline-prev]");
     const inlineNext = root.querySelector("[data-gallery-inline-next]");
+    const inlineMoreButton = root.querySelector("[data-gallery-inline-more]");
     const openModalButtons = Array.from(root.querySelectorAll("[data-open-gallery-modal]"));
+    const openOverflowButtons = Array.from(root.querySelectorAll("[data-open-gallery-overflow]"));
+    const overlayControls = Array.from(
+      root.querySelectorAll("[data-share-box], [data-listing-favorite], [data-share-toggle], [data-share-copy], [data-share-email]")
+    );
     const modal = document.querySelector("[data-listing-gallery-modal]");
 
     if (!inlineStage || !inlineCounter || !inlinePrev || !inlineNext || !modal || !heroSlides.length) {
@@ -122,6 +127,7 @@
     let currentModalFilter = "all";
     let currentModalIndex = 0;
     let previousBodyOverflow = "";
+    const hasOverflowSlides = slides.length > heroSlides.length;
 
     function getHeroSlide(index) {
       return heroSlides[Math.max(0, Math.min(index, heroSlides.length - 1))] || null;
@@ -173,6 +179,13 @@
       inlineCounter.textContent = `${slide.heroIndex + 1} / ${heroSlides.length}`;
       inlinePrev.disabled = slide.heroIndex <= 0;
       inlineNext.disabled = slide.heroIndex >= heroSlides.length - 1;
+
+      if (inlineMoreButton) {
+        const showMore = hasOverflowSlides && slide.heroIndex === heroSlides.length - 1;
+        inlineMoreButton.classList.toggle("hidden", !showMore);
+        inlineMoreButton.setAttribute("aria-hidden", showMore ? "false" : "true");
+      }
+
       syncInlineThumbs();
     }
 
@@ -335,6 +348,30 @@
       });
     });
 
+    openOverflowButtons.forEach((button) => {
+      button.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const targetSlide = slides[heroSlides.length] || slides[slides.length - 1];
+        if (!targetSlide) {
+          return;
+        }
+
+        openModal(targetSlide.index, targetSlide.type === "video" ? "video" : "all");
+      });
+    });
+
+    if (inlineMoreButton) {
+      inlineMoreButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const targetSlide = slides[heroSlides.length] || slides[slides.length - 1];
+        if (!targetSlide) {
+          return;
+        }
+
+        openModal(targetSlide.index, targetSlide.type === "video" ? "video" : "all");
+      });
+    }
+
     inlineStage.addEventListener("click", function () {
       const slide = getHeroSlide(currentHeroIndex);
       if (!slide) {
@@ -342,6 +379,12 @@
       }
 
       openModal(slide.index, slide.type === "video" ? "video" : "all");
+    });
+
+    overlayControls.forEach((control) => {
+      control.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
     });
 
     modalFilterButtons.forEach((button) => {

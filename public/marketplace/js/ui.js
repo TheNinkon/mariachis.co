@@ -1684,14 +1684,35 @@
     const shareButtons = Array.from(document.querySelectorAll("[data-share-btn]"));
     const copyButtons = Array.from(document.querySelectorAll("[data-share-copy]"));
     const nativeButtons = Array.from(document.querySelectorAll("[data-share-native]"));
+    const emailButtons = Array.from(document.querySelectorAll("[data-share-email]"));
+    const toggleButtons = Array.from(document.querySelectorAll("[data-share-toggle]"));
 
-    if (!shareButtons.length && !copyButtons.length && !nativeButtons.length) {
+    if (!shareButtons.length && !copyButtons.length && !nativeButtons.length && !emailButtons.length && !toggleButtons.length) {
       return;
     }
 
     const page = document.body.dataset.page || "";
-    const city = getCityFromQuery();
-    const listingName = getListingFromQuery();
+    const currentListingPayloadNode = document.querySelector("[data-current-listing]");
+    let currentListingPayload = null;
+
+    if (currentListingPayloadNode) {
+      try {
+        currentListingPayload = JSON.parse(currentListingPayloadNode.textContent || "{}");
+      } catch (_error) {
+        currentListingPayload = null;
+      }
+    }
+
+    const city = page === "listing" && currentListingPayload && currentListingPayload.city
+      ? {
+          slug: normalizeSlug(currentListingPayload.city),
+          label: String(currentListingPayload.city),
+        }
+      : getCityFromQuery();
+    const listingName =
+      page === "listing" && currentListingPayload && currentListingPayload.title
+        ? String(currentListingPayload.title)
+        : getListingFromQuery();
     const artist = getArtistProfile();
     const shareUrl = getShareUrl();
     const shareText =
@@ -1704,6 +1725,14 @@
       page === "artist" ? `${artist.groupName || artist.name} | mariachis.co` : `${listingName} | mariachis.co`;
     const encodedUrl = encodeURIComponent(shareUrl);
     const encodedText = encodeURIComponent(shareText);
+    const emailSubject =
+      page === "artist"
+        ? `Mira este perfil de mariachi en Mariachis.co`
+        : `Mira este mariachi en Mariachis.co`;
+    const emailBody =
+      page === "artist"
+        ? `He encontrado este perfil en Mariachis.co y he pensado que te podria interesar: ${artist.groupName || artist.name}\r\n\r\nEchale un vistazo: ${shareUrl}`
+        : `He encontrado este mariachi en Mariachis.co y he pensado que te podria interesar: ${listingName}\r\n\r\nEchale un vistazo: ${shareUrl}`;
 
     const shareMap = {
       whatsapp: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`,
@@ -1711,6 +1740,29 @@
       x: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
       telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
     };
+
+    function setMenuOpen(shareBox, open) {
+      if (!shareBox) {
+        return;
+      }
+
+      const menu = shareBox.querySelector("[data-share-menu]");
+      const toggle = shareBox.querySelector("[data-share-toggle]");
+
+      if (menu) {
+        menu.classList.toggle("hidden", !open);
+      }
+
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+    }
+
+    function closeAllShareMenus() {
+      document.querySelectorAll("[data-share-box]").forEach((shareBox) => {
+        setMenuOpen(shareBox, false);
+      });
+    }
 
     shareButtons.forEach((button) => {
       const platform = button.getAttribute("data-share-btn");
@@ -1722,6 +1774,20 @@
       button.setAttribute("href", targetUrl);
       button.setAttribute("target", "_blank");
       button.setAttribute("rel", "noopener noreferrer");
+    });
+
+    emailButtons.forEach((button) => {
+      if (button instanceof HTMLAnchorElement) {
+        button.setAttribute(
+          "href",
+          `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
+        );
+      }
+
+      button.addEventListener("click", function () {
+        const shareBox = button.closest("[data-share-box]");
+        setMenuOpen(shareBox, false);
+      });
     });
 
     function showShareStatus(button, message) {
@@ -1757,12 +1823,15 @@
 
     copyButtons.forEach((button) => {
       button.addEventListener("click", async function () {
+        const shareBox = button.closest("[data-share-box]");
         try {
           await copyShareUrl();
           showShareStatus(button, "Enlace copiado al portapapeles");
         } catch (_error) {
           showShareStatus(button, "No se pudo copiar, intenta manualmente");
         }
+
+        setMenuOpen(shareBox, false);
       });
     });
 
@@ -1791,6 +1860,34 @@
           showShareStatus(button, "No se pudo compartir");
         }
       });
+    });
+
+    toggleButtons.forEach((button) => {
+      button.addEventListener("click", function (event) {
+        event.stopPropagation();
+        const shareBox = button.closest("[data-share-box]");
+        if (!shareBox) {
+          return;
+        }
+
+        const menu = shareBox.querySelector("[data-share-menu]");
+        const willOpen = !!menu && menu.classList.contains("hidden");
+        closeAllShareMenus();
+        setMenuOpen(shareBox, willOpen);
+      });
+    });
+
+    document.addEventListener("click", function (event) {
+      const shareBox = event.target instanceof Element ? event.target.closest("[data-share-box]") : null;
+      if (!shareBox) {
+        closeAllShareMenus();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeAllShareMenus();
+      }
     });
   }
 

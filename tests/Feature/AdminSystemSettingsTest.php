@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\GoogleMapsSettingsService;
+use App\Services\NequiPaymentSettingsService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminSystemSettingsTest extends TestCase
@@ -20,12 +23,12 @@ class AdminSystemSettingsTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->patch(route('admin.system-settings.update'), [
+            ->patch(route('admin.system-settings.update'), $this->validPayload([
                 'google_maps_api_key' => 'test-browser-key',
                 'google_places_country_restriction' => 'co',
                 'marketplace_default_country_name' => 'Colombia',
                 'marketplace_default_country_code' => 'CO',
-            ])
+            ]))
             ->assertRedirect();
 
         $setting = SystemSetting::query()
@@ -57,12 +60,12 @@ class AdminSystemSettingsTest extends TestCase
         );
 
         $this->actingAs($admin)
-            ->patch(route('admin.system-settings.update'), [
+            ->patch(route('admin.system-settings.update'), $this->validPayload([
                 'google_maps_api_key' => '',
                 'google_places_country_restriction' => 'co',
                 'marketplace_default_country_name' => 'Colombia',
                 'marketplace_default_country_code' => 'CO',
-            ])
+            ]))
             ->assertRedirect();
 
         $this->assertSame(
@@ -71,15 +74,70 @@ class AdminSystemSettingsTest extends TestCase
         );
 
         $this->actingAs($admin)
-            ->patch(route('admin.system-settings.update'), [
+            ->patch(route('admin.system-settings.update'), $this->validPayload([
                 'google_maps_api_key' => '',
                 'clear_google_maps_api_key' => '1',
                 'google_places_country_restriction' => 'co',
                 'marketplace_default_country_name' => 'Colombia',
                 'marketplace_default_country_code' => 'CO',
-            ])
+            ]))
             ->assertRedirect();
 
         $this->assertSame('', app(GoogleMapsSettingsService::class)->publicConfig()['browser_api_key']);
+    }
+
+    public function test_admin_can_store_nequi_configuration(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.system-settings.update'), $this->validPayload([
+                'nequi_phone' => '3001234567',
+                'nequi_beneficiary_name' => 'Mariachis.co',
+                'nequi_qr_image' => UploadedFile::fake()->image('nequi-qr.png'),
+            ]))
+            ->assertRedirect();
+
+        $config = app(\App\Services\NequiPaymentSettingsService::class)->publicConfig();
+
+        $this->assertSame('3001234567', $config['phone']);
+        $this->assertSame('Mariachis.co', $config['beneficiary_name']);
+        $this->assertNotNull($config['qr_image_path']);
+        Storage::disk('public')->assertExists($config['qr_image_path']);
+
+        $this->assertDatabaseHas('system_settings', [
+            'key' => NequiPaymentSettingsService::KEY_PHONE,
+            'value' => '3001234567',
+            'is_encrypted' => false,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function validPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'google_maps_api_key' => '',
+            'google_places_country_restriction' => 'co',
+            'marketplace_default_country_name' => 'Colombia',
+            'marketplace_default_country_code' => 'CO',
+            'mail_mailer' => 'log',
+            'mail_smtp_host' => '',
+            'mail_smtp_port' => '',
+            'mail_smtp_username' => '',
+            'mail_smtp_password' => '',
+            'mail_smtp_encryption' => 'tls',
+            'mail_from_address' => 'admin@example.com',
+            'mail_from_name' => 'Mariachis.co',
+            'nequi_phone' => '',
+            'nequi_beneficiary_name' => '',
+        ], $overrides);
     }
 }

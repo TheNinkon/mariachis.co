@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', function () {
   (() => {
     const formAuthentication = document.querySelector('#formAuthentication');
-    const passwordToggleGroups = document.querySelectorAll('.form-password-toggle .input-group');
     const phoneCountrySelects = document.querySelectorAll('.select2-phone-country');
 
     // Form validation for Add new record
@@ -16,65 +15,65 @@ document.addEventListener('DOMContentLoaded', function () {
           username: {
             validators: {
               notEmpty: {
-                message: 'Please enter username'
+                message: 'Ingresa tu usuario'
               },
               stringLength: {
                 min: 6,
-                message: 'Username must be more than 6 characters'
+                message: 'El usuario debe tener al menos 6 caracteres'
               }
             }
           },
           email: {
             validators: {
               notEmpty: {
-                message: 'Please enter your email'
+                message: 'Ingresa tu correo electronico'
               },
               emailAddress: {
-                message: 'Please enter a valid email address'
+                message: 'Ingresa un correo electronico valido'
               }
             }
           },
           'email-username': {
             validators: {
               notEmpty: {
-                message: 'Please enter email / username'
+                message: 'Ingresa tu correo o usuario'
               },
               stringLength: {
                 min: 6,
-                message: 'Username must be more than 6 characters'
+                message: 'El usuario debe tener al menos 6 caracteres'
               }
             }
           },
           password: {
             validators: {
               notEmpty: {
-                message: 'Please enter your password'
+                message: 'Ingresa tu contrasena'
               },
               stringLength: {
                 min: 6,
-                message: 'Password must be more than 6 characters'
+                message: 'La contrasena debe tener al menos 6 caracteres'
               }
             }
           },
           'confirm-password': {
             validators: {
               notEmpty: {
-                message: 'Please confirm password'
+                message: 'Confirma tu contrasena'
               },
               identical: {
                 compare: () => formAuthentication.querySelector('[name="password"]').value,
-                message: 'The password and its confirmation do not match'
+                message: 'Las contrasenas no coinciden'
               },
               stringLength: {
                 min: 6,
-                message: 'Password must be more than 6 characters'
+                message: 'La contrasena debe tener al menos 6 caracteres'
               }
             }
           },
           terms: {
             validators: {
               notEmpty: {
-                message: 'Please agree to terms & conditions'
+                message: 'Debes aceptar los terminos y condiciones'
               }
             }
           }
@@ -99,6 +98,29 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
+    document.addEventListener('click', event => {
+      const toggle = event.target.closest('[data-password-toggle]');
+
+      if (!toggle) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const inputId = toggle.getAttribute('aria-controls');
+      const passwordInput = inputId ? document.getElementById(inputId) : null;
+      const icon = toggle.querySelector('i');
+
+      if (!passwordInput || !icon) {
+        return;
+      }
+
+      const shouldShow = passwordInput.getAttribute('type') === 'password';
+      passwordInput.setAttribute('type', shouldShow ? 'text' : 'password');
+      icon.classList.toggle('tabler-eye', shouldShow);
+      icon.classList.toggle('tabler-eye-off', !shouldShow);
+    });
+
     // Two Steps Verification for numeral input mask
     const numeralMaskElements = document.querySelectorAll('.numeral-mask');
 
@@ -109,40 +131,6 @@ document.addEventListener('DOMContentLoaded', function () {
       numeralMaskElements.forEach(numeralMaskEl => {
         numeralMaskEl.addEventListener('input', event => {
           numeralMaskEl.value = formatNumeral(event.target.value);
-        });
-      });
-    }
-
-    if (passwordToggleGroups.length > 0) {
-      passwordToggleGroups.forEach(group => {
-        const passwordInput = group.querySelector('input');
-        const toggleTrigger = group.querySelector('.input-group-text');
-        const icon = toggleTrigger?.querySelector('i');
-
-        if (!passwordInput || !toggleTrigger || !icon) {
-          return;
-        }
-
-        const syncToggleState = () => {
-          const isVisible = passwordInput.type === 'text';
-          passwordInput.type = isVisible ? 'password' : 'text';
-          icon.classList.toggle('tabler-eye', !isVisible);
-          icon.classList.toggle('tabler-eye-off', isVisible);
-        };
-
-        toggleTrigger.setAttribute('role', 'button');
-        toggleTrigger.setAttribute('tabindex', '0');
-
-        toggleTrigger.addEventListener('click', event => {
-          event.preventDefault();
-          syncToggleState();
-        });
-
-        toggleTrigger.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            syncToggleState();
-          }
         });
       });
     }

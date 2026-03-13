@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -17,8 +18,21 @@ class MariachiListing extends Model
 
     public const STATUS_DRAFT = 'draft';
     public const STATUS_AWAITING_PLAN = 'awaiting_plan';
+    public const STATUS_AWAITING_PAYMENT = 'awaiting_payment';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_PAUSED = 'paused';
+
+    public const PAYMENT_NONE = 'none';
+    public const PAYMENT_PENDING = 'pending';
+    public const PAYMENT_APPROVED = 'approved';
+    public const PAYMENT_REJECTED = 'rejected';
+
+    public const PAYMENT_STATUSES = [
+        self::PAYMENT_NONE,
+        self::PAYMENT_PENDING,
+        self::PAYMENT_APPROVED,
+        self::PAYMENT_REJECTED,
+    ];
 
     public const REVIEW_DRAFT = 'draft';
     public const REVIEW_PENDING = 'pending';
@@ -55,6 +69,7 @@ class MariachiListing extends Model
         'listing_completed',
         'status',
         'review_status',
+        'payment_status',
         'is_active',
         'selected_plan_code',
         'plan_selected_at',
@@ -129,6 +144,16 @@ class MariachiListing extends Model
     public function videos(): HasMany
     {
         return $this->hasMany(MariachiListingVideo::class)->latest();
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(ListingPayment::class)->latest();
+    }
+
+    public function latestPayment(): HasOne
+    {
+        return $this->hasOne(ListingPayment::class)->latestOfMany();
     }
 
     public function serviceAreas(): HasMany
@@ -245,9 +270,9 @@ class MariachiListing extends Model
 
     public function canBeSubmittedForReview(): bool
     {
-        return $this->review_status !== self::REVIEW_PENDING
+        return in_array($this->review_status, [self::REVIEW_DRAFT, self::REVIEW_REJECTED], true)
             && $this->listing_completed
-            && $this->hasEffectivePlan();
+            && $this->hasApprovedSelectedPlan();
     }
 
     public function hasEffectivePlan(): bool
@@ -257,7 +282,7 @@ class MariachiListing extends Model
 
     public function effectivePlanCode(): ?string
     {
-        if (filled($this->selected_plan_code)) {
+        if ($this->hasApprovedSelectedPlan()) {
             return (string) $this->selected_plan_code;
         }
 
@@ -270,6 +295,31 @@ class MariachiListing extends Model
         }
 
         return $this->mariachiProfile?->activeSubscription?->plan?->code;
+    }
+
+    public function hasApprovedSelectedPlan(): bool
+    {
+        return filled($this->selected_plan_code) && $this->payment_status === self::PAYMENT_APPROVED;
+    }
+
+    public function isPaymentPending(): bool
+    {
+        return $this->payment_status === self::PAYMENT_PENDING;
+    }
+
+    public function isPaymentRejected(): bool
+    {
+        return $this->payment_status === self::PAYMENT_REJECTED;
+    }
+
+    public function paymentStatusLabel(): string
+    {
+        return match ($this->payment_status) {
+            self::PAYMENT_PENDING => 'Pago en revision',
+            self::PAYMENT_APPROVED => 'Pago aprobado',
+            self::PAYMENT_REJECTED => 'Pago rechazado',
+            default => 'Sin pago',
+        };
     }
 
     public function hasPremiumMarketplaceBadge(): bool

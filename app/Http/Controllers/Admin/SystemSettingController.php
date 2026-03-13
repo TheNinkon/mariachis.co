@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Mail\SystemSmtpTestMail;
 use App\Services\GoogleMapsSettingsService;
 use App\Services\MailSettingsService;
+use App\Services\NequiPaymentSettingsService;
 use App\Services\SystemSettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Throwable;
 
@@ -18,7 +20,8 @@ class SystemSettingController extends Controller
     public function __construct(
         private readonly SystemSettingService $settings,
         private readonly GoogleMapsSettingsService $googleMapsSettings,
-        private readonly MailSettingsService $mailSettings
+        private readonly MailSettingsService $mailSettings,
+        private readonly NequiPaymentSettingsService $nequiPaymentSettings
     ) {
     }
 
@@ -27,6 +30,7 @@ class SystemSettingController extends Controller
         return view('content.admin.system-settings', [
             'googleMaps' => $this->googleMapsSettings->publicConfig(),
             'smtp' => $this->mailSettings->publicConfig(),
+            'nequi' => $this->nequiPaymentSettings->publicConfig(),
         ]);
     }
 
@@ -47,6 +51,10 @@ class SystemSettingController extends Controller
             'mail_smtp_encryption' => ['required', 'string', 'in:tls,ssl,none'],
             'mail_from_address' => ['required', 'email:rfc', 'max:255'],
             'mail_from_name' => ['required', 'string', 'max:255'],
+            'nequi_phone' => ['nullable', 'string', 'max:30'],
+            'nequi_beneficiary_name' => ['nullable', 'string', 'max:120'],
+            'nequi_qr_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'clear_nequi_qr_image' => ['nullable', 'boolean'],
         ]);
 
         if ($validated['mail_mailer'] === MailSettingsService::MAILER_SMTP) {
@@ -118,6 +126,37 @@ class SystemSettingController extends Controller
             MailSettingsService::KEY_FROM_NAME,
             $validated['mail_from_name']
         );
+
+        $this->settings->putString(
+            NequiPaymentSettingsService::KEY_PHONE,
+            $validated['nequi_phone'] ?? null
+        );
+        $this->settings->putString(
+            NequiPaymentSettingsService::KEY_BENEFICIARY_NAME,
+            $validated['nequi_beneficiary_name'] ?? null
+        );
+
+        $currentQrPath = $this->settings->getString(
+            NequiPaymentSettingsService::KEY_QR_IMAGE_PATH,
+            config('payments.nequi.qr_image_path')
+        );
+
+        if ($request->boolean('clear_nequi_qr_image')) {
+            if ($currentQrPath) {
+                Storage::disk('public')->delete($currentQrPath);
+            }
+
+            $this->settings->putString(NequiPaymentSettingsService::KEY_QR_IMAGE_PATH, null);
+        } elseif ($request->hasFile('nequi_qr_image')) {
+            if ($currentQrPath) {
+                Storage::disk('public')->delete($currentQrPath);
+            }
+
+            $this->settings->putString(
+                NequiPaymentSettingsService::KEY_QR_IMAGE_PATH,
+                $request->file('nequi_qr_image')->store('system-settings/nequi', 'public')
+            );
+        }
 
         return back()->with('status', 'Configuración del sistema actualizada.');
     }

@@ -85,7 +85,7 @@ class MenuServiceProvider extends ServiceProvider
           ['url' => $routeUrl('mariachi.metrics', [], '/metricas'), 'name' => 'Metricas', 'icon' => 'menu-icon icon-base ti tabler-chart-bar', 'slug' => 'mariachi.metrics'],
           ['url' => $routeUrl('mariachi.quotes.index', [], '/solicitudes'), 'name' => 'Solicitudes', 'icon' => 'menu-icon icon-base ti tabler-message-circle', 'slug' => 'mariachi.quotes'],
           ['url' => $routeUrl('mariachi.reviews.index', [], '/opiniones'), 'name' => 'Opiniones', 'icon' => 'menu-icon icon-base ti tabler-star', 'slug' => 'mariachi.reviews.index'],
-          ['url' => $routeUrl('mariachi.provider-profile.edit', [], '/perfil-proveedor'), 'name' => 'Perfil Proveedor', 'icon' => 'menu-icon icon-base ti tabler-id', 'slug' => 'mariachi.provider-profile.edit'],
+          ['url' => $routeUrl('mariachi.provider-profile.edit', [], '/perfil'), 'name' => 'Perfil Proveedor', 'icon' => 'menu-icon icon-base ti tabler-id', 'slug' => 'mariachi.provider-profile.edit'],
           ['url' => $routeUrl('mariachi.listings.index', [], '/anuncios'), 'name' => 'Anuncios', 'icon' => 'menu-icon icon-base ti tabler-speakerphone', 'slug' => 'mariachi.listings.index'],
           ['url' => $routeUrl('mariachi.verification.edit', [], '/verificacion'), 'name' => 'Verificacion', 'icon' => 'menu-icon icon-base ti tabler-shield-lock', 'slug' => 'mariachi.verification.edit'],
         ],

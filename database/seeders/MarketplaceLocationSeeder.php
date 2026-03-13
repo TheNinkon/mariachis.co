@@ -17,12 +17,7 @@ class MarketplaceLocationSeeder extends Seeder
             return;
         }
 
-        $cityMap = $this->syncCities();
-        if ($cityMap === []) {
-            return;
-        }
-
-        $this->syncZones($cityMap);
+        $this->syncCities();
     }
 
     /**
