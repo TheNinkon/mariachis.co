@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mariachi;
 use App\Http\Controllers\Controller;
 use App\Models\ClientFavorite;
 use App\Models\ClientRecentView;
+use App\Models\MariachiListing;
 use App\Models\MariachiReview;
 use App\Models\QuoteConversation;
 use App\Services\EntitlementsService;
@@ -21,7 +22,7 @@ class MariachiDashboardController extends Controller
     {
         $user = auth()->user();
         $profile = $user->mariachiProfile?->loadMissing('stat', 'activeSubscription.plan.entitlements');
-        $listingLimit = $profile?->listingLimit() ?? 1;
+        $openDraftLimit = MariachiListing::OPEN_DRAFT_LIMIT;
 
         $listings = $profile
             ? $profile->listings()
@@ -57,6 +58,7 @@ class MariachiDashboardController extends Controller
                 ->groupBy('status')
                 ->pluck('total', 'status')
             : collect();
+        $openDraftsCount = $profile ? $profile->listings()->openDrafts()->count() : 0;
 
         $conversationBaseQuery = QuoteConversation::query()
             ->forMariachiUser($user->id);
@@ -119,7 +121,8 @@ class MariachiDashboardController extends Controller
             'listings' => $listings,
             'quoteTotals' => $quoteTotals,
             'listingTotals' => $listingTotals,
-            'listingLimit' => $listingLimit,
+            'openDraftLimit' => $openDraftLimit,
+            'openDraftsCount' => $openDraftsCount,
             'viewsTotal' => $viewsTotal,
             'favoritesTotal' => $favoritesTotal,
             'quotesTotal' => $quotesTotal,

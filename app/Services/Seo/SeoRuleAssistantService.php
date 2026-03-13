@@ -18,9 +18,8 @@ class SeoRuleAssistantService
      */
     public function suggestCanonical(string $type, array $context = []): ?string
     {
-        $explicit = $this->cleanAbsoluteUrl(
-            (string) ($context['canonical_override'] ?? $context['canonical'] ?? '')
-        );
+        $type = $this->normalizeType($type);
+        $explicit = $this->canonicalCandidate($context);
 
         if ($explicit) {
             return $explicit;
@@ -41,6 +40,7 @@ class SeoRuleAssistantService
      */
     public function generateJsonLd(string $type, array $context = []): ?string
     {
+        $type = $this->normalizeType($type);
         $payload = match ($type) {
             'page' => $this->pageSchema($context),
             'post' => $this->articleSchema($context),
@@ -80,7 +80,7 @@ class SeoRuleAssistantService
         $definition = $pageKey !== '' ? $this->catalog->definition($pageKey) : null;
         $path = (string) ($context['path'] ?? $definition['path'] ?? '');
 
-        return $path !== '' ? $this->publicUrl($path) : null;
+        return $this->canonicalFromPath($path);
     }
 
     /**
@@ -88,7 +88,7 @@ class SeoRuleAssistantService
      */
     private function slugCanonical(string $prefix, mixed $slug): ?string
     {
-        $normalizedSlug = trim((string) $slug);
+        $normalizedSlug = $this->cleanSlug($slug);
 
         return $normalizedSlug !== ''
             ? $this->publicUrl(trim($prefix, '/').'/'.$normalizedSlug)
@@ -100,7 +100,7 @@ class SeoRuleAssistantService
      */
     private function profileCanonical(mixed $handle): ?string
     {
-        $normalizedHandle = trim((string) $handle);
+        $normalizedHandle = ltrim($this->cleanSlug($handle), '@');
 
         return $normalizedHandle !== ''
             ? $this->publicUrl('@'.$normalizedHandle)
@@ -112,18 +112,18 @@ class SeoRuleAssistantService
      */
     private function landingCanonical(array $context): ?string
     {
-        $path = trim((string) ($context['path'] ?? $context['canonical_path'] ?? ''));
+        $path = (string) ($context['path'] ?? $context['canonical_path'] ?? '');
         if ($path !== '') {
-            return $this->publicUrl($path);
+            return $this->canonicalFromPath($path);
         }
 
-        $slug = trim((string) ($context['slug'] ?? ''));
+        $slug = $this->cleanSlug($context['slug'] ?? null);
         if ($slug !== '') {
             return $this->publicUrl($slug);
         }
 
-        $citySlug = trim((string) ($context['city_slug'] ?? ''));
-        $scopeSlug = trim((string) ($context['scope_slug'] ?? ''));
+        $citySlug = $this->cleanSlug($context['city_slug'] ?? null);
+        $scopeSlug = $this->cleanSlug($context['scope_slug'] ?? null);
 
         if ($citySlug !== '' && $scopeSlug !== '') {
             return $this->publicUrl($citySlug.'/'.$scopeSlug);
@@ -182,12 +182,20 @@ class SeoRuleAssistantService
     private function articleSchema(array $context): array
     {
         $canonical = $this->suggestCanonical('post', $context);
+        $description = $this->contextText($context, 'description') ?: $this->contextText($context, 'excerpt');
+        $aboutSource = $context['about'] ?? array_merge(
+            Arr::wrap($context['city_name'] ?? []),
+            Arr::wrap($context['zone_name'] ?? []),
+            Arr::wrap($context['primary_event_type'] ?? []),
+            Arr::wrap($context['headings'] ?? [])
+        );
+        $about = $this->normalizeList($aboutSource);
 
         $schema = [
             '@context' => 'https://schema.org',
             '@type' => 'Article',
             'headline' => $this->contextText($context, 'title'),
-            'description' => $this->contextText($context, 'description'),
+            'description' => $description,
             'url' => $canonical,
             'mainEntityOfPage' => $canonical,
         ];
@@ -204,7 +212,6 @@ class SeoRuleAssistantService
             $schema['dateModified'] = $updatedAt;
         }
 
-        $about = $this->normalizeList($context['about'] ?? []);
         if ($about !== []) {
             $schema['about'] = $about;
         }
@@ -221,7 +228,7 @@ class SeoRuleAssistantService
         $canonical = $this->suggestCanonical('listing', $context);
         $schema = [
             '@context' => 'https://schema.org',
-            '@type' => 'LocalBusiness',
+            '@type' => ['LocalBusiness', 'Service'],
             'name' => $this->contextText($context, 'name') ?: $this->contextText($context, 'title'),
             'description' => $this->contextText($context, 'description'),
             'url' => $canonical,
@@ -449,6 +456,90 @@ class SeoRuleAssistantService
         $port = isset($parsed['port']) ? ':'.$parsed['port'] : '';
 
         return rtrim($scheme.'://'.$parsed['host'].$port, '/').($path !== '' ? $path : '/');
+    }
+
+    private function canonicalCandidate(array $context): ?string
+    {
+        foreach ([
+            'official_canonical',
+            'configured_canonical',
+            'canonical_url',
+            'canonical',
+            'path',
+            'current_url',
+            'canonical_override',
+        ] as $key) {
+            $candidate = trim((string) ($context[$key] ?? ''));
+            if ($candidate === '') {
+                continue;
+            }
+
+            $resolved = $this->canonicalFromPath($candidate);
+            if ($resolved) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    private function canonicalFromPath(string $value): ?string
+    {
+        $absolute = $this->cleanAbsoluteUrl($value);
+        if ($absolute) {
+            return $absolute;
+        }
+
+        $path = $this->cleanPath($value);
+
+        return $path !== null ? $this->publicUrl($path) : null;
+    }
+
+    private function cleanPath(string $value): ?string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $parsed = parse_url($trimmed);
+        if ($parsed === false) {
+            return null;
+        }
+
+        if (! empty($parsed['host'])) {
+            return null;
+        }
+
+        $path = trim((string) ($parsed['path'] ?? ''));
+        if ($path === '') {
+            return '/';
+        }
+
+        return '/'.ltrim($path, '/');
+    }
+
+    /**
+     * @param  mixed  $value
+     */
+    private function cleanSlug(mixed $value): string
+    {
+        $parsed = parse_url(trim((string) $value));
+        if ($parsed === false) {
+            return '';
+        }
+
+        return trim((string) ($parsed['path'] ?? ''), '/');
+    }
+
+    private function normalizeType(string $type): string
+    {
+        return match ($type) {
+            'seo_page' => 'page',
+            'blog_post' => 'post',
+            'seo_landing' => 'landing_template',
+            default => $type,
+        };
     }
 
     private function publicUrl(string $path = '/'): string

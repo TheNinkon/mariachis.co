@@ -9,6 +9,7 @@ use App\Models\BlogZone;
 use App\Models\EventType;
 use App\Models\MariachiListing;
 use App\Models\MariachiListingServiceArea;
+use App\Services\Seo\SeoRuleAssistantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,6 +21,10 @@ use Illuminate\View\View;
 
 class BlogPostController extends Controller
 {
+    public function __construct(private readonly SeoRuleAssistantService $seoRules)
+    {
+    }
+
     public function index(): View
     {
         $posts = BlogPost::query()
@@ -138,6 +143,7 @@ class BlogPostController extends Controller
             'clear_og_image' => ['nullable', 'boolean'],
             'robots' => ['nullable', Rule::in(['index,follow', 'noindex,follow', 'noindex,nofollow'])],
             'canonical_override' => ['nullable', 'url:http,https', 'max:2048'],
+            'jsonld' => ['nullable', 'string'],
             'content' => ['nullable', 'string'],
             'status' => ['required', Rule::in(array_keys($this->statuses()))],
             'city_ids' => ['nullable', 'array'],
@@ -151,6 +157,10 @@ class BlogPostController extends Controller
         $validator->after(function ($validator) use ($request): void {
             $cityIds = $this->normalizeIds($request->input('city_ids', []));
             $zoneIds = $this->normalizeIds($request->input('zone_ids', []));
+
+            if (! $this->seoRules->isValidJson($request->string('jsonld')->toString())) {
+                $validator->errors()->add('jsonld', 'El JSON-LD debe ser un JSON válido.');
+            }
 
             if ($zoneIds->isNotEmpty() && $cityIds->isEmpty()) {
                 $validator->errors()->add('zone_ids', 'Selecciona al menos una ciudad para poder asignar zonas.');
@@ -226,13 +236,14 @@ class BlogPostController extends Controller
         $post->fill([
             'title' => $validated['title'],
             'slug' => $slug,
-            'meta_title' => $validated['meta_title'] ?: null,
-            'excerpt' => $validated['excerpt'] ?: null,
-            'meta_description' => $validated['meta_description'] ?: null,
-            'keywords_target' => $validated['keywords_target'] ?: null,
-            'content' => $validated['content'] ?: null,
-            'robots' => $validated['robots'] ?: null,
-            'canonical_override' => $validated['canonical_override'] ?: null,
+            'meta_title' => ($validated['meta_title'] ?? null) ?: null,
+            'excerpt' => ($validated['excerpt'] ?? null) ?: null,
+            'meta_description' => ($validated['meta_description'] ?? null) ?: null,
+            'keywords_target' => ($validated['keywords_target'] ?? null) ?: null,
+            'content' => ($validated['content'] ?? null) ?: null,
+            'robots' => ($validated['robots'] ?? null) ?: null,
+            'canonical_override' => ($validated['canonical_override'] ?? null) ?: null,
+            'jsonld' => ($validated['jsonld'] ?? null) ?: null,
             'status' => $validated['status'],
             // Legacy fallback fields: keep first relation for old consumers.
             'city_name' => $primaryCityName,

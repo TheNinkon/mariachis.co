@@ -45,6 +45,7 @@ class SeoInfrastructureTest extends TestCase
             'meta_title' => 'Meta title serenata',
             'meta_description' => 'Meta description serenata',
             'canonical_override' => 'https://example.com/serenata-seo',
+            'jsonld' => '{"@context":"https://schema.org","@type":"Article","headline":"JSON-LD override"}',
             'robots' => 'noindex,follow',
             'status' => BlogPost::STATUS_PUBLISHED,
             'content' => '<p>Contenido de prueba.</p>',
@@ -58,6 +59,25 @@ class SeoInfrastructureTest extends TestCase
         $response->assertSee('<meta name="description" content="Meta description serenata" />', false);
         $response->assertSee('<meta name="robots" content="noindex,follow" />', false);
         $response->assertSee('<link rel="canonical" href="https://example.com/serenata-seo" />', false);
+        $response->assertSee('JSON-LD override', false);
+    }
+
+    public function test_blog_post_generates_article_jsonld_when_no_override_exists(): void
+    {
+        $post = BlogPost::query()->create([
+            'title' => 'Checklist serenata sorpresa',
+            'slug' => 'checklist-serenata-sorpresa',
+            'excerpt' => 'Checklist breve para una serenata sorpresa bien coordinada.',
+            'status' => BlogPost::STATUS_PUBLISHED,
+            'content' => '<h2>Checklist previo</h2><p>Contenido de prueba.</p>',
+            'published_at' => now(),
+        ]);
+
+        $response = $this->get('/blog/'.$post->slug);
+
+        $response->assertOk();
+        $response->assertSee('"@type": "Article"', false);
+        $response->assertSee('"headline": "Checklist serenata sorpresa"', false);
     }
 
     public function test_sitemap_and_robots_include_public_resources(): void

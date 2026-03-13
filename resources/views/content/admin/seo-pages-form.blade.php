@@ -7,6 +7,38 @@
 @endsection
 
 @section('content')
+  @php
+    $canonicalRuleContext = [
+      'page_key' => $page->key,
+      'path' => $page->path ?: ($definition['path'] ?? null),
+    ];
+    $canonicalRuleSelectors = [
+      'title' => '#title',
+      'canonical_override' => '#canonical_override',
+    ];
+    $jsonldRuleContext = [
+      'page_key' => $page->key,
+      'path' => $page->path ?: ($definition['path'] ?? null),
+      'faq_items' => $page->key === 'help'
+        ? [
+            [
+              'question' => '¿Cómo funciona Mariachis.co?',
+              'answer' => 'Mariachis.co conecta clientes con grupos de mariachis y muestra perfiles, anuncios y recursos para facilitar la contratación.',
+            ],
+            [
+              'question' => '¿Cómo contacto soporte?',
+              'answer' => 'Puedes usar los formularios y canales de contacto visibles en el sitio o escribir al equipo administrador para revisión manual.',
+            ],
+          ]
+        : [],
+    ];
+    $jsonldRuleSelectors = [
+      'title' => '#title',
+      'description' => '#meta_description',
+      'canonical_override' => '#canonical_override',
+    ];
+  @endphp
+
   <div class="card">
     <div class="card-header">
       <h5 class="mb-0">SEO · {{ $definition['label'] ?? $page->key }}</h5>
@@ -80,14 +112,8 @@
               data-seo-rule-type="page"
               data-seo-rule-endpoint="{{ route('admin.seo-tools.canonical') }}"
               data-seo-rule-field-target="#canonical_override"
-              data-seo-rule-context='@json([
-                'page_key' => $page->key,
-                'path' => $page->path ?: ($definition['path'] ?? null),
-              ])'
-              data-seo-rule-selectors='@json([
-                'title' => '#title',
-                'canonical_override' => '#canonical_override',
-              ])'
+              data-seo-rule-context='@json($canonicalRuleContext)'
+              data-seo-rule-selectors='@json($canonicalRuleSelectors)'
             >
               <div class="d-flex justify-content-between align-items-center gap-3">
                 <label class="form-label mb-0" for="canonical_override">Canonical override</label>
@@ -122,25 +148,8 @@
               data-seo-rule-type="page"
               data-seo-rule-endpoint="{{ route('admin.seo-tools.jsonld') }}"
               data-seo-rule-field-target="#jsonld"
-              data-seo-rule-context='@json([
-                'page_key' => $page->key,
-                'path' => $page->path ?: ($definition['path'] ?? null),
-                'faq_items' => $page->key === 'help' ? [
-                  [
-                    'question' => '¿Cómo funciona Mariachis.co?',
-                    'answer' => 'Mariachis.co conecta clientes con grupos de mariachis y muestra perfiles, anuncios y recursos para facilitar la contratación.',
-                  ],
-                  [
-                    'question' => '¿Cómo contacto soporte?',
-                    'answer' => 'Puedes usar los formularios y canales de contacto visibles en el sitio o escribir al equipo administrador para revisión manual.',
-                  ],
-                ] : [],
-              ])'
-              data-seo-rule-selectors='@json([
-                'title' => '#title',
-                'description' => '#meta_description',
-                'canonical_override' => '#canonical_override',
-              ])'
+              data-seo-rule-context='@json($jsonldRuleContext)'
+              data-seo-rule-selectors='@json($jsonldRuleSelectors)'
             >
               <div class="d-flex justify-content-between align-items-center gap-3">
                 <label class="form-label mb-0" for="jsonld">JSON-LD</label>

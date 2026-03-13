@@ -22,12 +22,11 @@
       <div>
         <h5 class="mb-1">Nuevo anuncio / servicio</h5>
         <p class="mb-1">
-          Plan actual: <strong>{{ $planSummary['name'] }}</strong>.
-          Cupo usado: {{ $listingsUsed }} de {{ $listingLimit }}.
+          Plan de referencia del perfil: <strong>{{ $planSummary['name'] }}</strong>.
+          Borradores abiertos: {{ $openDraftsCount }} de {{ $openDraftLimit }}.
         </p>
         <small class="text-muted">
-          Incluye {{ $capabilities['included_cities'] }} ciudad(es), {{ $capabilities['max_zones_covered'] ?? 0 }} zona(s),
-          {{ $capabilities['max_photos_per_listing'] }} foto(s) y {{ $capabilities['max_videos_per_listing'] }} video(s) por anuncio.
+          Los límites de fotos, videos, ciudades y zonas se aplican luego según el plan que elijas para este anuncio.
         </small>
       </div>
       <a href="{{ route('mariachi.listings.index') }}" class="btn btn-outline-primary">Volver</a>
@@ -81,7 +80,7 @@
         <div class="card-body">
           @if(!$canCreate)
             <div class="alert alert-warning mb-0">
-              Alcanzaste el limite de anuncios de tu plan actual.
+              Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.
             </div>
           @else
             <form method="POST" action="{{ route('mariachi.listings.store') }}">

@@ -137,4 +137,49 @@ class SeoAiGenerationTest extends TestCase
             'model',
         ]);
     }
+
+    public function test_admin_can_generate_seo_copy_for_blog_post(): void
+    {
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [[
+                            'text' => json_encode([
+                                'meta_title' => 'Checklist de serenata en Bogota',
+                                'meta_description' => 'Prepara una serenata en Bogota con una guia clara, pasos practicos y contexto local para coordinar musica, tiempos y detalles sin improvisar.',
+                                'keywords' => 'serenata en bogota, checklist serenata, sorpresa con mariachi, musica para cumpleanos, mariachis bogota, guia de serenata, planeacion de serenata, serenata sorpresa',
+                                'og_title' => 'Checklist de serenata en Bogota',
+                                'og_description' => 'Prepara una serenata en Bogota con una guia clara, pasos practicos y contexto local para coordinar musica, tiempos y detalles sin improvisar.',
+                            ], JSON_UNESCAPED_UNICODE),
+                        ]],
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        app(SystemSettingService::class)->putString(SeoSettingsService::KEY_GEMINI_API_KEY, 'gemini-secret-key', true);
+        app(SystemSettingService::class)->putString(SeoSettingsService::KEY_GEMINI_MODEL, 'gemini-2.5-flash');
+
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.seo-ai.generate'), [
+            'type' => 'post',
+            'language' => 'es',
+            'keywords_target' => 'serenata en bogota, checklist serenata',
+            'raw_context' => [
+                'title' => 'Como organizar una serenata sorpresa',
+                'excerpt' => 'Checklist practico para una serenata sorpresa.',
+                'headings' => ['Checklist previo', 'Logistica del evento'],
+                'city_name' => ['Bogota'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('meta_title', 'Checklist de serenata en Bogota');
+        $response->assertJsonCount(8, 'keywords');
+    }
 }

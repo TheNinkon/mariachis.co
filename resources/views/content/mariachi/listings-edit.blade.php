@@ -37,16 +37,18 @@
 
     .listing-zone-panel__header {
       position: sticky;
-      top: 0;
+      top: -0.9rem;
       z-index: 2;
       display: flex;
       align-items: start;
       justify-content: space-between;
       gap: 0.75rem;
       flex-wrap: wrap;
-      padding-bottom: 0.6rem;
-      background: #fff;
+      margin: -0.9rem -0.9rem 0;
+      padding: 1rem 0.9rem 0.7rem;
+      background: linear-gradient(180deg, #fff 0%, #fff 88%, rgba(255, 255, 255, 0.98) 100%);
       border-bottom: 1px solid rgba(75, 70, 92, 0.08);
+      box-shadow: 0 10px 18px -18px rgba(75, 70, 92, 0.45);
     }
 
     .listing-zone-panel__header-main {
@@ -62,7 +64,23 @@
       width: 100%;
       background: #fff;
       z-index: 3;
+      padding-top: 0.1rem;
       padding-bottom: 0.1rem;
+    }
+
+    .listing-zone-panel__hint {
+      display: block;
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    .listing-zone-panel__hint.is-limit {
+      color: #8a5d00 !important;
+      font-weight: 500;
+    }
+
+    .listing-zone-panel__upgrade-link[hidden] {
+      display: none !important;
     }
 
     .listing-zone-list,
@@ -572,6 +590,9 @@
     $canAddMoreVideos = $videoCount < $maxVideos;
     $canPauseListing = $listing->canOwnerPause();
     $canResumeListing = $listing->canOwnerResume();
+    $usesDraftPlaceholders = trim((string) $listing->title) === 'Nuevo anuncio'
+      || trim((string) $listing->short_description) === 'Completa la informacion del anuncio'
+      || $basePriceValue === null;
   @endphp
 
   @if(session('status'))
@@ -776,6 +797,13 @@
 
         <div id="step-basic" class="content" data-step-key="basic">
           <div class="row g-4">
+            @if($usesDraftPlaceholders)
+              <div class="col-12">
+                <div class="alert alert-info mb-0">
+                  <strong>Empieza por aquí.</strong> Cambia el título, la descripción corta y define un precio base para continuar con el anuncio.
+                </div>
+              </div>
+            @endif
             <div class="col-md-8">
               <label class="form-label">Título del anuncio</label>
               <input class="form-control" name="title" value="{{ old('title', $listing->title) }}" required maxlength="180" placeholder="Ej: Mariachi para bodas y serenatas" />
@@ -945,20 +973,24 @@
                       <div class="listing-zone-panel__header">
                         <div class="listing-zone-panel__header-main">
                           <div>
-                            <h6 class="mb-1">Localidades seleccionadas (<span data-zone-count>0</span> / {{ $maxZones }})</h6>
-                            <small class="text-muted">La localidad principal se detecta automáticamente y cuenta dentro del límite.</small>
+                            <h6 class="mb-1" data-zone-selected-title>Localidades seleccionadas (<span data-zone-count>0</span> / {{ $maxZones }})</h6>
+                            <small class="text-muted listing-zone-panel__hint" data-zone-selected-copy>La localidad principal se detecta automáticamente y cuenta dentro del límite.</small>
                           </div>
-                          <span class="badge bg-label-primary">Máx {{ $maxZones }}</span>
+                          <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                            <span class="badge bg-label-primary" data-zone-limit-badge>Máx {{ $maxZones }}</span>
+                            <a
+                              href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}"
+                              class="btn btn-sm btn-outline-warning listing-zone-panel__upgrade-link"
+                              data-zone-upgrade
+                              data-step-link="location"
+                              hidden
+                            >
+                              Ver Plan Pro
+                            </a>
+                          </div>
                         </div>
                       </div>
                       <div class="listing-zone-list listing-zone-list--compact" data-zone-selected></div>
-                      <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="listing-upgrade-tile listing-upgrade-tile--compact text-decoration-none" data-zone-upgrade data-step-link="location" hidden>
-                        <span class="avatar avatar-sm bg-label-warning">
-                          <span class="avatar-initial rounded"><i class="icon-base ti tabler-crown icon-md"></i></span>
-                        </span>
-                        <strong class="text-heading">Agrega más localidades con Plan Pro</strong>
-                        <span class="text-muted small">Mejora tu plan para ampliar cobertura sin salir del wizard.</span>
-                      </a>
                       <div data-zone-hidden-inputs>
                         @foreach($formSelectedZoneIds as $zoneId)
                           <input type="hidden" name="zone_ids[]" value="{{ $zoneId }}">

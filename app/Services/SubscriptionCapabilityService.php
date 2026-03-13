@@ -33,9 +33,9 @@ class SubscriptionCapabilityService
      *   has_advanced_stats:bool
      * }
      */
-    public function resolveCapabilities(MariachiProfile $profile): array
+    public function resolveCapabilities(MariachiProfile $profile, ?MariachiListing $listing = null): array
     {
-        return $this->entitlementsService->legacyCapabilityPayload($profile);
+        return $this->entitlementsService->legacyCapabilityPayload($profile, $listing);
     }
 
     public function listingLimit(MariachiProfile $profile): int
@@ -48,14 +48,14 @@ class SubscriptionCapabilityService
         return $this->entitlementsService->includedCities($profile);
     }
 
-    public function maxPhotosPerListing(MariachiProfile $profile): int
+    public function maxPhotosPerListing(MariachiProfile $profile, ?MariachiListing $listing = null): int
     {
-        return $this->entitlementsService->maxPhotosPerListing($profile);
+        return $this->entitlementsService->maxPhotosPerListing($profile, $listing);
     }
 
-    public function maxVideosPerListing(MariachiProfile $profile): int
+    public function maxVideosPerListing(MariachiProfile $profile, ?MariachiListing $listing = null): int
     {
-        return $this->entitlementsService->maxVideosPerListing($profile);
+        return $this->entitlementsService->maxVideosPerListing($profile, $listing);
     }
 
     public function canShowWhatsApp(MariachiProfile $profile): bool

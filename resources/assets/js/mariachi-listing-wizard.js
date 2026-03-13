@@ -224,6 +224,8 @@ import Sortable from 'sortablejs';
   const zoneSearchInput = zonePicker?.querySelector('[data-zone-search]');
   const zoneCountTarget = zonePicker?.querySelector('[data-zone-count]');
   const zoneHiddenInputsContainer = zonePicker?.querySelector('[data-zone-hidden-inputs]');
+  const zoneSelectedCopy = zonePicker?.querySelector('[data-zone-selected-copy]');
+  const zoneLimitBadge = zonePicker?.querySelector('[data-zone-limit-badge]');
   const zoneUpgradeTile = zonePicker?.querySelector('[data-zone-upgrade]');
   const zoneFeedback = document.querySelector('[data-zone-feedback]');
   const maxZones = Number(zonePicker?.getAttribute('data-max-zones') || 0);
@@ -733,6 +735,17 @@ import Sortable from 'sortablejs';
     if (zoneCountTarget) {
       zoneCountTarget.textContent = String(countedSelected);
     }
+    if (zoneSelectedCopy) {
+      zoneSelectedCopy.textContent = atLimit
+        ? 'Llegaste al límite de tu plan actual. Quita una localidad o mejora a Plan Pro para ampliar cobertura.'
+        : 'La localidad principal se detecta automáticamente y cuenta dentro del límite.';
+      zoneSelectedCopy.classList.toggle('is-limit', atLimit);
+    }
+    if (zoneLimitBadge) {
+      zoneLimitBadge.textContent = atLimit ? 'Límite alcanzado' : `Máx ${maxZones}`;
+      zoneLimitBadge.classList.toggle('bg-label-primary', !atLimit);
+      zoneLimitBadge.classList.toggle('bg-label-warning', atLimit);
+    }
     if (zoneUpgradeTile) {
       zoneUpgradeTile.hidden = !atLimit;
     }
@@ -802,7 +815,7 @@ import Sortable from 'sortablejs';
 
     if (filteredZones.length === 0) {
       zoneAvailableContainer.appendChild(
-        createZoneEmpty('No hay mas localidades disponibles', atLimit ? 'Alcanzaste el limite de tu plan para este anuncio.' : 'Ajusta la busqueda o cambia la ciudad principal.')
+        createZoneEmpty('No hay mas localidades disponibles', atLimit ? 'Alcanzaste el límite actual. Quita una localidad o revisa Plan Pro para ampliar cobertura.' : 'Ajusta la búsqueda o cambia la ciudad principal.')
       );
       syncZoneHiddenInputs();
       return;

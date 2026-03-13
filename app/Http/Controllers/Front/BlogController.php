@@ -63,6 +63,8 @@ class BlogController extends Controller
             strip_tags($post->excerpt ?: $post->content ?: 'Guia y recursos para contratar mariachis en Colombia.'),
             160
         );
+        $canonicalUrl = $post->canonical_override ?: route('blog.show', ['slug' => $post->slug]);
+        $featuredImageUrl = $post->featured_image ? asset('storage/'.$post->featured_image) : null;
 
         $about = collect()
             ->merge($post->cities->pluck('name'))
@@ -74,18 +76,6 @@ class BlogController extends Controller
             ->filter()
             ->unique()
             ->values();
-
-        $schema = [
-            '@context' => 'https://schema.org',
-            '@type' => 'BlogPosting',
-            'headline' => $post->title,
-            'description' => $seoDescription,
-            'datePublished' => optional($post->published_at)->toIso8601String() ?: optional($post->created_at)->toIso8601String(),
-            'dateModified' => optional($post->updated_at)->toIso8601String(),
-            'image' => $post->featured_image ? asset('storage/'.$post->featured_image) : null,
-            'url' => route('blog.show', ['slug' => $post->slug]),
-            'about' => $about->all(),
-        ];
 
         $eventTypeIds = $post->eventTypes->pluck('id')->map(fn (mixed $id): int => (int) $id);
         $cityIds = $post->cities->pluck('id')->map(fn (mixed $id): int => (int) $id);
@@ -133,16 +123,25 @@ class BlogController extends Controller
             'seo' => $seoResolver->resolve($request, 'blog_post', [
                 'title' => $post->meta_title ?: $seoTitle,
                 'description' => $post->meta_description ?: $seoDescription,
-                'canonical' => $post->canonical_override ?: route('blog.show', ['slug' => $post->slug]),
+                'canonical' => $canonicalUrl,
                 'robots' => $post->robots ?: 'index,follow',
                 'og_image' => $post->og_image ?: $post->featured_image,
                 'og_type' => 'article',
-                'jsonld' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'jsonld' => $post->jsonld,
+                'jsonld_title' => $post->title,
+                'jsonld_description' => $post->meta_description ?: ($post->excerpt ?: $seoDescription),
+                'slug' => $post->slug,
+                'image' => $featuredImageUrl,
+                'published_at' => optional($post->published_at)->toIso8601String() ?: optional($post->created_at)->toIso8601String(),
+                'updated_at' => optional($post->updated_at)->toIso8601String(),
+                'about' => $about->all(),
+                'city_name' => $post->primary_city_name,
+                'zone_name' => $post->primary_zone_name,
+                'primary_event_type' => $post->primary_event_type_name,
             ]),
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,
             'h1' => $post->title,
-            'schemaJson' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 }

@@ -12,8 +12,7 @@
     'paused' => ['label' => 'Pausado', 'class' => 'danger'],
   ];
 
-  $listingsUsed = (int) ($listings->count() ?? 0);
-  $usagePercent = $listingLimit > 0 ? min(100, (int) round(($listingsUsed / $listingLimit) * 100)) : 0;
+  $usagePercent = $openDraftLimit > 0 ? min(100, (int) round(($openDraftsCount / $openDraftLimit) * 100)) : 0;
 @endphp
 
   <div class="card mb-6">
@@ -52,9 +51,9 @@
     <div class="col-xl-3 col-md-6">
       <div class="card h-100">
         <div class="card-body">
-          <h6 class="mb-1">Capacidad de anuncios</h6>
-          <h3 class="mb-1">{{ $listingsUsed }} / {{ $listingLimit }}</h3>
-          <p class="mb-2 text-muted">Activos: {{ (int) ($listingTotals['active'] ?? 0) }} · Borrador: {{ (int) ($listingTotals['draft'] ?? 0) }}</p>
+          <h6 class="mb-1">Borradores abiertos</h6>
+          <h3 class="mb-1">{{ $openDraftsCount }} / {{ $openDraftLimit }}</h3>
+          <p class="mb-2 text-muted">Activos: {{ (int) ($listingTotals['active'] ?? 0) }} · En revisión: {{ number_format((int) $listings->where('review_status', \App\Models\MariachiListing::REVIEW_PENDING)->count()) }}</p>
           <div class="progress" style="height: 8px;">
             <div class="progress-bar" role="progressbar" style="width: {{ $usagePercent }}%;"></div>
           </div>

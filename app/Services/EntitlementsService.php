@@ -98,19 +98,20 @@ class EntitlementsService
      *   has_advanced_stats:bool
      * }
      */
-    public function legacyCapabilityPayload(MariachiProfile $profile): array
+    public function legacyCapabilityPayload(MariachiProfile $profile, ?MariachiListing $listing = null): array
     {
-        $summary = $this->summary($profile);
-        $entitlements = $summary['entitlements'];
+        $plan = $this->resolvePlanForListing($profile, $listing);
+        $entitlements = $this->resolveForListing($profile, $listing);
+        $planCode = (string) ($plan?->code ?: ($listing?->selected_plan_code ?: $this->normalizeLegacyPlanCode($profile)));
 
         return [
-            'code' => $summary['code'],
-            'slug' => $summary['slug'],
-            'name' => $summary['name'],
-            'description' => $summary['description'],
-            'badge_text' => $summary['badge_text'],
-            'is_public' => $summary['is_public'],
-            'price_cop' => $summary['price_cop'],
+            'code' => $planCode,
+            'slug' => $plan?->slug,
+            'name' => (string) ($plan?->name ?: Arr::get(config('monetization.plans.'.$planCode), 'name', 'Plan activo')),
+            'description' => $plan?->description,
+            'badge_text' => $plan?->badge_text,
+            'is_public' => (bool) ($plan?->is_public ?? true),
+            'price_cop' => (int) ($plan?->price_cop ?? 0),
             'listing_limit' => (int) $entitlements[EntitlementKey::MAX_LISTINGS_TOTAL],
             'included_cities' => (int) $entitlements[EntitlementKey::MAX_CITIES_COVERED],
             'max_photos_per_listing' => (int) $entitlements[EntitlementKey::MAX_PHOTOS_PER_LISTING],
@@ -138,19 +139,19 @@ class EntitlementsService
         return (int) $this->resolve($profile)[EntitlementKey::MAX_CITIES_COVERED];
     }
 
-    public function maxPhotosPerListing(MariachiProfile $profile): int
+    public function maxPhotosPerListing(MariachiProfile $profile, ?MariachiListing $listing = null): int
     {
-        return (int) $this->resolve($profile)[EntitlementKey::MAX_PHOTOS_PER_LISTING];
+        return (int) $this->resolveForListing($profile, $listing)[EntitlementKey::MAX_PHOTOS_PER_LISTING];
     }
 
-    public function canAddVideo(MariachiProfile $profile): bool
+    public function canAddVideo(MariachiProfile $profile, ?MariachiListing $listing = null): bool
     {
-        return (bool) $this->resolve($profile)[EntitlementKey::CAN_ADD_VIDEO];
+        return (bool) $this->resolveForListing($profile, $listing)[EntitlementKey::CAN_ADD_VIDEO];
     }
 
-    public function maxVideosPerListing(MariachiProfile $profile): int
+    public function maxVideosPerListing(MariachiProfile $profile, ?MariachiListing $listing = null): int
     {
-        $entitlements = $this->resolve($profile);
+        $entitlements = $this->resolveForListing($profile, $listing);
 
         return (bool) $entitlements[EntitlementKey::CAN_ADD_VIDEO]
             ? (int) $entitlements[EntitlementKey::MAX_VIDEOS_PER_LISTING]
@@ -167,9 +168,9 @@ class EntitlementsService
         return (bool) $this->resolve($profile)[EntitlementKey::CAN_SHOW_PHONE];
     }
 
-    public function maxZonesCovered(MariachiProfile $profile): int
+    public function maxZonesCovered(MariachiProfile $profile, ?MariachiListing $listing = null): int
     {
-        return (int) $this->resolve($profile)[EntitlementKey::MAX_ZONES_COVERED];
+        return (int) $this->resolveForListing($profile, $listing)[EntitlementKey::MAX_ZONES_COVERED];
     }
 
     public function additionalCitySlots(MariachiProfile $profile, ?MariachiListing $listing = null): int
@@ -195,7 +196,7 @@ class EntitlementsService
     {
         return max(
             1,
-            (int) $this->resolve($profile)[EntitlementKey::MAX_CITIES_COVERED] + $this->additionalCitySlots($profile, $listing)
+            (int) $this->resolveForListing($profile, $listing)[EntitlementKey::MAX_CITIES_COVERED] + $this->additionalCitySlots($profile, $listing)
         );
     }
 
@@ -212,6 +213,19 @@ class EntitlementsService
             ->active()
             ->where('code', $legacyCode)
             ->first();
+    }
+
+    public function resolvePlanForListing(MariachiProfile $profile, ?MariachiListing $listing = null): ?Plan
+    {
+        $selectedPlanCode = trim((string) ($listing?->selected_plan_code ?? ''));
+        if ($selectedPlanCode !== '') {
+            return Plan::query()
+                ->with('entitlements')
+                ->where('code', $selectedPlanCode)
+                ->first();
+        }
+
+        return $this->resolvePlanForProfile($profile);
     }
 
     public function resolveActiveSubscription(MariachiProfile $profile): ?Subscription
@@ -232,19 +246,7 @@ class EntitlementsService
      */
     public function profileAdjustmentIssues(MariachiProfile $profile): array
     {
-        $issues = [];
-        $listingLimit = $this->listingLimit($profile);
-        $listingsCount = $profile->listings()->count();
-
-        if ($listingsCount > $listingLimit) {
-            $issues[] = sprintf(
-                'Tu plan actual permite %d anuncio(s) y hoy tienes %d. No podras publicar cambios nuevos hasta ajustarlo.',
-                $listingLimit,
-                $listingsCount
-            );
-        }
-
-        return $issues;
+        return [];
     }
 
     /**
@@ -258,9 +260,9 @@ class EntitlementsService
         }
 
         $issues = [];
-        $maxPhotos = $this->maxPhotosPerListing($profile);
-        $maxVideos = $this->maxVideosPerListing($profile);
-        $maxZones = $this->maxZonesCovered($profile);
+        $maxPhotos = $this->maxPhotosPerListing($profile, $listing);
+        $maxVideos = $this->maxVideosPerListing($profile, $listing);
+        $maxZones = $this->maxZonesCovered($profile, $listing);
 
         $photoCount = $listing->relationLoaded('photos')
             ? $listing->photos->count()
@@ -308,15 +310,7 @@ class EntitlementsService
      */
     public function publicationBlockers(MariachiListing $listing): array
     {
-        $profile = $listing->mariachiProfile;
-        if (! $profile) {
-            return [];
-        }
-
-        return array_values(array_unique(array_merge(
-            $this->profileAdjustmentIssues($profile),
-            $this->listingAdjustmentIssues($listing)
-        )));
+        return $this->listingAdjustmentIssues($listing);
     }
 
     /**
@@ -420,5 +414,32 @@ class EntitlementsService
             'basic', 'premium' => $code,
             default => 'basic',
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveForListing(MariachiProfile $profile, ?MariachiListing $listing = null): array
+    {
+        $plan = $this->resolvePlanForListing($profile, $listing);
+
+        $entitlements = EntitlementKey::defaults();
+        $entitlements = array_replace($entitlements, $this->legacyConfigEntitlements($profile));
+
+        if ($plan) {
+            $entitlements = array_replace(
+                $entitlements,
+                $this->mapPlanColumnsToEntitlements($plan),
+                $this->planEntitlements($plan)
+            );
+        }
+
+        $resolved = array_replace($entitlements, $this->profileOverrides($profile));
+
+        foreach ($resolved as $key => $value) {
+            $resolved[$key] = EntitlementKey::normalize($key, $value);
+        }
+
+        return $resolved;
     }
 }

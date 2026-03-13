@@ -117,7 +117,8 @@ class GeminiSeoGenerator
         return collect($items)
             ->map(fn (mixed $item): string => $this->sanitizeText((string) $item))
             ->filter()
-            ->take(8)
+            ->unique()
+            ->take(15)
             ->values()
             ->all();
     }
@@ -247,7 +248,7 @@ class GeminiSeoGenerator
             'Genera metadatos SEO en espanol para Colombia.',
             'Entrega solo JSON valido. Llaves requeridas: meta_title, meta_description, keywords, og_title, og_description.',
             'Llaves opcionales: title_template_suggestion, twitter_site_suggestion.',
-            'Reglas: meta_title y og_title maximo 60 caracteres; meta_description y og_description entre 140 y 160 caracteres; keywords como arreglo corto; sin emojis; sin claims falsos; no inventes datos faltantes.',
+            'Reglas: meta_title y og_title maximo 60 caracteres; meta_description y og_description entre 140 y 160 caracteres; keywords como arreglo o texto separado por comas con 8 a 15 keywords/frases utiles para tracking interno e IA, no meta keywords; sin emojis; sin claims falsos; no inventes datos faltantes.',
             'Si propones title_template_suggestion, conserva literalmente {{title}} y {{site_name}}.',
             'Contexto de entrada:',
             json_encode($this->promptContext($context), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}',

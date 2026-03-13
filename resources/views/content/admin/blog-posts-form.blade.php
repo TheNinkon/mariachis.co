@@ -35,10 +35,18 @@
         quill.root.innerHTML = initial;
       }
 
+      const syncContentFromEditor = function () {
+        input.value = quill.root.innerHTML;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+
+      quill.on('text-change', syncContentFromEditor);
+      syncContentFromEditor();
+
       const form = document.getElementById('blog-post-form');
       if (form) {
         form.addEventListener('submit', function () {
-          input.value = quill.root.innerHTML;
+          syncContentFromEditor();
         });
       }
     }
@@ -158,6 +166,33 @@
       ->map(fn ($id) => (int) $id)
       ->filter(fn (int $id) => $id > 0)
       ->values();
+
+  $canonicalRuleContext = [
+      'slug' => old('slug', $post->slug),
+  ];
+
+  $canonicalRuleSelectors = [
+      'slug' => '#slug',
+      'canonical_override' => '#canonical_override',
+  ];
+
+  $jsonldRuleContext = [
+      'slug' => old('slug', $post->slug),
+      'published_at' => optional($post->published_at)->toIso8601String(),
+      'updated_at' => optional($post->updated_at)->toIso8601String(),
+      'image' => $post->featured_image ? asset('storage/'.$post->featured_image) : null,
+  ];
+
+  $jsonldRuleSelectors = [
+      'title' => '#title',
+      'description' => '#meta_description',
+      'excerpt' => '#excerpt',
+      'slug' => '#slug',
+      'city_name' => '#city_ids',
+      'zone_name' => '#zone_ids',
+      'primary_event_type' => '#event_type_ids',
+      'headings' => '#content',
+  ];
 @endphp
 
 <div class="card">
@@ -313,13 +348,8 @@
                     data-seo-rule-type="post"
                     data-seo-rule-endpoint="{{ route('admin.seo-tools.canonical') }}"
                     data-seo-rule-field-target="#canonical_override"
-                    data-seo-rule-context='@json([
-                      'slug' => old('slug', $post->slug),
-                    ])'
-                    data-seo-rule-selectors='@json([
-                      'slug' => '#slug',
-                      'canonical_override' => '#canonical_override',
-                    ])'
+                    data-seo-rule-context='@json($canonicalRuleContext)'
+                    data-seo-rule-selectors='@json($canonicalRuleSelectors)'
                   >
                     <div class="d-flex justify-content-between align-items-center gap-3">
                       <label class="form-label mb-0" for="canonical_override">Canonical override</label>
@@ -348,7 +378,24 @@
                 </div>
 
                 <div class="col-12">
-                  <small class="text-muted">El JSON-LD del post se genera automáticamente con plantilla `Article` en frontend. Solo el canonical queda como override manual.</small>
+                  <div
+                    data-seo-rule-tool
+                    data-seo-rule-mode="jsonld"
+                    data-seo-rule-type="blog_post"
+                    data-seo-rule-endpoint="{{ route('admin.seo-tools.jsonld') }}"
+                    data-seo-rule-field-target="#jsonld"
+                    data-seo-rule-context='@json($jsonldRuleContext)'
+                    data-seo-rule-selectors='@json($jsonldRuleSelectors)'
+                  >
+                    <div class="d-flex justify-content-between align-items-center gap-3">
+                      <label class="form-label mb-0" for="jsonld">JSON-LD</label>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" data-seo-rule-action>Generar JSON-LD recomendado</button>
+                    </div>
+                    <textarea id="jsonld" name="jsonld" rows="8" class="form-control @error('jsonld') is-invalid @enderror" placeholder='{"@@context":"https://schema.org"}'>{{ old('jsonld', $post->jsonld) }}</textarea>
+                    <small class="text-muted d-block mt-2">Usa plantilla `Article` para el post. El textarea sigue funcionando como override avanzado.</small>
+                    <small class="text-muted d-block" data-seo-rule-status>Se completa con el título del post, extracto y contexto local disponible.</small>
+                  </div>
+                  @error('jsonld')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 </div>
               </div>
             </div>

@@ -79,12 +79,12 @@ class SeoPageController extends Controller
         }
 
         $seoPage->fill([
-            'title' => $validated['title'] ?: null,
-            'meta_description' => $validated['meta_description'] ?: null,
-            'keywords_target' => $validated['keywords_target'] ?: null,
-            'robots' => $validated['robots'] ?: null,
-            'canonical_override' => $validated['canonical_override'] ?: null,
-            'jsonld' => $validated['jsonld'] ?: null,
+            'title' => ($validated['title'] ?? null) ?: null,
+            'meta_description' => ($validated['meta_description'] ?? null) ?: null,
+            'keywords_target' => ($validated['keywords_target'] ?? null) ?: null,
+            'robots' => ($validated['robots'] ?? null) ?: null,
+            'canonical_override' => ($validated['canonical_override'] ?? null) ?: null,
+            'jsonld' => ($validated['jsonld'] ?? null) ?: null,
         ]);
         $seoPage->save();
 

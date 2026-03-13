@@ -25,6 +25,7 @@ class BlogPost extends Model
         'og_image',
         'robots',
         'canonical_override',
+        'jsonld',
         'excerpt',
         'meta_description',
         'keywords_target',

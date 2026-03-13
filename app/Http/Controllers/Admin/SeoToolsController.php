@@ -17,7 +17,7 @@ class SeoToolsController extends Controller
     public function suggestCanonical(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'type' => ['required', Rule::in(['page', 'post', 'landing_template', 'listing', 'profile'])],
+            'type' => ['required', Rule::in(['page', 'seo_page', 'post', 'blog_post', 'landing_template', 'seo_landing', 'listing', 'profile'])],
             'raw_context' => ['required', 'array'],
         ]);
 
@@ -29,7 +29,7 @@ class SeoToolsController extends Controller
     public function generateJsonLd(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'type' => ['required', Rule::in(['page', 'post', 'landing_template', 'listing', 'profile', 'faq'])],
+            'type' => ['required', Rule::in(['page', 'seo_page', 'post', 'blog_post', 'landing_template', 'seo_landing', 'listing', 'profile', 'faq'])],
             'raw_context' => ['required', 'array'],
         ]);
 

@@ -17,6 +17,8 @@ class MariachiListing extends Model
 {
     use HasFactory;
 
+    public const OPEN_DRAFT_LIMIT = 5;
+
     public const STATUS_DRAFT = 'draft';
     public const STATUS_AWAITING_PLAN = 'awaiting_plan';
     public const STATUS_AWAITING_PAYMENT = 'awaiting_payment';
@@ -252,9 +254,45 @@ class MariachiListing extends Model
         return $query->where('review_status', self::REVIEW_PENDING);
     }
 
+    public function scopeOpenDrafts(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder
+                ->where(function (Builder $draftQuery): void {
+                    $draftQuery
+                        ->where('status', self::STATUS_DRAFT)
+                        ->where('review_status', '!=', self::REVIEW_PENDING);
+                })
+                ->orWhere(function (Builder $paymentQuery): void {
+                    $paymentQuery
+                        ->where('status', self::STATUS_AWAITING_PAYMENT)
+                        ->whereIn('payment_status', [self::PAYMENT_NONE, self::PAYMENT_REJECTED]);
+                })
+                ->orWhere(function (Builder $rejectedQuery): void {
+                    $rejectedQuery
+                        ->where('review_status', self::REVIEW_REJECTED)
+                        ->whereNotIn('status', [self::STATUS_ACTIVE, self::STATUS_PAUSED]);
+                });
+        });
+    }
+
     public function scopeApprovedForMarketplace(Builder $query): Builder
     {
         return $query->where('review_status', self::REVIEW_APPROVED);
+    }
+
+    public function isOpenDraft(): bool
+    {
+        if ($this->review_status === self::REVIEW_REJECTED && ! in_array($this->status, [self::STATUS_ACTIVE, self::STATUS_PAUSED], true)) {
+            return true;
+        }
+
+        if ($this->status === self::STATUS_DRAFT) {
+            return $this->review_status !== self::REVIEW_PENDING;
+        }
+
+        return $this->status === self::STATUS_AWAITING_PAYMENT
+            && in_array($this->payment_status, [self::PAYMENT_NONE, self::PAYMENT_REJECTED], true);
     }
 
     public function isPendingReview(): bool

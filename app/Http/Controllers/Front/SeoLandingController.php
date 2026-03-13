@@ -7,6 +7,8 @@ use App\Models\BlogPost;
 use App\Models\BudgetRange;
 use App\Models\ClientRecentView;
 use App\Models\EventType;
+use App\Models\MarketplaceCity;
+use App\Models\MarketplaceZone;
 use App\Models\MariachiListing;
 use App\Models\MariachiListingServiceArea;
 use App\Models\MariachiReview;
@@ -179,11 +181,40 @@ class SeoLandingController extends Controller
                 'scopeSlug' => Str::slug((string) $zoneName),
             ]),
         };
+        $catalogCity = $cityName ? $this->resolveMarketplaceCity($cityName) : null;
+        $catalogZone = $zoneName ? $this->resolveMarketplaceZone($cityName, $zoneName) : null;
+        $entityType = match ($mode) {
+            'city' => 'city',
+            'zone' => 'zone',
+            'category', 'city_category' => $eventType ? 'event_type' : null,
+            default => null,
+        };
+        $entityId = match ($entityType) {
+            'city' => $catalogCity?->id,
+            'zone' => $catalogZone?->id,
+            'event_type' => $eventType?->id,
+            default => null,
+        };
+        $resolvedCityLabel = $cityName ?: ($catalogZone?->city?->name ?: ($countryName ?: $this->defaultCountryName()));
         $seo = app(SeoResolver::class)->resolve($request, 'landing', [
             'title' => $title,
             'description' => $description,
             'canonical' => $canonical,
             'og_type' => 'website',
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'country' => $countryName ?: $this->defaultCountryName(),
+            'city' => $resolvedCityLabel,
+            'city_name' => $resolvedCityLabel,
+            'city_slug' => $catalogCity?->slug ?: ($cityName ? Str::slug($cityName) : null),
+            'zone' => $zoneName,
+            'zone_name' => $zoneName,
+            'event' => $eventType?->name ? mb_strtolower($eventType->name) : null,
+            'event_name' => $eventType?->name ? mb_strtolower($eventType->name) : null,
+            'listing_count' => (string) $contextProfiles->count(),
+            'min_price' => $this->formatSeoPrice($contextProfiles->whereNotNull('base_price')->min('base_price')),
+            'max_price' => $this->formatSeoPrice($contextProfiles->whereNotNull('base_price')->max('base_price')),
+            'canonical_path' => parse_url($canonical, PHP_URL_PATH) ?: null,
         ]);
 
         return view('front.seo-landing', [
@@ -748,6 +779,13 @@ class SeoLandingController extends Controller
             ->first(fn (string $city): bool => Str::slug($city) === $slug);
     }
 
+    private function resolveMarketplaceCity(string $cityName): ?MarketplaceCity
+    {
+        return MarketplaceCity::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($cityName)])
+            ->first();
+    }
+
     private function resolveZoneNameBySlug(string $zoneSlug): ?string
     {
         return MariachiListingServiceArea::query()
@@ -774,6 +812,20 @@ class SeoLandingController extends Controller
             ->unique()
             ->values()
             ->first(fn (string $zone): bool => Str::slug($zone) === $zoneSlug);
+    }
+
+    private function resolveMarketplaceZone(?string $cityName, string $zoneName): ?MarketplaceZone
+    {
+        return MarketplaceZone::query()
+            ->with('city:id,name,slug')
+            ->when($cityName, function (Builder $query) use ($cityName): void {
+                $query->whereHas('city', function (Builder $cityQuery) use ($cityName): void {
+                    $cityQuery->whereRaw('LOWER(name) = ?', [mb_strtolower($cityName)]);
+                });
+            })
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($zoneName)])
+            ->orderBy('id')
+            ->first();
     }
 
     private function publishedCityNames(): Collection
@@ -809,6 +861,15 @@ class SeoLandingController extends Controller
                 'count' => $count,
             ])
             ->values();
+    }
+
+    private function formatSeoPrice(mixed $value): string
+    {
+        if (! is_numeric($value) || (float) $value <= 0) {
+            return 'cotización directa';
+        }
+
+        return '$'.number_format((float) $value, 0, ',', '.').' COP';
     }
 
     private function topEventTypes(int $limit): Collection

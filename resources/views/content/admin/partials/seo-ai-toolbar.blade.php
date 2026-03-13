@@ -31,8 +31,8 @@
       <small class="text-muted d-block mt-1">{{ $help ?? 'Brief opcional para orientar la IA. Si ya tienes `keywords objetivo`, se usarán como base.' }}</small>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-      <button type="button" class="btn btn-outline-primary" data-seo-ai-action="title">Generar titulo</button>
-      <button type="button" class="btn btn-outline-primary" data-seo-ai-action="description">Generar descripcion</button>
+      <button type="button" class="btn btn-outline-primary" data-seo-ai-action="title">Generar título</button>
+      <button type="button" class="btn btn-outline-primary" data-seo-ai-action="description">Generar descripción</button>
       @isset($keywordsTarget)
         <button type="button" class="btn btn-outline-primary" data-seo-ai-action="keywords">Generar keywords sugeridas</button>
       @endisset

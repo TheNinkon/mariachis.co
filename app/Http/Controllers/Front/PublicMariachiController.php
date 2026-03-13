@@ -9,6 +9,7 @@ use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\MariachiReview;
 use App\Services\MariachiProfileStatsService;
+use App\Services\Seo\SeoDynamicEntityService;
 use App\Services\Seo\SeoResolver;
 use App\Services\SubscriptionCapabilityService;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class PublicMariachiController extends Controller
         string $slug,
         MariachiProfileStatsService $statsService,
         SubscriptionCapabilityService $capabilityService,
+        SeoDynamicEntityService $dynamicSeo,
         SeoResolver $seoResolver
     ): View
     {
@@ -43,7 +45,7 @@ class PublicMariachiController extends Controller
             ->firstOrFail();
         $providerProfile = $profile->mariachiProfile;
         $planCapabilities = $providerProfile
-            ? $capabilityService->resolveCapabilities($providerProfile)
+            ? $capabilityService->resolveCapabilities($providerProfile, $profile)
             : $capabilityService->resolveCapabilities(new MariachiProfile());
 
         $name = $profile->business_name ?: $profile->user?->display_name;
@@ -183,52 +185,21 @@ class PublicMariachiController extends Controller
         $seoDescription = $profile->short_description
             ?: 'Conoce el anuncio de '.$name.' en '.$city.'. Revisa fotos, servicios, cobertura y contacto directo.';
 
-        $schema = [
-            '@context' => 'https://schema.org',
-            '@type' => 'LocalBusiness',
-            'name' => $name,
-            'description' => (string) ($profile->short_description ?: $profile->full_description ?: ''),
-            'areaServed' => array_values(array_filter(array_merge(
-                [$profile->city_name],
-                $profile->serviceAreas->pluck('city_name')->all()
-            ))),
-            'address' => [
-                '@type' => 'PostalAddress',
-                'addressLocality' => $profile->city_name,
-                'addressRegion' => $profile->state,
-                'addressCountry' => $profile->country,
-                'postalCode' => $profile->postal_code,
-                'streetAddress' => $profile->address,
-            ],
-            'url' => route('mariachi.public.show', ['slug' => $profile->slug]),
-        ];
-
-        if ($whatsAppPhone || $publicPhone) {
-            $schema['telephone'] = $whatsAppPhone ?: $publicPhone;
-        }
-
-        if ($reviewsTotal > 0) {
-            $schema['aggregateRating'] = [
-                '@type' => 'AggregateRating',
-                'ratingValue' => $averageRating,
-                'reviewCount' => $reviewsTotal,
-            ];
-        }
-
         return view('front.mariachi-show', [
             'profile' => $profile,
-            'seo' => $seoResolver->resolve($request, 'listing', [
+            'seo' => $seoResolver->resolve($request, 'listing', array_merge(
+                $dynamicSeo->buildContextForEntity('listing', $profile),
+                [
                 'title' => $seoTitle,
                 'description' => $seoDescription,
                 'canonical' => route('mariachi.public.show', ['slug' => $profile->slug]),
                 'og_image' => $featuredPhoto?->path,
                 'og_type' => 'website',
-                'jsonld' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ]),
+                ]
+            )),
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,
             'h1' => $name,
-            'schemaJson' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'citySlug' => $citySlug,
             'featuredPhoto' => $featuredPhoto,
             'secondaryPhotos' => $secondaryPhotos,

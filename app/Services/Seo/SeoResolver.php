@@ -11,7 +11,8 @@ class SeoResolver
     public function __construct(
         private readonly SeoSettingsService $settings,
         private readonly SeoPageCatalog $catalog,
-        private readonly SeoRuleAssistantService $seoRules
+        private readonly SeoRuleAssistantService $seoRules,
+        private readonly SeoDynamicEntityService $dynamicEntities
     ) {
     }
 
@@ -25,8 +26,11 @@ class SeoResolver
         $pageKey = (string) ($context['page_key'] ?? $this->inferPageKey($request, $pageType));
         $pageRecord = $pageKey !== '' ? $this->pageRecord($pageKey) : null;
         $pageDefinition = $pageKey !== '' ? ($this->catalog->definition($pageKey) ?? []) : [];
+        $entitySeo = $pageRecord ? null : $this->dynamicEntities->resolve($pageType, $context, $request);
+        $resolvedContext = array_merge($entitySeo['placeholder_values'] ?? [], $context);
 
         $baseTitle = trim((string) ($pageRecord?->title
+            ?? ($entitySeo['title'] ?? null)
             ?? $context['title']
             ?? ($pageDefinition['title'] ?? '')));
         $siteName = $this->settings->siteName();
@@ -37,38 +41,42 @@ class SeoResolver
 
         $title = $this->formatTitle($baseTitle, $siteName);
         $description = trim((string) ($pageRecord?->meta_description
+            ?? ($entitySeo['description'] ?? null)
             ?? $context['description']
             ?? ($pageDefinition['meta_description'] ?? '')
             ?: $this->settings->defaultMetaDescription()));
 
         $canonical = trim((string) ($pageRecord?->canonical_override
+            ?? ($entitySeo['canonical'] ?? null)
             ?? $context['canonical']
             ?? $this->absoluteUrl((string) ($pageDefinition['path'] ?? ''))
             ?? $request->url()));
 
         $robots = trim((string) ($pageRecord?->robots
+            ?? ($entitySeo['robots'] ?? null)
             ?? $context['robots']
             ?? ($pageDefinition['robots'] ?? '')
             ?: $this->defaultRobotsForPageType($pageType, $request)));
 
         $ogImage = $this->normalizeImageUrl(
             $pageRecord?->og_image
+                ?? ($entitySeo['og_image'] ?? null)
                 ?? $context['og_image']
                 ?? null
         ) ?: $this->settings->defaultOgImageUrl();
 
         $ogType = trim((string) ($context['og_type'] ?? $this->defaultOgType($pageType)));
-        $jsonLd = $pageRecord?->jsonld ?? $context['jsonld'] ?? ($context['schema'] ?? null);
+        $jsonLd = $pageRecord?->jsonld ?? ($entitySeo['jsonld'] ?? null) ?? $context['jsonld'] ?? ($context['schema'] ?? null);
         $jsonLd = is_string($jsonLd) ? trim($jsonLd) : null;
 
         if ($jsonLd === null || $jsonLd === '') {
             $jsonLd = $this->seoRules->generateJsonLd(
-                $this->jsonLdTypeForPage($pageType, $pageKey, $context),
-                array_merge($context, [
+                $this->jsonLdTypeForPage($pageType, $pageKey, $resolvedContext),
+                array_merge($resolvedContext, [
                     'page_key' => $pageKey,
-                    'title' => $baseTitle,
-                    'description' => $description,
-                    'canonical' => $canonical,
+                    'title' => trim((string) ($resolvedContext['jsonld_title'] ?? $baseTitle)),
+                    'description' => trim((string) ($resolvedContext['jsonld_description'] ?? $description)),
+                    'canonical' => trim((string) ($resolvedContext['jsonld_canonical'] ?? $canonical)),
                 ])
             );
         }

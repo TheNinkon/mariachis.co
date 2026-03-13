@@ -255,7 +255,7 @@
                 <p class="mb-3"><strong>${{ number_format((int) $plan['price_cop'], 0, ',', '.') }} COP / mes</strong></p>
 
                 <ul class="small text-muted mb-4 ps-3">
-                  <li>Hasta {{ $plan['listing_limit'] }} anuncio(s)</li>
+                  <li>Este plan aplica solo a este anuncio</li>
                   <li>Hasta {{ $plan['included_cities'] }} ciudad(es)</li>
                   <li>Hasta {{ $plan['max_zones_covered'] }} zona(s)</li>
                   <li>{{ $plan['max_photos_per_listing'] }} foto(s) por anuncio</li>

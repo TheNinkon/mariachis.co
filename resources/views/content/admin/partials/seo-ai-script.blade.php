@@ -67,6 +67,14 @@
       element.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
+    const csvKeywords = function (value) {
+      if (Array.isArray(value)) {
+        return value.filter(Boolean).join(', ');
+      }
+
+      return typeof value === 'string' ? value.trim() : '';
+    };
+
     const updateStatus = function (target, message, state) {
       if (!target) {
         return;
@@ -131,15 +139,16 @@
           updateStatus(status, 'Generando propuesta SEO con IA...', 'loading');
 
           try {
+            const keywordsTarget = toolbar.dataset.seoAiKeywordsTarget;
+            const storedKeywords = keywordsTarget ? (document.querySelector(keywordsTarget)?.value || '').trim() : '';
             const payload = await postJson(endpoint, {
               type: type,
               language: language,
-              keywords_target: keywordsInput?.value?.trim() || '',
+              keywords_target: keywordsInput?.value?.trim() || storedKeywords || '',
               raw_context: buildContext()
             });
 
             const action = button.dataset.seoAiAction;
-            const keywordsTarget = toolbar.dataset.seoAiKeywordsTarget;
             const templateTarget = toolbar.dataset.seoAiTemplateTarget;
             const twitterTarget = toolbar.dataset.seoAiTwitterTarget;
 
@@ -152,7 +161,7 @@
             }
 
             if ((action === 'keywords' || action === 'all') && keywordsTarget) {
-              setFieldValue(keywordsTarget, Array.isArray(payload.keywords) ? payload.keywords.join(', ') : '');
+              setFieldValue(keywordsTarget, csvKeywords(payload.keywords));
             }
 
             if (action === 'all' && templateTarget && payload.title_template_suggestion) {

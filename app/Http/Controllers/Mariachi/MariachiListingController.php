@@ -51,57 +51,67 @@ class MariachiListingController extends Controller
             ->latest('updated_at')
             ->get();
 
-        $capabilities = $this->capabilityService->resolveCapabilities($profile);
-        $limit = $capabilities['listing_limit'];
-        $used = $listings->count();
+        $openDraftLimit = MariachiListing::OPEN_DRAFT_LIMIT;
+        $openDraftsCount = $listings->filter(fn (MariachiListing $listing): bool => $listing->isOpenDraft())->count();
         $planSummary = $this->entitlementsService->summary($profile);
         $planIssues = $this->entitlementsService->profileAdjustmentIssues($profile);
         $listingIssues = $listings->mapWithKeys(
             fn (MariachiListing $listing): array => [$listing->id => $this->entitlementsService->listingAdjustmentIssues($listing)]
         );
+        $activeCount = $listings->filter(fn (MariachiListing $listing): bool => $listing->status === MariachiListing::STATUS_ACTIVE && $listing->is_active)->count();
+        $pendingReviewCount = $listings->filter(fn (MariachiListing $listing): bool => $listing->review_status === MariachiListing::REVIEW_PENDING)->count();
+        $awaitingPaymentCount = $listings->filter(function (MariachiListing $listing): bool {
+            return $listing->status === MariachiListing::STATUS_AWAITING_PAYMENT
+                && in_array($listing->payment_status, [MariachiListing::PAYMENT_NONE, MariachiListing::PAYMENT_REJECTED], true);
+        })->count();
+        $pausedCount = $listings->filter(fn (MariachiListing $listing): bool => $listing->status === MariachiListing::STATUS_PAUSED)->count();
 
         return view('content.mariachi.listings-index', [
             'profile' => $profile,
             'listings' => $listings,
-            'capabilities' => $capabilities,
             'planSummary' => $planSummary,
             'planIssues' => $planIssues,
             'listingIssues' => $listingIssues,
-            'listingLimit' => $limit,
-            'listingsUsed' => $used,
-            'listingsRemaining' => max(0, $limit - $used),
+            'openDraftLimit' => $openDraftLimit,
+            'openDraftsCount' => $openDraftsCount,
+            'canCreateListingDraft' => $openDraftsCount < $openDraftLimit,
+            'activeCount' => $activeCount,
+            'pendingReviewCount' => $pendingReviewCount,
+            'awaitingPaymentCount' => $awaitingPaymentCount,
+            'pausedCount' => $pausedCount,
         ]);
     }
 
-    public function create(): View
+    public function create(): RedirectResponse
     {
         $profile = $this->providerProfile();
-        $capabilities = $this->capabilityService->resolveCapabilities($profile);
-        $listingLimit = $capabilities['listing_limit'];
-        $listingsUsed = $profile->listings()->count();
+        $openDraftsCount = $profile->listings()->openDrafts()->count();
 
-        return view('content.mariachi.listings-create', [
-            'profile' => $profile,
-            'capabilities' => $capabilities,
-            'planSummary' => $this->entitlementsService->summary($profile),
-            'planIssues' => $this->entitlementsService->profileAdjustmentIssues($profile),
-            'canCreate' => $listingsUsed < $listingLimit,
-            'listingLimit' => $listingLimit,
-            'listingsUsed' => $listingsUsed,
-        ]);
+        if ($openDraftsCount >= MariachiListing::OPEN_DRAFT_LIMIT) {
+            return redirect()
+                ->route('mariachi.listings.index')
+                ->withErrors([
+                    'open_drafts' => 'Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.',
+                ]);
+        }
+
+        $listing = $this->createDraft($profile);
+
+        return redirect()
+            ->route('mariachi.listings.edit', ['listing' => $listing->id])
+            ->with('status', 'Borrador listo. Cambia el titulo, la descripcion corta y el precio base para continuar.');
     }
 
     public function store(Request $request): RedirectResponse
     {
         $profile = $this->providerProfile();
-        $listingLimit = $this->capabilityService->listingLimit($profile);
-        $listingsUsed = $profile->listings()->count();
+        $openDraftsCount = $profile->listings()->openDrafts()->count();
 
-        if ($listingsUsed >= $listingLimit) {
+        if ($openDraftsCount >= MariachiListing::OPEN_DRAFT_LIMIT) {
             return redirect()
                 ->route('mariachi.listings.index')
                 ->withErrors([
-                    'listing_limit' => 'Alcanzaste el limite de anuncios de tu plan actual.',
+                    'open_drafts' => 'Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.',
                 ]);
         }
 
@@ -111,19 +121,11 @@ class MariachiListingController extends Controller
             'base_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $listing = $profile->listings()->create([
+        $listing = $this->createDraft($profile, [
             'title' => $validated['title'],
             'short_description' => $validated['short_description'],
             'base_price' => $validated['base_price'] ?? null,
-            'country' => $this->defaultCountryName(),
-            'status' => MariachiListing::STATUS_DRAFT,
-            'review_status' => MariachiListing::REVIEW_DRAFT,
-            'is_active' => false,
-            'selected_plan_code' => null,
         ]);
-
-        $listing->ensureSlug();
-        $this->refreshListingProgress($listing);
 
         return redirect()
             ->route('mariachi.listings.edit', ['listing' => $listing->id])
@@ -138,7 +140,7 @@ class MariachiListingController extends Controller
 
         return view('content.mariachi.listings-plans', [
             'listing' => $listing->loadMissing('mariachiProfile.subscriptions.plan', 'latestPayment.reviewedBy'),
-            'capabilities' => $this->capabilityService->resolveCapabilities($profile),
+            'capabilities' => $this->capabilityService->resolveCapabilities($profile, $listing),
             'planSummary' => $this->entitlementsService->summary($profile),
             'plans' => $this->availablePlans(),
             'nequi' => $this->nequiSettings->publicConfig(),
@@ -345,7 +347,7 @@ class MariachiListingController extends Controller
 
         $profile = $listing->mariachiProfile;
         $capabilities = $profile
-            ? $this->capabilityService->resolveCapabilities($profile)
+            ? $this->capabilityService->resolveCapabilities($profile, $listing)
             : $this->capabilityService->resolveCapabilities($this->providerProfile());
         $maxCitiesAllowed = $profile
             ? $this->capabilityService->maxCitiesForListing($profile, $listing)
@@ -434,7 +436,7 @@ class MariachiListingController extends Controller
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
-        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile);
+        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile, $listing);
         if ($zones->count() > $maxZonesCovered) {
             return back()
                 ->withInput()
@@ -582,7 +584,7 @@ class MariachiListingController extends Controller
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
-        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile);
+        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile, $listing);
         if ($zones->count() > $maxZonesCovered) {
             return response()->json([
                 'ok' => false,
@@ -660,7 +662,7 @@ class MariachiListingController extends Controller
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
-        $maxPhotos = $this->capabilityService->maxPhotosPerListing($profile);
+        $maxPhotos = $this->capabilityService->maxPhotosPerListing($profile, $listing);
         if ($listing->photos()->count() >= $maxPhotos) {
             return back()->withErrors([
                 'photo' => 'Tu plan permite hasta '.$maxPhotos.' foto(s) por anuncio.',
@@ -769,7 +771,7 @@ class MariachiListingController extends Controller
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
-        $maxVideos = $this->capabilityService->maxVideosPerListing($profile);
+        $maxVideos = $this->capabilityService->maxVideosPerListing($profile, $listing);
         if ($listing->videos()->count() >= $maxVideos) {
             return back()->withErrors([
                 'url' => $maxVideos > 0
@@ -1447,6 +1449,29 @@ class MariachiListingController extends Controller
         }
 
         $this->planAssignmentService->assignToProfile($profile, $plan, null, 'auto_default');
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function createDraft(MariachiProfile $profile, array $attributes = []): MariachiListing
+    {
+        $listing = $profile->listings()->create(array_merge([
+            'title' => 'Nuevo anuncio',
+            'short_description' => 'Completa la informacion del anuncio',
+            'base_price' => null,
+            'country' => $this->defaultCountryName(),
+            'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'is_active' => false,
+            'selected_plan_code' => null,
+        ], $attributes));
+
+        $listing->ensureSlug();
+        $this->refreshListingProgress($listing);
+
+        return $listing->refresh();
     }
 
     private function refreshListingProgress(MariachiListing $listing): void
