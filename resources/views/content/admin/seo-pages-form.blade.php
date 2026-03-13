@@ -23,6 +23,7 @@
               'type' => 'page',
               'titleTarget' => '#title',
               'descriptionTarget' => '#meta_description',
+              'keywordsTarget' => '#keywords_target',
               'keywordsInputId' => 'seo-ai-page-keywords',
               'keywordsPlaceholder' => 'mariachis en colombia, terminos, privacidad, ayuda, home',
               'help' => 'Genera un borrador SEO a partir de la página, su path y los campos actuales.',
@@ -65,9 +66,37 @@
             @error('meta_description')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
 
+          <div class="col-12">
+            <label class="form-label" for="keywords_target">Keywords objetivo</label>
+            <input id="keywords_target" name="keywords_target" type="text" class="form-control @error('keywords_target') is-invalid @enderror" value="{{ old('keywords_target', $page->keywords_target) }}" placeholder="mariachis bogota, contratar mariachi, serenatas bogota">
+            <small class="text-muted">Uso interno para enfoque editorial e IA. No se renderiza como meta keywords en frontend.</small>
+            @error('keywords_target')<div class="invalid-feedback">{{ $message }}</div>@enderror
+          </div>
+
           <div class="col-md-6">
-            <label class="form-label" for="canonical_override">Canonical override</label>
-            <input id="canonical_override" name="canonical_override" type="url" class="form-control @error('canonical_override') is-invalid @enderror" value="{{ old('canonical_override', $page->canonical_override) }}" placeholder="https://...">
+            <div
+              data-seo-rule-tool
+              data-seo-rule-mode="canonical"
+              data-seo-rule-type="page"
+              data-seo-rule-endpoint="{{ route('admin.seo-tools.canonical') }}"
+              data-seo-rule-field-target="#canonical_override"
+              data-seo-rule-context='@json([
+                'page_key' => $page->key,
+                'path' => $page->path ?: ($definition['path'] ?? null),
+              ])'
+              data-seo-rule-selectors='@json([
+                'title' => '#title',
+                'canonical_override' => '#canonical_override',
+              ])'
+            >
+              <div class="d-flex justify-content-between align-items-center gap-3">
+                <label class="form-label mb-0" for="canonical_override">Canonical override</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-seo-rule-action>Sugerir canonical</button>
+              </div>
+              <input id="canonical_override" name="canonical_override" type="url" class="form-control @error('canonical_override') is-invalid @enderror" value="{{ old('canonical_override', $page->canonical_override) }}" placeholder="https://...">
+              <small class="text-muted d-block">Solo úsalo si la misma página existe con varias URLs.</small>
+              <small class="text-muted d-block" data-seo-rule-status>La sugerencia usa la URL pública limpia, sin querystring.</small>
+            </div>
             @error('canonical_override')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
 
@@ -87,8 +116,40 @@
           </div>
 
           <div class="col-12">
-            <label class="form-label" for="jsonld">JSON-LD</label>
-            <textarea id="jsonld" name="jsonld" rows="8" class="form-control @error('jsonld') is-invalid @enderror" placeholder='{"@@context":"https://schema.org"}'>{{ old('jsonld', $page->jsonld) }}</textarea>
+            <div
+              data-seo-rule-tool
+              data-seo-rule-mode="jsonld"
+              data-seo-rule-type="page"
+              data-seo-rule-endpoint="{{ route('admin.seo-tools.jsonld') }}"
+              data-seo-rule-field-target="#jsonld"
+              data-seo-rule-context='@json([
+                'page_key' => $page->key,
+                'path' => $page->path ?: ($definition['path'] ?? null),
+                'faq_items' => $page->key === 'help' ? [
+                  [
+                    'question' => '¿Cómo funciona Mariachis.co?',
+                    'answer' => 'Mariachis.co conecta clientes con grupos de mariachis y muestra perfiles, anuncios y recursos para facilitar la contratación.',
+                  ],
+                  [
+                    'question' => '¿Cómo contacto soporte?',
+                    'answer' => 'Puedes usar los formularios y canales de contacto visibles en el sitio o escribir al equipo administrador para revisión manual.',
+                  ],
+                ] : [],
+              ])'
+              data-seo-rule-selectors='@json([
+                'title' => '#title',
+                'description' => '#meta_description',
+                'canonical_override' => '#canonical_override',
+              ])'
+            >
+              <div class="d-flex justify-content-between align-items-center gap-3">
+                <label class="form-label mb-0" for="jsonld">JSON-LD</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-seo-rule-action>Generar JSON-LD recomendado</button>
+              </div>
+              <textarea id="jsonld" name="jsonld" rows="8" class="form-control @error('jsonld') is-invalid @enderror" placeholder='{"@@context":"https://schema.org"}'>{{ old('jsonld', $page->jsonld) }}</textarea>
+              <small class="text-muted d-block">Usa plantillas recomendadas por tipo de página. El textarea sigue funcionando como override avanzado.</small>
+              <small class="text-muted d-block" data-seo-rule-status>Genera WebSite, WebPage, CollectionPage o FAQPage según el contexto.</small>
+            </div>
             @error('jsonld')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
         </div>

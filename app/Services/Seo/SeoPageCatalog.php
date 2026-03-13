@@ -73,6 +73,7 @@ class SeoPageCatalog
                     'path' => $definition['path'],
                     'title' => null,
                     'meta_description' => null,
+                    'keywords_target' => null,
                     'robots' => $definition['robots'],
                     'canonical_override' => null,
                     'jsonld' => null,

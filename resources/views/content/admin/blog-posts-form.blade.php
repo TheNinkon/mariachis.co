@@ -269,6 +269,7 @@
                     'type' => 'post',
                     'titleTarget' => '#meta_title',
                     'descriptionTarget' => '#meta_description',
+                    'keywordsTarget' => '#keywords_target',
                     'keywordsInputId' => 'seo-ai-post-keywords',
                     'keywordsPlaceholder' => 'mariachis en bogota, serenatas, bodas, eventos corporativos',
                     'help' => 'La IA toma el título, extracto, ciudades, zonas, eventos y contenido actual del post.',
@@ -281,6 +282,7 @@
                       'slug' => '#slug',
                       'excerpt' => '#excerpt',
                       'content' => '#content',
+                      'headings' => '#content',
                       'status' => '#status',
                       'meta_title' => '#meta_title',
                       'meta_description' => '#meta_description',
@@ -297,9 +299,36 @@
                   @error('meta_description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
+                <div class="col-12">
+                  <label class="form-label" for="keywords_target">Keywords objetivo</label>
+                  <input type="text" id="keywords_target" name="keywords_target" class="form-control @error('keywords_target') is-invalid @enderror" value="{{ old('keywords_target', $post->keywords_target) }}" placeholder="mariachis en bogota, serenatas bogota, bodas con mariachi">
+                  <small class="text-muted">Uso interno para orientar la IA y el enfoque editorial. No se publica como meta keywords.</small>
+                  @error('keywords_target')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
                 <div class="col-md-6">
-                  <label class="form-label" for="canonical_override">Canonical override</label>
-                  <input type="url" id="canonical_override" name="canonical_override" class="form-control @error('canonical_override') is-invalid @enderror" value="{{ old('canonical_override', $post->canonical_override) }}" placeholder="https://...">
+                  <div
+                    data-seo-rule-tool
+                    data-seo-rule-mode="canonical"
+                    data-seo-rule-type="post"
+                    data-seo-rule-endpoint="{{ route('admin.seo-tools.canonical') }}"
+                    data-seo-rule-field-target="#canonical_override"
+                    data-seo-rule-context='@json([
+                      'slug' => old('slug', $post->slug),
+                    ])'
+                    data-seo-rule-selectors='@json([
+                      'slug' => '#slug',
+                      'canonical_override' => '#canonical_override',
+                    ])'
+                  >
+                    <div class="d-flex justify-content-between align-items-center gap-3">
+                      <label class="form-label mb-0" for="canonical_override">Canonical override</label>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" data-seo-rule-action>Sugerir canonical</button>
+                    </div>
+                    <input type="url" id="canonical_override" name="canonical_override" class="form-control @error('canonical_override') is-invalid @enderror" value="{{ old('canonical_override', $post->canonical_override) }}" placeholder="https://...">
+                    <small class="text-muted d-block mt-2">Solo úsalo si la misma página existe con varias URLs.</small>
+                    <small class="text-muted d-block" data-seo-rule-status>La sugerencia usa la URL pública limpia del post, sin querystring.</small>
+                  </div>
                   @error('canonical_override')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
@@ -316,6 +345,10 @@
                       <img src="{{ asset('storage/'.$post->og_image) }}" alt="Imagen OG actual" class="rounded" style="max-height: 120px;">
                     </div>
                   @endif
+                </div>
+
+                <div class="col-12">
+                  <small class="text-muted">El JSON-LD del post se genera automáticamente con plantilla `Article` en frontend. Solo el canonical queda como override manual.</small>
                 </div>
               </div>
             </div>

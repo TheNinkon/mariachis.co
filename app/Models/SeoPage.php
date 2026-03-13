@@ -11,6 +11,7 @@ class SeoPage extends Model
         'path',
         'title',
         'meta_description',
+        'keywords_target',
         'og_image',
         'robots',
         'canonical_override',

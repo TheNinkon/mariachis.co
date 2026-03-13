@@ -10,7 +10,8 @@ class SeoResolver
 {
     public function __construct(
         private readonly SeoSettingsService $settings,
-        private readonly SeoPageCatalog $catalog
+        private readonly SeoPageCatalog $catalog,
+        private readonly SeoRuleAssistantService $seoRules
     ) {
     }
 
@@ -59,6 +60,18 @@ class SeoResolver
         $ogType = trim((string) ($context['og_type'] ?? $this->defaultOgType($pageType)));
         $jsonLd = $pageRecord?->jsonld ?? $context['jsonld'] ?? ($context['schema'] ?? null);
         $jsonLd = is_string($jsonLd) ? trim($jsonLd) : null;
+
+        if ($jsonLd === null || $jsonLd === '') {
+            $jsonLd = $this->seoRules->generateJsonLd(
+                $this->jsonLdTypeForPage($pageType, $pageKey, $context),
+                array_merge($context, [
+                    'page_key' => $pageKey,
+                    'title' => $baseTitle,
+                    'description' => $description,
+                    'canonical' => $canonical,
+                ])
+            );
+        }
 
         return [
             'title' => $title,
@@ -195,5 +208,20 @@ class SeoResolver
         }
 
         return asset('storage/'.$image);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function jsonLdTypeForPage(string $pageType, string $pageKey, array $context): string
+    {
+        return match ($pageType) {
+            'home', 'blog_index', 'static_page' => 'page',
+            'landing' => 'landing_template',
+            'blog_post' => 'post',
+            'listing' => 'listing',
+            'profile' => 'profile',
+            default => ($pageKey === 'help' && ! empty($context['faq_items'])) ? 'faq' : 'page',
+        };
     }
 }

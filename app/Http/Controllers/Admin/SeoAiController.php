@@ -73,7 +73,7 @@ class SeoAiController extends Controller
     public function generate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'type' => ['required', Rule::in(['page', 'post', 'landing_template'])],
+            'type' => ['required', Rule::in(['page', 'post', 'landing_template', 'global_settings'])],
             'language' => ['required', 'string', 'max:10'],
             'keywords_target' => ['nullable', 'string', 'max:255'],
             'raw_context' => ['required', 'array'],

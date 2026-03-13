@@ -6,6 +6,15 @@
   data-seo-ai-language="{{ $language ?? 'es' }}"
   data-seo-ai-title-target="{{ $titleTarget }}"
   data-seo-ai-description-target="{{ $descriptionTarget }}"
+  @isset($keywordsTarget)
+    data-seo-ai-keywords-target="{{ $keywordsTarget }}"
+  @endisset
+  @isset($templateTarget)
+    data-seo-ai-template-target="{{ $templateTarget }}"
+  @endisset
+  @isset($twitterTarget)
+    data-seo-ai-twitter-target="{{ $twitterTarget }}"
+  @endisset
   data-seo-ai-context='@json($context ?? [])'
   data-seo-ai-selectors='@json($selectors ?? [])'
 >
@@ -19,11 +28,14 @@
         data-seo-ai-keywords
         placeholder="{{ $keywordsPlaceholder ?? 'mariachis en Bogota, serenatas, bodas, eventos' }}"
       >
-      <small class="text-muted d-block mt-1">{{ $help ?? 'La IA usa el contexto actual del formulario y devuelve una propuesta editable.' }}</small>
+      <small class="text-muted d-block mt-1">{{ $help ?? 'Brief opcional para orientar la IA. Si ya tienes `keywords objetivo`, se usarán como base.' }}</small>
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button type="button" class="btn btn-outline-primary" data-seo-ai-action="title">Generar titulo</button>
       <button type="button" class="btn btn-outline-primary" data-seo-ai-action="description">Generar descripcion</button>
+      @isset($keywordsTarget)
+        <button type="button" class="btn btn-outline-primary" data-seo-ai-action="keywords">Generar keywords sugeridas</button>
+      @endisset
       <button type="button" class="btn btn-primary" data-seo-ai-action="all">Generar todo</button>
     </div>
   </div>

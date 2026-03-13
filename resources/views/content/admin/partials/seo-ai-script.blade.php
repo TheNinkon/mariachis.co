@@ -16,6 +16,15 @@
       return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
     };
 
+    const extractHeadings = function (value) {
+      const div = document.createElement('div');
+      div.innerHTML = value || '';
+
+      return Array.from(div.querySelectorAll('h1, h2, h3')).map(function (heading) {
+        return (heading.textContent || '').replace(/\s+/g, ' ').trim();
+      }).filter(Boolean);
+    };
+
     const collectFieldValue = function (selector) {
       const element = document.querySelector(selector);
 
@@ -68,6 +77,26 @@
       target.textContent = message;
     };
 
+    const postJson = async function (endpoint, payload) {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'La accion no pudo completarse.');
+      }
+
+      return data;
+    };
+
     document.querySelectorAll('[data-seo-ai-toolbar]').forEach(function (toolbar) {
       const endpoint = toolbar.dataset.seoAiEndpoint;
       const titleTarget = toolbar.dataset.seoAiTitleTarget;
@@ -84,6 +113,12 @@
         const dynamicContext = {};
 
         Object.keys(selectors).forEach(function (key) {
+          if (key === 'headings') {
+            const element = document.querySelector(selectors[key]);
+            dynamicContext[key] = element ? extractHeadings(element.value || '') : [];
+            return;
+          }
+
           dynamicContext[key] = collectFieldValue(selectors[key]);
         });
 
@@ -96,33 +131,39 @@
           updateStatus(status, 'Generando propuesta SEO con IA...', 'loading');
 
           try {
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-              },
-              body: JSON.stringify({
-                type: type,
-                language: language,
-                keywords_target: keywordsInput?.value?.trim() || '',
-                raw_context: buildContext()
-              })
+            const payload = await postJson(endpoint, {
+              type: type,
+              language: language,
+              keywords_target: keywordsInput?.value?.trim() || '',
+              raw_context: buildContext()
             });
 
-            const payload = await response.json();
+            const action = button.dataset.seoAiAction;
+            const keywordsTarget = toolbar.dataset.seoAiKeywordsTarget;
+            const templateTarget = toolbar.dataset.seoAiTemplateTarget;
+            const twitterTarget = toolbar.dataset.seoAiTwitterTarget;
 
-            if (!response.ok) {
-              throw new Error(payload.message || 'No fue posible generar el contenido SEO.');
-            }
-
-            if (button.dataset.seoAiAction === 'title' || button.dataset.seoAiAction === 'all') {
+            if (action === 'title' || action === 'all') {
               setFieldValue(titleTarget, payload.meta_title || '');
             }
 
-            if (button.dataset.seoAiAction === 'description' || button.dataset.seoAiAction === 'all') {
+            if (action === 'description' || action === 'all') {
               setFieldValue(descriptionTarget, payload.meta_description || '');
+            }
+
+            if ((action === 'keywords' || action === 'all') && keywordsTarget) {
+              setFieldValue(keywordsTarget, Array.isArray(payload.keywords) ? payload.keywords.join(', ') : '');
+            }
+
+            if (action === 'all' && templateTarget && payload.title_template_suggestion) {
+              setFieldValue(templateTarget, payload.title_template_suggestion);
+            }
+
+            if (action === 'all' && twitterTarget && payload.twitter_site_suggestion) {
+              const twitterElement = document.querySelector(twitterTarget);
+              if (twitterElement && !(twitterElement.value || '').trim()) {
+                setFieldValue(twitterTarget, payload.twitter_site_suggestion);
+              }
             }
 
             updateStatus(
@@ -139,6 +180,104 @@
       });
     });
 
+    document.querySelectorAll('[data-seo-rule-tool]').forEach(function (tool) {
+      const endpoint = tool.dataset.seoRuleEndpoint;
+      const type = tool.dataset.seoRuleType;
+      const fieldTarget = tool.dataset.seoRuleFieldTarget;
+      const mode = tool.dataset.seoRuleMode;
+      const status = tool.querySelector('[data-seo-rule-status]');
+      const trigger = tool.querySelector('[data-seo-rule-action]');
+      const baseContext = parseJsonData(tool.dataset.seoRuleContext, {});
+      const selectors = parseJsonData(tool.dataset.seoRuleSelectors, {});
+
+      if (!trigger) {
+        return;
+      }
+
+      const buildContext = function () {
+        const dynamicContext = {};
+
+        Object.keys(selectors).forEach(function (key) {
+          if (key === 'headings') {
+            const element = document.querySelector(selectors[key]);
+            dynamicContext[key] = element ? extractHeadings(element.value || '') : [];
+            return;
+          }
+
+          dynamicContext[key] = collectFieldValue(selectors[key]);
+        });
+
+        return Object.assign({}, baseContext, dynamicContext);
+      };
+
+      trigger.addEventListener('click', async function () {
+        trigger.disabled = true;
+        updateStatus(status, mode === 'canonical' ? 'Calculando canonical recomendado...' : 'Generando JSON-LD recomendado...', 'loading');
+
+        try {
+          const payload = await postJson(endpoint, {
+            type: type,
+            raw_context: buildContext()
+          });
+
+          if (mode === 'canonical') {
+            setFieldValue(fieldTarget, payload.canonical || '');
+            updateStatus(status, payload.canonical ? 'Canonical sugerido aplicado.' : 'No hay canonical recomendado para este tipo de página.', payload.canonical ? 'success' : 'error');
+          }
+
+          if (mode === 'jsonld') {
+            setFieldValue(fieldTarget, payload.jsonld || '');
+            updateStatus(status, payload.jsonld ? 'JSON-LD recomendado generado.' : 'No hay un template JSON-LD para este contexto.', payload.jsonld ? 'success' : 'error');
+          }
+        } catch (error) {
+          updateStatus(status, error.message || 'La sugerencia no pudo generarse.', 'error');
+        } finally {
+          trigger.disabled = false;
+        }
+      });
+    });
+
+    const globalAiButton = document.querySelector('[data-seo-ai-global-generate]');
+    const globalAiStatus = document.querySelector('[data-seo-ai-global-status]');
+
+    if (globalAiButton) {
+      globalAiButton.addEventListener('click', async function () {
+        globalAiButton.disabled = true;
+        updateStatus(globalAiStatus, 'Generando sugerencias globales con IA...', 'loading');
+
+        try {
+          const payload = await postJson(globalAiButton.dataset.seoAiGlobalGenerate, {
+            type: 'global_settings',
+            language: 'es',
+            keywords_target: document.getElementById('seo_default_keywords_target')?.value || '',
+            raw_context: {
+              site_name: document.getElementById('seo_site_name')?.value || '',
+              title_template: document.getElementById('seo_default_title_template')?.value || '',
+              meta_description: document.getElementById('seo_default_meta_description')?.value || '',
+              twitter_site: document.getElementById('seo_twitter_site')?.value || ''
+            }
+          });
+
+          setFieldValue('#seo_default_meta_description', payload.meta_description || '');
+
+          if (payload.title_template_suggestion) {
+            setFieldValue('#seo_default_title_template', payload.title_template_suggestion);
+          }
+
+          const twitterInput = document.getElementById('seo_twitter_site');
+          if (twitterInput && !twitterInput.value.trim() && payload.twitter_site_suggestion) {
+            setFieldValue('#seo_twitter_site', payload.twitter_site_suggestion);
+          }
+
+          updateStatus(globalAiStatus, 'Sugerencias globales generadas. Revisa el copy antes de guardar.', 'success');
+        } catch (error) {
+          updateStatus(globalAiStatus, error.message || 'No fue posible generar sugerencias globales.', 'error');
+        } finally {
+          globalAiButton.disabled = false;
+        }
+      });
+    }
+
     const testButton = document.querySelector('[data-seo-ai-test]');
     const testStatus = document.querySelector('[data-seo-ai-test-status]');
 
@@ -151,22 +290,12 @@
         updateStatus(testStatus, 'Probando conexion con Gemini...', 'loading');
 
         try {
-          const response = await fetch(testButton.dataset.seoAiTest, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-CSRF-TOKEN': csrfToken
-            },
-            body: JSON.stringify({
-              seo_gemini_api_key: apiKey,
-              seo_gemini_model: model
-            })
+          const payload = await postJson(testButton.dataset.seoAiTest, {
+            seo_gemini_api_key: apiKey,
+            seo_gemini_model: model
           });
 
-          const payload = await response.json();
-
-          if (!response.ok || !payload.ok) {
+          if (!payload.ok) {
             throw new Error(payload.message || 'No se pudo validar la conexion con Gemini.');
           }
 

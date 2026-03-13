@@ -2,6 +2,10 @@
 
 @section('title', 'SEO · Configuración')
 
+@section('page-script')
+  @include('content.admin.partials.seo-ai-script')
+@endsection
+
 @section('content')
   <div class="row g-4">
     <div class="col-12">
@@ -48,6 +52,19 @@
                 <label class="form-label" for="seo_default_meta_description">Meta description default</label>
                 <textarea id="seo_default_meta_description" name="seo_default_meta_description" rows="3" class="form-control @error('seo_default_meta_description') is-invalid @enderror" required>{{ old('seo_default_meta_description', $seo['default_meta_description']) }}</textarea>
                 @error('seo_default_meta_description')<div class="invalid-feedback">{{ $message }}</div>@enderror
+              </div>
+
+              <div class="col-12">
+                <div class="rounded border bg-label-primary p-3">
+                  <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+                    <div>
+                      <div class="fw-semibold">Sugerencias con IA</div>
+                      <div class="text-muted small">Genera una propuesta para `meta_description_default`, `title_template` y `twitter_site` si aún está vacío.</div>
+                    </div>
+                    <button type="button" class="btn btn-primary" data-seo-ai-global-generate="{{ route('admin.seo-ai.generate') }}">Generar sugerencias con IA</button>
+                  </div>
+                  <small class="text-muted d-block mt-2" data-seo-ai-global-status>La IA no guarda cambios por ti. Revisa el copy y luego guarda la configuración.</small>
+                </div>
               </div>
 
               <div class="col-md-6">

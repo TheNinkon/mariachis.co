@@ -27,6 +27,7 @@ class BlogPost extends Model
         'canonical_override',
         'excerpt',
         'meta_description',
+        'keywords_target',
         'content',
         'status',
         'city_name',

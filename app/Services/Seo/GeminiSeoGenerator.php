@@ -23,6 +23,8 @@ class GeminiSeoGenerator
      *   keywords:list<string>,
      *   og_title:string,
      *   og_description:string,
+     *   title_template_suggestion:?string,
+     *   twitter_site_suggestion:?string,
      *   model:string
      * }
      */
@@ -73,6 +75,8 @@ class GeminiSeoGenerator
             'keywords' => $this->sanitizeKeywords(Arr::get($payload, 'keywords')),
             'og_title' => $ogTitle,
             'og_description' => $ogDescription,
+            'title_template_suggestion' => $this->sanitizeTitleTemplateSuggestion(Arr::get($payload, 'title_template_suggestion')),
+            'twitter_site_suggestion' => $this->sanitizeTwitterSiteSuggestion(Arr::get($payload, 'twitter_site_suggestion')),
             'model' => $model,
         ];
     }
@@ -241,8 +245,10 @@ class GeminiSeoGenerator
     {
         return implode("\n\n", [
             'Genera metadatos SEO en espanol para Colombia.',
-            'Entrega solo JSON valido con estas llaves exactas: meta_title, meta_description, keywords, og_title, og_description.',
+            'Entrega solo JSON valido. Llaves requeridas: meta_title, meta_description, keywords, og_title, og_description.',
+            'Llaves opcionales: title_template_suggestion, twitter_site_suggestion.',
             'Reglas: meta_title y og_title maximo 60 caracteres; meta_description y og_description entre 140 y 160 caracteres; keywords como arreglo corto; sin emojis; sin claims falsos; no inventes datos faltantes.',
+            'Si propones title_template_suggestion, conserva literalmente {{title}} y {{site_name}}.',
             'Contexto de entrada:',
             json_encode($this->promptContext($context), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?: '{}',
         ]);
@@ -352,6 +358,35 @@ class GeminiSeoGenerator
         $truncated = rtrim($truncated, " \t\n\r\0\x0B,.;:-");
 
         return $appendPeriod ? $truncated.'.' : $truncated;
+    }
+
+    private function sanitizeTitleTemplateSuggestion(mixed $value): ?string
+    {
+        $template = $this->sanitizeText((string) $value);
+
+        if ($template === '') {
+            return null;
+        }
+
+        if (! str_contains($template, '{{title}}') || ! str_contains($template, '{{site_name}}')) {
+            return '{{title}} | {{site_name}}';
+        }
+
+        return Str::limit($template, 120, '');
+    }
+
+    private function sanitizeTwitterSiteSuggestion(mixed $value): ?string
+    {
+        $handle = trim((string) $value);
+
+        if ($handle === '') {
+            return null;
+        }
+
+        $handle = '@'.ltrim($handle, '@');
+        $handle = preg_replace('/[^@a-zA-Z0-9_]/', '', $handle) ?? $handle;
+
+        return strlen($handle) > 1 ? Str::limit($handle, 50, '') : null;
     }
 
     /**

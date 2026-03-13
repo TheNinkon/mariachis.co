@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\ReviewModerationController;
 use App\Http\Controllers\Admin\SeoAiController;
 use App\Http\Controllers\Admin\SeoPageController;
 use App\Http\Controllers\Admin\SeoSettingsController;
+use App\Http\Controllers\Admin\SeoToolsController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -95,6 +96,8 @@ Route::domain(config('domains.admin'))->group(function (): void {
             Route::patch('/seo/ia', [SeoAiController::class, 'update'])->name('admin.seo-ai.update');
             Route::post('/seo/ia/probar-conexion', [SeoAiController::class, 'testConnection'])->name('admin.seo-ai.test');
             Route::post('/seo/generate', [SeoAiController::class, 'generate'])->name('admin.seo-ai.generate');
+            Route::post('/seo/suggest-canonical', [SeoToolsController::class, 'suggestCanonical'])->name('admin.seo-tools.canonical');
+            Route::post('/seo/generate-jsonld', [SeoToolsController::class, 'generateJsonLd'])->name('admin.seo-tools.jsonld');
             Route::get('/seo/paginas', [SeoPageController::class, 'index'])->name('admin.seo-pages.index');
             Route::get('/seo/paginas/{seoPage}/editar', [SeoPageController::class, 'edit'])->name('admin.seo-pages.edit');
             Route::put('/seo/paginas/{seoPage}', [SeoPageController::class, 'update'])->name('admin.seo-pages.update');
