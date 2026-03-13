@@ -4,10 +4,6 @@
 @section('meta_description', $seoDescription)
 @section('body_page', 'listing')
 
-@push('head')
-  <script type="application/ld+json">{!! $schemaJson !!}</script>
-@endpush
-
 @section('content')
     <main>
       <section class="layout-shell layout-shell--narrow py-10">

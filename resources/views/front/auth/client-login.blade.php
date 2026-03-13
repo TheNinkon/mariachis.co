@@ -69,7 +69,7 @@
           </button>
         </div>
 
-        <p class="client-auth-legal">Al continuar aceptas nuestros términos de uso y la política de privacidad de Mariachis.co.</p>
+        <p class="client-auth-legal">Al continuar aceptas nuestros <a href="{{ route('static.terms') }}" class="client-auth-link">términos de uso</a> y la <a href="{{ route('static.privacy') }}" class="client-auth-link">política de privacidad</a> de Mariachis.co.</p>
       </section>
     </div>
   </main>

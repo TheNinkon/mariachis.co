@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\MariachiProfile;
+use App\Services\Seo\SeoResolver;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class PublicProviderController extends Controller
 {
-    public function show(string $handle): View
+    public function show(Request $request, string $handle, SeoResolver $seoResolver): View
     {
         $profile = MariachiProfile::query()
             ->published()
@@ -69,6 +71,14 @@ class PublicProviderController extends Controller
             'profile' => $profile,
             'profileName' => $profileName,
             'cityName' => $cityName,
+            'seo' => $seoResolver->resolve($request, 'profile', [
+                'title' => $seoTitle,
+                'description' => $seoDescription,
+                'canonical' => $canonicalUrl,
+                'og_image' => $profile->logo_path,
+                'og_type' => 'profile',
+                'jsonld' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]),
             'canonicalUrl' => $canonicalUrl,
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,

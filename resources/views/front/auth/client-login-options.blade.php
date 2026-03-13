@@ -86,8 +86,8 @@
           </div>
 
           <p class="client-auth-legal client-auth-legal--centered">
-            Al crear una cuenta, aceptas nuestros <a href="#" class="client-auth-link">Términos y condiciones</a>, la
-            <a href="#" class="client-auth-link">Política de privacidad</a> y el acuerdo con Mariachis.co.
+            Al crear una cuenta, aceptas nuestros <a href="{{ route('static.terms') }}" class="client-auth-link">Términos y condiciones</a>, la
+            <a href="{{ route('static.privacy') }}" class="client-auth-link">Política de privacidad</a> y el acuerdo con Mariachis.co.
           </p>
         @else
           <div>

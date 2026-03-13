@@ -13,7 +13,9 @@ use App\Models\MarketplaceZone;
 use App\Models\ServiceType;
 use App\Services\Front\SearchFormData;
 use App\Services\Front\TrustpilotProfileData;
+use App\Services\Seo\SeoResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -33,7 +35,12 @@ class HomeController extends Controller
         'usaquen' => 'Usaquén',
     ];
 
-    public function __invoke(SearchFormData $searchFormData, TrustpilotProfileData $trustpilotProfileData): View
+    public function __invoke(
+        Request $request,
+        SearchFormData $searchFormData,
+        TrustpilotProfileData $trustpilotProfileData,
+        SeoResolver $seoResolver
+    ): View
     {
         $publishedProfiles = MariachiListing::query()
             ->with([
@@ -124,6 +131,12 @@ class HomeController extends Controller
             ->values();
 
         return view('front.home', [
+            'seo' => $seoResolver->resolve($request, 'home', [
+                'page_key' => 'home',
+                'title' => 'Mariachis.co',
+                'description' => 'Encuentra mariachis por ciudad, compara perfiles y contacta por WhatsApp o llamada.',
+                'og_image' => asset('marketplace/img/2.webp'),
+            ]),
             'zones' => $zones,
             'featuredProfiles' => $featuredProfiles,
             'featuredTags' => $featuredTags,

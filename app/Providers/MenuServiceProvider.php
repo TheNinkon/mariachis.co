@@ -57,6 +57,18 @@ class MenuServiceProvider extends ServiceProvider
           ['url' => $routeUrl('admin.profile-verifications.index', [], '/admin/verificaciones-perfil'), 'name' => 'Verificaciones', 'icon' => 'menu-icon icon-base ti tabler-shield-check', 'slug' => 'admin.profile-verifications.index'],
           ['url' => $routeUrl('admin.internal-users.index', [], '/admin/internal-users'), 'name' => 'Equipo Interno', 'icon' => 'menu-icon icon-base ti tabler-settings', 'slug' => 'admin.internal-users.index'],
           ['url' => $routeUrl('admin.system-settings.edit', [], '/admin/configuracion-sistema'), 'name' => 'Configuracion', 'icon' => 'menu-icon icon-base ti tabler-adjustments', 'slug' => 'admin.system-settings.edit'],
+          [
+            'name' => 'SEO',
+            'icon' => 'menu-icon icon-base ti tabler-world-search',
+            'slug' => [
+              'admin.seo-settings',
+              'admin.seo-pages',
+            ],
+            'submenu' => [
+              ['url' => $routeUrl('admin.seo-settings.edit', [], '/admin/seo/configuracion'), 'name' => 'Configuracion SEO', 'slug' => 'admin.seo-settings.edit'],
+              ['url' => $routeUrl('admin.seo-pages.index', [], '/admin/seo/paginas'), 'name' => 'Paginas SEO', 'slug' => 'admin.seo-pages.index'],
+            ],
+          ],
           ['url' => $routeUrl('admin.blog-posts.index', [], '/admin/blog-posts'), 'name' => 'Blog y Recursos', 'icon' => 'menu-icon icon-base ti tabler-notebook', 'slug' => 'admin.blog-posts'],
           [
             'name' => 'Catalogos',

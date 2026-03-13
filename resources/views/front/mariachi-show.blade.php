@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    @php
+      $seo = $seo ?? app(\App\Services\Seo\SeoResolver::class)->resolve(request(), 'listing', [
+        'title' => $seoTitle ?? '',
+        'description' => $seoDescription ?? '',
+        'jsonld' => $schemaJson ?? null,
+        'og_image' => isset($featuredPhoto) && $featuredPhoto ? $featuredPhoto->path : null,
+      ]);
+    @endphp
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ $seoTitle }}</title>
-    <meta name="description" content="{{ $seoDescription }}" />
+    @include('front.partials.seo-meta', ['seo' => $seo])
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <base href="{{ asset('marketplace') }}/" />
     <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
@@ -16,7 +23,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="assets/theme.css?v=20260313-listing-v10" />
-    <script type="application/ld+json">{!! $schemaJson !!}</script>
   </head>
   <body data-page="listing" class="has-mobile-cta font-sans text-slate-900 antialiased">
     <div data-component="site-header"></div>
@@ -611,7 +617,9 @@
             <section id="faqs" class="listing-flow-section" data-reveal>
               <h2>Preguntas frecuentes</h2>
 
-              @php($renderedFaqs = $profile->renderedFaqRows())
+              @php
+                $renderedFaqs = $profile->renderedFaqRows();
+              @endphp
               <div data-accordion class="mt-4 space-y-3">
                 @foreach($renderedFaqs as $index => $faq)
                   <div data-accordion-item class="overflow-hidden rounded-xl border border-slate-200">

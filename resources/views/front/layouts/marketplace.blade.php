@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    @php
+      $seo = $seo ?? app(\App\Services\Seo\SeoResolver::class)->resolve(request(), null, [
+        'title' => trim((string) $__env->yieldContent('title')),
+        'description' => trim((string) $__env->yieldContent('meta_description')),
+      ]);
+    @endphp
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@yield('title', 'Mariachis.co')</title>
-    <meta name="description" content="@yield('meta_description', 'Encuentra mariachis por ciudad, compara perfiles y contacta por WhatsApp o llamada.')" />
+    @include('front.partials.seo-meta', ['seo' => $seo])
     <base href="{{ asset('marketplace') }}/" />
     <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />

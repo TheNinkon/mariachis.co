@@ -53,7 +53,7 @@
     $planCycle = $plan?->billing_cycle ?: 'mes';
     $planEntitlements = $planSummary['entitlements'] ?? [];
     $profileCompletion = max(0, min(100, (int) $profile->profile_completion));
-    $publicProfileUrl = Route::has('mariachi.provider.public.show') && filled($profile->slug)
+    $publicProfileUrl = \Illuminate\Support\Facades\Route::has('mariachi.provider.public.show') && filled($profile->slug)
       ? route('mariachi.provider.public.show', ['handle' => $profile->slug])
       : null;
     $viewsTotal = (int) ($profile->stat?->total_views ?? 0);

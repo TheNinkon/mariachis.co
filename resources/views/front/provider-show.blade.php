@@ -4,17 +4,6 @@
 @section('meta_description', $seoDescription)
 @section('body_page', 'provider-profile')
 
-@push('head')
-  <link rel="canonical" href="{{ $canonicalUrl }}" />
-  <meta property="og:title" content="{{ $seoTitle }}" />
-  <meta property="og:description" content="{{ $seoDescription }}" />
-  <meta property="og:url" content="{{ $canonicalUrl }}" />
-  @if($profile->logo_path)
-    <meta property="og:image" content="{{ asset('storage/'.$profile->logo_path) }}" />
-  @endif
-  <script type="application/ld+json">{!! $schemaJson !!}</script>
-@endpush
-
 @section('content')
   @php
     $heroImage = $profile->logo_path

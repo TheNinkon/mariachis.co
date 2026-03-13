@@ -10,6 +10,7 @@ use App\Models\EventType;
 use App\Models\MariachiListing;
 use App\Models\MariachiListingServiceArea;
 use App\Models\MariachiReview;
+use App\Services\Seo\SeoResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -165,6 +166,25 @@ class SeoLandingController extends Controller
         $topFilterChips = $this->buildTopFilterChips($contextProfiles);
 
         [$title, $subtitle, $description] = $this->buildSeoTexts($mode, $cityName, $zoneName, $eventType, $contextProfiles, $countryName);
+        $canonical = match ($mode) {
+            'country' => route('seo.landing.slug', ['slug' => Str::slug($countryName ?: $this->defaultCountryName())]),
+            'city' => route('seo.landing.slug', ['slug' => Str::slug((string) $cityName)]),
+            'category' => route('seo.landing.slug', ['slug' => (string) ($eventType?->slug ?: Str::slug((string) $eventType?->name))]),
+            'city_category' => route('seo.landing.city-category', [
+                'citySlug' => Str::slug((string) $cityName),
+                'scopeSlug' => (string) ($eventType?->slug ?: Str::slug((string) $eventType?->name)),
+            ]),
+            default => route('seo.landing.city-category', [
+                'citySlug' => Str::slug((string) ($cityName ?: $countryName ?: 'colombia')),
+                'scopeSlug' => Str::slug((string) $zoneName),
+            ]),
+        };
+        $seo = app(SeoResolver::class)->resolve($request, 'landing', [
+            'title' => $title,
+            'description' => $description,
+            'canonical' => $canonical,
+            'og_type' => 'website',
+        ]);
 
         return view('front.seo-landing', [
             'mode' => $mode,
@@ -176,6 +196,7 @@ class SeoLandingController extends Controller
             'eventType' => $eventType,
             'h1' => $title,
             'subtitle' => $subtitle,
+            'seo' => $seo,
             'seoTitle' => $title,
             'seoDescription' => $description,
             'profiles' => $profiles,

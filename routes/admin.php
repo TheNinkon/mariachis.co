@@ -13,6 +13,8 @@ use App\Http\Controllers\Admin\MarketplaceCityController;
 use App\Http\Controllers\Admin\MarketplaceZoneController;
 use App\Http\Controllers\Admin\ProfileVerificationController;
 use App\Http\Controllers\Admin\ReviewModerationController;
+use App\Http\Controllers\Admin\SeoPageController;
+use App\Http\Controllers\Admin\SeoSettingsController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
@@ -86,6 +88,11 @@ Route::domain(config('domains.admin'))->group(function (): void {
             Route::get('/configuracion-sistema', [SystemSettingController::class, 'edit'])->name('admin.system-settings.edit');
             Route::patch('/configuracion-sistema', [SystemSettingController::class, 'update'])->name('admin.system-settings.update');
             Route::post('/configuracion-sistema/smtp/test', [SystemSettingController::class, 'sendMailTest'])->name('admin.system-settings.smtp.test');
+            Route::get('/seo/configuracion', [SeoSettingsController::class, 'edit'])->name('admin.seo-settings.edit');
+            Route::patch('/seo/configuracion', [SeoSettingsController::class, 'update'])->name('admin.seo-settings.update');
+            Route::get('/seo/paginas', [SeoPageController::class, 'index'])->name('admin.seo-pages.index');
+            Route::get('/seo/paginas/{seoPage}/editar', [SeoPageController::class, 'edit'])->name('admin.seo-pages.edit');
+            Route::put('/seo/paginas/{seoPage}', [SeoPageController::class, 'update'])->name('admin.seo-pages.update');
             Route::resource('/blog-posts', BlogPostController::class)
                 ->except(['show'])
                 ->names('admin.blog-posts');

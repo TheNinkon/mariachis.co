@@ -9,6 +9,7 @@ use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\MariachiReview;
 use App\Services\MariachiProfileStatsService;
+use App\Services\Seo\SeoResolver;
 use App\Services\SubscriptionCapabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -21,7 +22,8 @@ class PublicMariachiController extends Controller
         Request $request,
         string $slug,
         MariachiProfileStatsService $statsService,
-        SubscriptionCapabilityService $capabilityService
+        SubscriptionCapabilityService $capabilityService,
+        SeoResolver $seoResolver
     ): View
     {
         $profile = MariachiListing::query()
@@ -215,6 +217,14 @@ class PublicMariachiController extends Controller
 
         return view('front.mariachi-show', [
             'profile' => $profile,
+            'seo' => $seoResolver->resolve($request, 'listing', [
+                'title' => $seoTitle,
+                'description' => $seoDescription,
+                'canonical' => route('mariachi.public.show', ['slug' => $profile->slug]),
+                'og_image' => $featuredPhoto?->path,
+                'og_type' => 'website',
+                'jsonld' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]),
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,
             'h1' => $name,

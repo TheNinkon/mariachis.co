@@ -15,9 +15,12 @@ use App\Http\Controllers\Front\PublicListingCollectionController;
 use App\Http\Controllers\Front\PublicMariachiController;
 use App\Http\Controllers\Front\PublicProviderController;
 use App\Http\Controllers\Front\QuoteRequestController;
+use App\Http\Controllers\Front\SeoUtilityController;
 use App\Http\Controllers\Front\SeoLandingController;
+use App\Http\Controllers\Front\StaticPageController;
 use App\Http\Controllers\language\LanguageController;
 use App\Services\Front\SearchFormData;
+use App\Services\Seo\SeoResolver;
 use App\Support\PortalHosts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -63,9 +66,14 @@ Route::domain($publicHost)->group(function () use (
     $legacyAdminRedirect,
     $legacyPartnerRedirect
 ): void {
+    Route::get('/sitemap.xml', [SeoUtilityController::class, 'sitemap'])->name('seo.sitemap');
+    Route::get('/robots.txt', [SeoUtilityController::class, 'robots'])->name('seo.robots');
     Route::get('/', HomeController::class)->name('home');
     Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
     Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+    Route::get('/terminos', [StaticPageController::class, 'show'])->defaults('pageKey', 'terms')->name('static.terms');
+    Route::get('/privacidad', [StaticPageController::class, 'show'])->defaults('pageKey', 'privacy')->name('static.privacy');
+    Route::get('/ayuda', [StaticPageController::class, 'show'])->defaults('pageKey', 'help')->name('static.help');
     Route::get('/lista-de-deseos', [PublicListingCollectionController::class, 'wishlist'])->name('public.collections.wishlist');
     Route::get('/vistos-recientemente', [PublicListingCollectionController::class, 'recentlyViewed'])->name('public.collections.recents');
     Route::get('/resolver-anuncios', [PublicListingCollectionController::class, 'resolve'])->name('public.listings.resolve');
@@ -162,10 +170,16 @@ Route::domain($publicHost)->group(function () use (
 
     Route::get('/lang/{locale}', [LanguageController::class, 'swap']);
 
-    Route::fallback(function (SearchFormData $searchFormData) {
+    Route::fallback(function (Request $request, SearchFormData $searchFormData, SeoResolver $seoResolver) {
         $payload = $searchFormData->forFallback();
 
-        return response()->view('front.errors.404', $payload, 404);
-    });
+        return response()->view('front.errors.404', $payload + [
+            'seo' => $seoResolver->resolve($request, 'static_page', [
+                'page_key' => '404',
+                'title' => 'Pagina no encontrada',
+                'description' => 'La pagina que buscas no existe o cambio de direccion. Busca mariachis por ciudad, evento o servicio desde Mariachis.co.',
+            ]),
+        ], 404);
+    })->name('fallback.404');
 });
     });

@@ -26,7 +26,7 @@
         <small class="text-muted">Este perfil concentra informacion general del grupo. El nombre de marca se usa para crear tu URL pública tipo <strong>/@handle</strong>.</small>
       </div>
       <div class="text-end">
-        @if (Route::has('mariachi.provider.public.show') && filled($profile->slug))
+        @if (\Illuminate\Support\Facades\Route::has('mariachi.provider.public.show') && filled($profile->slug))
           <a href="{{ route('mariachi.provider.public.show', ['handle' => $profile->slug]) }}" target="_blank" class="btn btn-outline-secondary">Ver perfil publico</a>
         @endif
         <a href="{{ route('mariachi.verification.edit') }}" class="btn btn-outline-primary">Verificacion</a>

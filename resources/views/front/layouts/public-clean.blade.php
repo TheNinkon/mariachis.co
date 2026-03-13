@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    @php
+      $seo = $seo ?? app(\App\Services\Seo\SeoResolver::class)->resolve(request(), null, [
+        'title' => trim((string) $__env->yieldContent('title')),
+        'description' => trim((string) $__env->yieldContent('meta_description')),
+      ]);
+    @endphp
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@yield('title', 'Mariachis.co')</title>
-    <meta name="description" content="@yield('meta_description', 'Marketplace local para contratar mariachis en Colombia.')" />
+    @include('front.partials.seo-meta', ['seo' => $seo])
     <base href="{{ asset('marketplace') }}/" />
     <link rel="icon" type="image/x-icon" href="{{ asset('marketplace/favicon.ico') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('marketplace/favicon-32.png') }}" />
@@ -100,8 +105,8 @@
         <div class="public-clean-footer-inner public-clean-footer-inner--auth layout-shell">
           <span>&copy; {{ now()->year }} Mariachis.co</span>
           <nav class="public-clean-footer-inline" aria-label="Enlaces legales">
-            <a href="#">Términos y condiciones</a>
-            <a href="#">Privacidad y cookies</a>
+            <a href="{{ route('static.terms') }}">Términos y condiciones</a>
+            <a href="{{ route('static.privacy') }}">Privacidad y cookies</a>
             <a href="/#como-funciona">Cómo funciona</a>
           </nav>
         </div>
@@ -144,7 +149,7 @@
               <li><a href="/#soy-mariachi">Publica tu anuncio</a></li>
               <li><a href="/mariachis/bogota">Anuncios en tu ciudad</a></li>
               <li><a href="/blog">Blog</a></li>
-              <li><a href="#">Centro de ayuda</a></li>
+              <li><a href="{{ route('static.help') }}">Centro de ayuda</a></li>
             </ul>
           </section>
         </div>

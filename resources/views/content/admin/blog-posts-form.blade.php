@@ -240,6 +240,61 @@
         </div>
 
         <div class="col-12">
+          <div class="card border">
+            <div class="card-header">
+              <h6 class="mb-0">SEO</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-4">
+                <div class="col-md-6">
+                  <label class="form-label" for="meta_title">Meta title</label>
+                  <input type="text" id="meta_title" name="meta_title" class="form-control @error('meta_title') is-invalid @enderror" value="{{ old('meta_title', $post->meta_title) }}" placeholder="Si lo dejas vacío, usaremos el título del post">
+                  @error('meta_title')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label" for="robots">Robots</label>
+                  <select id="robots" name="robots" class="form-select @error('robots') is-invalid @enderror">
+                    <option value="">Usar default indexable</option>
+                    <option value="index,follow" @selected(old('robots', $post->robots) === 'index,follow')>index,follow</option>
+                    <option value="noindex,follow" @selected(old('robots', $post->robots) === 'noindex,follow')>noindex,follow</option>
+                    <option value="noindex,nofollow" @selected(old('robots', $post->robots) === 'noindex,nofollow')>noindex,nofollow</option>
+                  </select>
+                  @error('robots')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label" for="meta_description">Meta description</label>
+                  <textarea id="meta_description" name="meta_description" rows="3" class="form-control @error('meta_description') is-invalid @enderror" placeholder="Fallback: extracto del artículo">{{ old('meta_description', $post->meta_description) }}</textarea>
+                  @error('meta_description')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label" for="canonical_override">Canonical override</label>
+                  <input type="url" id="canonical_override" name="canonical_override" class="form-control @error('canonical_override') is-invalid @enderror" value="{{ old('canonical_override', $post->canonical_override) }}" placeholder="https://...">
+                  @error('canonical_override')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label" for="og_image">Imagen OG</label>
+                  <input type="file" id="og_image" name="og_image" class="form-control @error('og_image') is-invalid @enderror" accept="image/*">
+                  @error('og_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                  @if($post->og_image)
+                    <div class="form-check form-switch mt-2">
+                      <input id="clear_og_image" class="form-check-input" type="checkbox" name="clear_og_image" value="1" {{ old('clear_og_image') ? 'checked' : '' }}>
+                      <label class="form-check-label" for="clear_og_image">Eliminar imagen OG actual</label>
+                    </div>
+                    <div class="mt-2">
+                      <img src="{{ asset('storage/'.$post->og_image) }}" alt="Imagen OG actual" class="rounded" style="max-height: 120px;">
+                    </div>
+                  @endif
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
           <label class="form-label" for="featured_image">Imagen destacada</label>
           <input type="file" id="featured_image" name="featured_image" class="form-control @error('featured_image') is-invalid @enderror" accept="image/*">
           @error('featured_image')<div class="invalid-feedback">{{ $message }}</div>@enderror

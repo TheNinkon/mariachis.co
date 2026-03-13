@@ -107,6 +107,9 @@ class BlogPostController extends Controller
         if ($blogPost->featured_image) {
             Storage::disk('public')->delete($blogPost->featured_image);
         }
+        if ($blogPost->og_image) {
+            Storage::disk('public')->delete($blogPost->og_image);
+        }
 
         $blogPost->delete();
 
@@ -127,7 +130,13 @@ class BlogPostController extends Controller
                 Rule::unique('blog_posts', 'slug')->ignore($ignoreId),
             ],
             'featured_image' => ['nullable', 'image', 'max:5120'],
+            'meta_title' => ['nullable', 'string', 'max:180'],
             'excerpt' => ['nullable', 'string', 'max:600'],
+            'meta_description' => ['nullable', 'string', 'max:320'],
+            'og_image' => ['nullable', 'image', 'max:5120'],
+            'clear_og_image' => ['nullable', 'boolean'],
+            'robots' => ['nullable', Rule::in(['index,follow', 'noindex,follow', 'noindex,nofollow'])],
+            'canonical_override' => ['nullable', 'url:http,https', 'max:2048'],
             'content' => ['nullable', 'string'],
             'status' => ['required', Rule::in(array_keys($this->statuses()))],
             'city_ids' => ['nullable', 'array'],
@@ -185,6 +194,20 @@ class BlogPostController extends Controller
             $post->featured_image = $validated['featured_image']->store('blog-posts', 'public');
         }
 
+        if (! empty($validated['og_image']) && $validated['og_image']->isValid()) {
+            if ($post->og_image) {
+                Storage::disk('public')->delete($post->og_image);
+            }
+
+            $post->og_image = $validated['og_image']->store('blog-posts/seo', 'public');
+        } elseif (! empty($validated['clear_og_image'])) {
+            if ($post->og_image) {
+                Storage::disk('public')->delete($post->og_image);
+            }
+
+            $post->og_image = null;
+        }
+
         $cityIds = $this->normalizeIds($validated['city_ids'] ?? []);
         $zoneIds = $this->normalizeIds($validated['zone_ids'] ?? []);
         $eventTypeIds = $this->normalizeIds($validated['event_type_ids'] ?? []);
@@ -202,8 +225,12 @@ class BlogPostController extends Controller
         $post->fill([
             'title' => $validated['title'],
             'slug' => $slug,
+            'meta_title' => $validated['meta_title'] ?: null,
             'excerpt' => $validated['excerpt'] ?: null,
+            'meta_description' => $validated['meta_description'] ?: null,
             'content' => $validated['content'] ?: null,
+            'robots' => $validated['robots'] ?: null,
+            'canonical_override' => $validated['canonical_override'] ?: null,
             'status' => $validated['status'],
             // Legacy fallback fields: keep first relation for old consumers.
             'city_name' => $primaryCityName,

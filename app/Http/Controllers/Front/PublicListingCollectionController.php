@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\MariachiListing;
+use App\Services\Seo\SeoResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,13 +13,17 @@ use Illuminate\View\View;
 
 class PublicListingCollectionController extends Controller
 {
-    public function wishlist(Request $request): View|RedirectResponse
+    public function wishlist(Request $request, SeoResolver $seoResolver): View|RedirectResponse
     {
         if ($request->user()?->isClient()) {
             return redirect()->route('client.account.favorites');
         }
 
         return view('front.public-listing-collection', [
+            'seo' => $seoResolver->resolve($request, 'private_page', [
+                'title' => 'Lista de deseos',
+                'description' => 'Tus mariachis guardados en este navegador para volver a compararlos cuando quieras.',
+            ]),
             'pageTitle' => 'Lista de deseos | Mariachis.co',
             'pageDescription' => 'Tus mariachis guardados en este navegador para volver a compararlos cuando quieras.',
             'collectionType' => 'favorites',
@@ -34,13 +39,17 @@ class PublicListingCollectionController extends Controller
         ]);
     }
 
-    public function recentlyViewed(Request $request): View|RedirectResponse
+    public function recentlyViewed(Request $request, SeoResolver $seoResolver): View|RedirectResponse
     {
         if ($request->user()?->isClient()) {
             return redirect()->route('client.account.recent');
         }
 
         return view('front.public-listing-collection', [
+            'seo' => $seoResolver->resolve($request, 'private_page', [
+                'title' => 'Vistos recientemente',
+                'description' => 'Recupera los ultimos anuncios de mariachis que revisaste en este navegador.',
+            ]),
             'pageTitle' => 'Vistos recientemente | Mariachis.co',
             'pageDescription' => 'Recupera los últimos anuncios de mariachis que revisaste en este navegador.',
             'collectionType' => 'recents',

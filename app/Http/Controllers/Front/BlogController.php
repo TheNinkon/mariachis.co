@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
+use App\Services\Seo\SeoResolver;
+use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class BlogController extends Controller
 {
-    public function index(): View
+    public function index(Request $request, SeoResolver $seoResolver): View
     {
         $baseQuery = BlogPost::query()
             ->with([
@@ -30,6 +32,11 @@ class BlogController extends Controller
             ->paginate(9);
 
         return view('front.blog-index', [
+            'seo' => $seoResolver->resolve($request, 'blog_index', [
+                'page_key' => 'blog_index',
+                'title' => 'Blog y recursos para contratar mariachis',
+                'description' => 'Consejos, guias y recursos locales para encontrar mariachis por ciudad, zona y tipo de evento en Colombia.',
+            ]),
             'posts' => $posts,
             'heroPosts' => $heroPosts,
             'seoTitle' => 'Blog y recursos para contratar mariachis',
@@ -38,7 +45,7 @@ class BlogController extends Controller
         ]);
     }
 
-    public function show(string $slug): View
+    public function show(Request $request, string $slug, SeoResolver $seoResolver): View
     {
         $post = BlogPost::query()
             ->with([
@@ -123,6 +130,15 @@ class BlogController extends Controller
         return view('front.blog-show', [
             'post' => $post,
             'relatedPosts' => $relatedPosts,
+            'seo' => $seoResolver->resolve($request, 'blog_post', [
+                'title' => $post->meta_title ?: $seoTitle,
+                'description' => $post->meta_description ?: $seoDescription,
+                'canonical' => $post->canonical_override ?: route('blog.show', ['slug' => $post->slug]),
+                'robots' => $post->robots ?: 'index,follow',
+                'og_image' => $post->og_image ?: $post->featured_image,
+                'og_type' => 'article',
+                'jsonld' => json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]),
             'seoTitle' => $seoTitle,
             'seoDescription' => $seoDescription,
             'h1' => $post->title,

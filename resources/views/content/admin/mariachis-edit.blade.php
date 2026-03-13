@@ -109,7 +109,7 @@
             <div class="mt-4 d-flex gap-2 flex-wrap">
               <button class="btn btn-primary" type="submit">Guardar cambios</button>
               <a href="{{ route('admin.mariachis.show', $mariachi) }}" class="btn btn-outline-primary">Cancelar</a>
-              @if (Route::has('mariachi.provider.public.show') && filled($profile->slug))
+              @if (\Illuminate\Support\Facades\Route::has('mariachi.provider.public.show') && filled($profile->slug))
                 <a href="{{ route('mariachi.provider.public.show', ['handle' => $profile->slug]) }}" target="_blank" class="btn btn-label-secondary">Perfil publico</a>
               @endif
             </div>
