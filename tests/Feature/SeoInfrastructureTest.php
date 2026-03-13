@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\BlogPost;
 use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
+use App\Models\SeoPage;
 use App\Models\User;
 use App\Services\Seo\SeoPageCatalog;
+use App\Services\Seo\SeoSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -100,5 +102,58 @@ class SeoInfrastructureTest extends TestCase
         $sitemap->assertSee('http://localhost/@'.$profile->slug);
         $sitemap->assertSee('http://localhost/mariachi/mariachi-sitemap-bogota');
         $sitemap->assertSee('http://localhost/terminos');
+    }
+
+    public function test_admin_can_save_default_robots_value_with_comma(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $response = $this->actingAs($admin)->patch(route('admin.seo-settings.update'), [
+            'seo_site_name' => 'Mariachis.co',
+            'seo_default_title_template' => '@{{title}} | @{{site_name}}',
+            'seo_default_meta_description' => 'Descripcion base de SEO.',
+            'seo_default_robots' => 'index,follow',
+            'seo_twitter_site' => '',
+            'seo_gemini_api_key' => '',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('system_settings', [
+            'key' => SeoSettingsService::KEY_DEFAULT_ROBOTS,
+            'value' => 'index,follow',
+        ]);
+    }
+
+    public function test_admin_can_save_seo_page_robots_value_with_comma(): void
+    {
+        app(SeoPageCatalog::class)->syncDefaults();
+
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $page = SeoPage::query()->where('key', 'home')->firstOrFail();
+
+        $response = $this->actingAs($admin)->put(route('admin.seo-pages.update', $page), [
+            'title' => 'SEO Home',
+            'meta_description' => 'Meta description home.',
+            'robots' => 'noindex,follow',
+            'canonical_override' => '',
+            'jsonld' => '',
+        ]);
+
+        $response->assertRedirect(route('admin.seo-pages.index'));
+        $response->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('seo_pages', [
+            'id' => $page->id,
+            'robots' => 'noindex,follow',
+        ]);
     }
 }

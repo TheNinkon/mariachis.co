@@ -62,10 +62,12 @@ class MenuServiceProvider extends ServiceProvider
             'icon' => 'menu-icon icon-base ti tabler-world-search',
             'slug' => [
               'admin.seo-settings',
+              'admin.seo-ai',
               'admin.seo-pages',
             ],
             'submenu' => [
               ['url' => $routeUrl('admin.seo-settings.edit', [], '/admin/seo/configuracion'), 'name' => 'Configuracion SEO', 'slug' => 'admin.seo-settings.edit'],
+              ['url' => $routeUrl('admin.seo-ai.edit', [], '/admin/seo/ia'), 'name' => 'IA SEO', 'slug' => 'admin.seo-ai.edit'],
               ['url' => $routeUrl('admin.seo-pages.index', [], '/admin/seo/paginas'), 'name' => 'Paginas SEO', 'slug' => 'admin.seo-pages.index'],
             ],
           ],

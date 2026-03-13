@@ -137,6 +137,7 @@
     }
   });
 </script>
+@include('content.admin.partials.seo-ai-script')
 @endsection
 
 @section('content')
@@ -261,6 +262,33 @@
                     <option value="noindex,nofollow" @selected(old('robots', $post->robots) === 'noindex,nofollow')>noindex,nofollow</option>
                   </select>
                   @error('robots')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-12">
+                  @include('content.admin.partials.seo-ai-toolbar', [
+                    'type' => 'post',
+                    'titleTarget' => '#meta_title',
+                    'descriptionTarget' => '#meta_description',
+                    'keywordsInputId' => 'seo-ai-post-keywords',
+                    'keywordsPlaceholder' => 'mariachis en bogota, serenatas, bodas, eventos corporativos',
+                    'help' => 'La IA toma el título, extracto, ciudades, zonas, eventos y contenido actual del post.',
+                    'context' => [
+                      'post_id' => $post->id,
+                      'page_title' => $pageTitle,
+                    ],
+                    'selectors' => [
+                      'title' => '#title',
+                      'slug' => '#slug',
+                      'excerpt' => '#excerpt',
+                      'content' => '#content',
+                      'status' => '#status',
+                      'meta_title' => '#meta_title',
+                      'meta_description' => '#meta_description',
+                      'primary_event_type' => '#event_type_ids',
+                      'city_name' => '#city_ids',
+                      'zone_name' => '#zone_ids',
+                    ],
+                  ])
                 </div>
 
                 <div class="col-12">

@@ -66,14 +66,14 @@
               </div>
 
               <div class="col-md-6">
-                <label class="form-label" for="seo_gemini_api_key">Gemini API Key</label>
-                <input id="seo_gemini_api_key" name="seo_gemini_api_key" type="password" class="form-control @error('seo_gemini_api_key') is-invalid @enderror" placeholder="{{ $seo['gemini_api_key_set'] ? 'Clave guardada' : 'Pega una nueva clave' }}">
-                @error('seo_gemini_api_key')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                <div class="form-check form-switch mt-2">
-                  <input id="clear_seo_gemini_api_key" class="form-check-input" type="checkbox" name="clear_seo_gemini_api_key" value="1">
-                  <label class="form-check-label" for="clear_seo_gemini_api_key">Eliminar clave guardada</label>
+                <div class="rounded border bg-label-primary p-3 h-100">
+                  <div class="fw-semibold">IA SEO</div>
+                  <div class="text-muted small mt-1">
+                    {{ $seo['gemini_api_key_set'] ? 'Ya hay una clave Gemini guardada.' : 'Aún no hay una clave Gemini configurada.' }}
+                  </div>
+                  <div class="text-muted small mt-1">Modelo actual: {{ $seo['gemini_model'] }}</div>
+                  <a href="{{ route('admin.seo-ai.edit') }}" class="btn btn-sm btn-outline-primary mt-3">Configurar IA</a>
                 </div>
-                <small class="text-muted d-block mt-2">Base preparada para autogeneración SEO con IA en siguientes iteraciones.</small>
               </div>
             </div>
 

@@ -13,6 +13,7 @@ class SeoSettingsService
     public const KEY_DEFAULT_ROBOTS = 'seo_default_robots';
     public const KEY_TWITTER_SITE = 'seo_twitter_site';
     public const KEY_GEMINI_API_KEY = 'seo_gemini_api_key';
+    public const KEY_GEMINI_MODEL = 'seo_gemini_model';
 
     public function __construct(private readonly SystemSettingService $settings)
     {
@@ -27,7 +28,9 @@ class SeoSettingsService
      *   default_og_image_url:?string,
      *   default_robots:string,
      *   twitter_site:?string,
-     *   gemini_api_key_set:bool
+     *   gemini_api_key_set:bool,
+     *   gemini_model:string,
+     *   gemini_models:array<string, string>
      * }
      */
     public function adminConfig(): array
@@ -43,6 +46,8 @@ class SeoSettingsService
             'default_robots' => $this->defaultRobots(),
             'twitter_site' => $this->settings->getString(self::KEY_TWITTER_SITE),
             'gemini_api_key_set' => filled($this->settings->getString(self::KEY_GEMINI_API_KEY)),
+            'gemini_model' => $this->geminiModel(),
+            'gemini_models' => $this->geminiModelOptions(),
         ];
     }
 
@@ -80,5 +85,32 @@ class SeoSettingsService
     public function twitterSite(): ?string
     {
         return $this->settings->getString(self::KEY_TWITTER_SITE);
+    }
+
+    public function geminiApiKey(): ?string
+    {
+        return $this->settings->getString(self::KEY_GEMINI_API_KEY);
+    }
+
+    public function geminiModel(): string
+    {
+        $stored = $this->settings->getString(self::KEY_GEMINI_MODEL);
+        $options = $this->geminiModelOptions();
+
+        return is_string($stored) && array_key_exists($stored, $options)
+            ? $stored
+            : array_key_first($options);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function geminiModelOptions(): array
+    {
+        return [
+            'gemini-2.5-flash' => 'gemini-2.5-flash',
+            'gemini-2.5-flash-lite' => 'gemini-2.5-flash-lite',
+            'gemini-2.5-pro' => 'gemini-2.5-pro',
+        ];
     }
 }

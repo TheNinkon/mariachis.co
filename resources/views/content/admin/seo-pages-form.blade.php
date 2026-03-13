@@ -2,6 +2,10 @@
 
 @section('title', 'SEO · Editar página')
 
+@section('page-script')
+  @include('content.admin.partials.seo-ai-script')
+@endsection
+
 @section('content')
   <div class="card">
     <div class="card-header">
@@ -14,6 +18,30 @@
         @method('PUT')
 
         <div class="row g-4">
+          <div class="col-12">
+            @include('content.admin.partials.seo-ai-toolbar', [
+              'type' => 'page',
+              'titleTarget' => '#title',
+              'descriptionTarget' => '#meta_description',
+              'keywordsInputId' => 'seo-ai-page-keywords',
+              'keywordsPlaceholder' => 'mariachis en colombia, terminos, privacidad, ayuda, home',
+              'help' => 'Genera un borrador SEO a partir de la página, su path y los campos actuales.',
+              'context' => [
+                'page_key' => $page->key,
+                'page_label' => $definition['label'] ?? $page->key,
+                'path' => $page->path,
+                'title_placeholder' => $definition['title'] ?? '',
+                'description_placeholder' => $definition['meta_description'] ?? '',
+              ],
+              'selectors' => [
+                'title' => '#title',
+                'meta_description' => '#meta_description',
+                'robots' => '#robots',
+                'canonical_override' => '#canonical_override',
+              ],
+            ])
+          </div>
+
           <div class="col-md-6">
             <label class="form-label" for="title">Meta title</label>
             <input id="title" name="title" type="text" class="form-control @error('title') is-invalid @enderror" value="{{ old('title', $page->title) }}" placeholder="{{ $definition['title'] ?? '' }}">

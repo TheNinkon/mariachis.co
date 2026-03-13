@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\MarketplaceCityController;
 use App\Http\Controllers\Admin\MarketplaceZoneController;
 use App\Http\Controllers\Admin\ProfileVerificationController;
 use App\Http\Controllers\Admin\ReviewModerationController;
+use App\Http\Controllers\Admin\SeoAiController;
 use App\Http\Controllers\Admin\SeoPageController;
 use App\Http\Controllers\Admin\SeoSettingsController;
 use App\Http\Controllers\Admin\SystemSettingController;
@@ -90,6 +91,10 @@ Route::domain(config('domains.admin'))->group(function (): void {
             Route::post('/configuracion-sistema/smtp/test', [SystemSettingController::class, 'sendMailTest'])->name('admin.system-settings.smtp.test');
             Route::get('/seo/configuracion', [SeoSettingsController::class, 'edit'])->name('admin.seo-settings.edit');
             Route::patch('/seo/configuracion', [SeoSettingsController::class, 'update'])->name('admin.seo-settings.update');
+            Route::get('/seo/ia', [SeoAiController::class, 'edit'])->name('admin.seo-ai.edit');
+            Route::patch('/seo/ia', [SeoAiController::class, 'update'])->name('admin.seo-ai.update');
+            Route::post('/seo/ia/probar-conexion', [SeoAiController::class, 'testConnection'])->name('admin.seo-ai.test');
+            Route::post('/seo/generate', [SeoAiController::class, 'generate'])->name('admin.seo-ai.generate');
             Route::get('/seo/paginas', [SeoPageController::class, 'index'])->name('admin.seo-pages.index');
             Route::get('/seo/paginas/{seoPage}/editar', [SeoPageController::class, 'edit'])->name('admin.seo-pages.edit');
             Route::put('/seo/paginas/{seoPage}', [SeoPageController::class, 'update'])->name('admin.seo-pages.update');

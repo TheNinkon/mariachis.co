@@ -9,7 +9,10 @@
         <h5 class="mb-0">SEO · Páginas representativas</h5>
         <small class="text-muted">Administra title, description, OG y canonical sin tocar Blade.</small>
       </div>
-      <a href="{{ route('admin.seo-settings.edit') }}" class="btn btn-outline-secondary">Configuración global</a>
+      <div class="d-flex gap-2">
+        <a href="{{ route('admin.seo-ai.edit') }}" class="btn btn-outline-secondary">IA SEO</a>
+        <a href="{{ route('admin.seo-settings.edit') }}" class="btn btn-outline-secondary">Configuración global</a>
+      </div>
     </div>
     <div class="card-body">
       <div class="table-responsive">
