@@ -104,13 +104,15 @@
   @php
     $statusMeta = match ((string) $profile->verification_status) {
       'verified' => $profile->hasActiveVerification()
-        ? ['label' => 'Verificado', 'class' => 'success', 'description' => 'Tu insignia esta activa y el handle premium esta disponible.']
-        : ['label' => 'Vencida', 'class' => 'warning', 'description' => 'Tu verificacion vencio. Compra una nueva vigencia para recuperar la insignia.'],
+        ? ['label' => 'Verificado', 'class' => 'success', 'description' => 'Tu insignia esta activa y ya puedes usar handle premium y foto de perfil.']
+        : ['label' => 'Vencida', 'class' => 'warning', 'description' => 'Tu verificacion vencio. Compra una nueva vigencia para recuperar insignia, handle y foto.'],
       'payment_pending' => ['label' => 'Pago en revision', 'class' => 'warning', 'description' => 'Tu comprobante ya fue enviado. El admin debe validar pago y documentos.'],
       'rejected' => ['label' => 'Rechazada', 'class' => 'danger', 'description' => 'La ultima solicitud fue rechazada. Revisa el motivo y vuelve a intentarlo.'],
-      default => ['label' => 'Sin verificacion', 'class' => 'secondary', 'description' => 'Activa la verificacion para obtener insignia y handle personalizado.'],
+      default => ['label' => 'Sin verificacion', 'class' => 'secondary', 'description' => 'Activa la verificacion para obtener insignia, handle personalizado y foto de perfil.'],
     };
-    $publicHandle = $profile->slug ?: \Illuminate\Support\Str::slug((string) ($profile->business_name ?: auth()->user()?->display_name ?: 'mariachi'));
+    $publicHandle = $profile->slug ?: 'm-xxxxxxx';
+    $suggestedHandle = \Illuminate\Support\Str::slug((string) ($profile->business_name ?: auth()->user()?->display_name ?: 'tu-grupo')) ?: 'tu-grupo';
+    $baseAmount = (int) (collect($verificationPlans)->min('amount_cop') ?? 0);
     $purchaseLocked = ! $canSubmitVerification || ! $nequi['is_configured'];
     $lastReviewedBy = $latestRequest?->reviewedBy?->display_name ?? $latestPayment?->reviewedBy?->display_name;
     $verificationErrors = $errors->hasAny([
@@ -162,8 +164,8 @@
             </div>
             <div class="text-start text-md-end">
               <div class="text-muted small mb-1">Precio base</div>
-              <div class="verification-plan-card__price">$18.900</div>
-              <div class="small text-muted">COP por 1 mes</div>
+              <div class="verification-plan-card__price">${{ number_format($baseAmount, 0, ',', '.') }}</div>
+              <div class="small text-muted">COP desde el plan más corto</div>
             </div>
           </div>
 
@@ -176,8 +178,8 @@
             </div>
             <div class="col-md-4">
               <div class="bg-lighter rounded p-4 h-100">
-                <div class="fw-semibold mb-1">Handle premium</div>
-                <div class="text-muted small">Solo los perfiles verificados pueden elegir un /@handle corto y personalizado.</div>
+                <div class="fw-semibold mb-1">Handle premium + foto</div>
+                <div class="text-muted small">Solo los perfiles verificados pueden elegir un /@handle corto y subir su foto de perfil.</div>
               </div>
             </div>
             <div class="col-md-4">
@@ -223,7 +225,7 @@
     </div>
   @elseif($profile->hasActiveVerification())
     <div class="alert alert-success">
-      Tu verificacion ya esta activa. El handle premium y la insignia seguiran disponibles hasta {{ $profile->verification_expires_at?->format('Y-m-d') ?: 'nuevo aviso' }}.
+      Tu verificacion ya esta activa. La insignia, el handle premium y la foto de perfil seguiran disponibles hasta {{ $profile->verification_expires_at?->format('Y-m-d') ?: 'nuevo aviso' }}.
     </div>
   @elseif($latestPayment?->isPending() || $latestRequest?->status === \App\Models\VerificationRequest::STATUS_PENDING)
     <div class="alert alert-warning">
@@ -277,6 +279,7 @@
                 <ul class="small text-muted ps-3 mb-4">
                   <li>Insignia verificada en tu perfil publico</li>
                   <li>Edicion del handle premium /@custom</li>
+                  <li>Desbloqueo de foto de perfil</li>
                   <li>Revision manual de identidad y marca</li>
                 </ul>
 
@@ -334,11 +337,12 @@
             </form>
           @else
             <p class="mb-3 text-muted">
-              Tu perfil todavia usa un slug automatico basado en el nombre del grupo. Cuando la verificacion quede aprobada podras elegir un handle corto y estable.
+              Tu perfil hoy usa una URL automática. Cuando la verificación quede aprobada podrás cambiarla por una personalizada.
             </p>
             <div class="bg-lighter rounded p-4">
-              <div class="small text-muted mb-1">Preview actual</div>
+              <div class="small text-muted mb-1">URL actual</div>
               <strong>/&#64;{{ $publicHandle }}</strong>
+              <div class="small text-muted mt-2">Ejemplo premium: /&#64;{{ $suggestedHandle }}</div>
             </div>
           @endif
         </div>

@@ -4,7 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Support\PortalHosts;
 
 $authUser = Auth::user();
-$userAvatar = asset('assets/img/avatars/1.png');
+$userAvatar = null;
+$showImageAvatar = false;
+$avatarInitials = 'US';
+$accountDisplayName = $authUser?->display_name ?: 'Usuario';
 $useIconAvatar = false;
 $iconAvatarClass = 'icon-base ti tabler-user icon-md';
 $iconAvatarTone = 'bg-label-primary';
@@ -36,9 +39,12 @@ if ($authUser) {
 
 if ($authUser?->isMariachi()) {
   $authUser->loadMissing('mariachiProfile');
-  $userAvatar = $authUser->mariachiProfile?->logo_path
+  $accountDisplayName = $authUser->mariachiProfile?->avatarDisplayName() ?: ($authUser->display_name ?: 'Mariachi');
+  $avatarInitials = $authUser->mariachiProfile?->avatarInitials() ?: 'MR';
+  $showImageAvatar = (bool) $authUser->mariachiProfile?->shouldShowProfilePhoto();
+  $userAvatar = $showImageAvatar && $authUser->mariachiProfile?->logo_path
     ? asset('storage/' . $authUser->mariachiProfile->logo_path)
-    : asset('marketplace/img/1.webp');
+    : null;
 
   $accountHeaderUrl = Route::has('mariachi.metrics') ? route('mariachi.metrics') : url('/panel');
   $primaryAction = [
@@ -174,8 +180,10 @@ if ($authUser?->isMariachi()) {
             <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">
               <i class="{{ $iconAvatarClass }}"></i>
             </span>
-          @else
+          @elseif ($showImageAvatar && $userAvatar)
             <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+          @else
+            <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">{{ $avatarInitials }}</span>
           @endif
         </div>
       </a>
@@ -189,15 +197,17 @@ if ($authUser?->isMariachi()) {
                     <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">
                       <i class="{{ $iconAvatarClass }}"></i>
                     </span>
-                  @else
+                  @elseif ($showImageAvatar && $userAvatar)
                     <img src="{{ $userAvatar }}" alt="Avatar usuario" class="rounded-circle object-fit-cover" />
+                  @else
+                    <span class="avatar-initial rounded-circle {{ $iconAvatarTone }}">{{ $avatarInitials }}</span>
                   @endif
                 </div>
               </div>
               <div class="flex-grow-1">
                 <h6 class="mb-0">
                   @if (Auth::check())
-                  {{ Auth::user()->display_name }}
+                  {{ $accountDisplayName }}
                   @else
                   Usuario
                   @endif

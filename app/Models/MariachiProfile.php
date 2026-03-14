@@ -29,6 +29,7 @@ class MariachiProfile extends Model
         'whatsapp',
         'business_name',
         'logo_path',
+        'cover_path',
         'slug',
         'slug_locked',
         'responsible_name',
@@ -197,6 +198,11 @@ class MariachiProfile extends Model
         return $this->hasOne(ProfileVerificationPayment::class)->latestOfMany();
     }
 
+    public function handleAliases(): HasMany
+    {
+        return $this->hasMany(MariachiProfileHandleAlias::class)->latest('created_at');
+    }
+
     public function scopePublished(Builder $query): Builder
     {
         return $query
@@ -204,6 +210,15 @@ class MariachiProfile extends Model
                 $builder->where('profile_completed', true)
                     ->orWhereHas('activeListings');
             })
+            ->whereHas('user', function (Builder $userQuery): void {
+                $userQuery->where('role', User::ROLE_MARIACHI)
+                    ->where('status', User::STATUS_ACTIVE);
+            });
+    }
+
+    public function scopePublicPageVisible(Builder $query): Builder
+    {
+        return $query
             ->whereHas('user', function (Builder $userQuery): void {
                 $userQuery->where('role', User::ROLE_MARIACHI)
                     ->where('status', User::STATUS_ACTIVE);
@@ -259,27 +274,29 @@ class MariachiProfile extends Model
             return;
         }
 
-        $base = Str::slug((string) ($this->business_name ?: $this->user?->display_name ?: 'mariachi'));
-        if ($base === '') {
-            $base = 'mariachi';
+        if (filled($this->slug)) {
+            return;
         }
 
-        $candidate = $base;
-        $counter = 2;
+        $candidate = $this->generateRandomPublicHandle();
 
-        while (
-            self::query()
-                ->where('slug', $candidate)
-                ->where('id', '!=', $this->id)
-                ->exists()
-        ) {
-            $candidate = $base.'-'.$counter;
-            $counter++;
+        $this->forceFill(['slug' => $candidate])->saveQuietly();
+    }
+
+    public function ensureBusinessNameFromUser(): void
+    {
+        if (filled($this->business_name)) {
+            return;
         }
 
-        if ($this->slug !== $candidate) {
-            $this->forceFill(['slug' => $candidate])->saveQuietly();
+        $this->loadMissing('user');
+
+        $fallbackName = trim((string) ($this->user?->display_name ?? ''));
+        if ($fallbackName === '') {
+            return;
         }
+
+        $this->forceFill(['business_name' => $fallbackName])->saveQuietly();
     }
 
     public function hasActiveVerification(): bool
@@ -289,5 +306,109 @@ class MariachiProfile extends Model
         }
 
         return ! $this->verification_expires_at || $this->verification_expires_at->isFuture();
+    }
+
+    public function hasApprovedListingForProfilePhoto(): bool
+    {
+        return $this->listings()
+            ->where('payment_status', MariachiListing::PAYMENT_APPROVED)
+            ->where('review_status', MariachiListing::REVIEW_APPROVED)
+            ->exists();
+    }
+
+    public function canManageProfilePhoto(): bool
+    {
+        return $this->hasActiveVerification() || $this->hasApprovedListingForProfilePhoto();
+    }
+
+    public function shouldShowProfilePhoto(): bool
+    {
+        return $this->canManageProfilePhoto() && filled($this->logo_path);
+    }
+
+    public function canManageProfileCover(): bool
+    {
+        return $this->hasActiveVerification();
+    }
+
+    public function shouldShowProfileCover(): bool
+    {
+        return $this->canManageProfileCover() && filled($this->cover_path);
+    }
+
+    public function avatarDisplayName(): string
+    {
+        return trim((string) ($this->business_name ?: $this->user?->display_name ?: 'Mariachi'));
+    }
+
+    public function avatarInitials(): string
+    {
+        $name = $this->avatarDisplayName();
+        $parts = preg_split('/\s+/', $name) ?: [];
+        $initials = collect($parts)
+            ->filter()
+            ->map(fn (string $part): string => Str::upper(Str::substr($part, 0, 1)))
+            ->implode('');
+
+        $initials = Str::substr($initials, 0, 2);
+
+        return $initials !== '' ? $initials : 'MR';
+    }
+
+    private function generateRandomPublicHandle(): string
+    {
+        do {
+            $candidate = 'm-'.Str::lower(Str::random(8));
+        } while ($this->slugExists($candidate) || in_array($candidate, $this->reservedHandles(), true));
+
+        return $candidate;
+    }
+
+    private function slugExists(string $candidate): bool
+    {
+        $slugInUse = self::query()
+            ->where('slug', $candidate)
+            ->where('id', '!=', $this->id)
+            ->exists();
+
+        if ($slugInUse) {
+            return true;
+        }
+
+        if (! Schema::hasTable('mariachi_profile_handle_aliases')) {
+            return false;
+        }
+
+        return MariachiProfileHandleAlias::query()
+            ->where('old_slug', $candidate)
+            ->exists();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reservedHandles(): array
+    {
+        return collect(config('seo.reserved_slugs', []))
+            ->merge([
+                'api',
+                'partner',
+                'signup',
+                'register',
+                'forgot-password',
+                'reset-password',
+                'verificacion',
+                'verification',
+                'security',
+                'notifications',
+                'billing',
+                'planes',
+                'cuenta',
+            ])
+            ->map(fn (mixed $value): string => Str::slug((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

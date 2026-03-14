@@ -6,6 +6,7 @@
   @php
     $entitlements = $planSummary['entitlements'] ?? [];
     $verificationActive = $profile->hasActiveVerification();
+    $verificationBaseAmount = (int) (collect($verificationPlans)->min('amount_cop') ?? 0);
   @endphp
 
   @include('content.mariachi.partials.account-settings-nav')
@@ -92,7 +93,7 @@
             @elseif($profile->verification_status === 'payment_pending')
               Tu comprobante esta pendiente de revision.
             @else
-              Precio base desde <strong>$18.900 COP</strong>.
+              Precio base desde <strong>${{ number_format($verificationBaseAmount, 0, ',', '.') }} COP</strong>.
             @endif
           </div>
 

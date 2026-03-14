@@ -51,12 +51,38 @@ class MenuServiceProvider extends ServiceProvider
           ['url' => $routeUrl('admin.dashboard', [], '/admin/dashboard'), 'name' => 'Dashboard Admin', 'icon' => 'menu-icon icon-base ti tabler-layout-dashboard', 'slug' => 'admin.dashboard'],
           ['url' => $routeUrl('admin.mariachis.index', [], '/admin/mariachis'), 'name' => 'Mariachis', 'icon' => 'menu-icon icon-base ti tabler-list-details', 'slug' => 'admin.mariachis.index'],
           ['url' => $routeUrl('admin.listings.index', [], '/admin/anuncios'), 'name' => 'Anuncios', 'icon' => 'menu-icon icon-base ti tabler-speakerphone', 'slug' => 'admin.listings'],
-          ['url' => $routeUrl('admin.plans.index', [], '/admin/paquetes'), 'name' => 'Paquetes', 'icon' => 'menu-icon icon-base ti tabler-package', 'slug' => 'admin.plans.index'],
+          [
+            'name' => 'Paquetes',
+            'icon' => 'menu-icon icon-base ti tabler-package',
+            'slug' => [
+              'admin.plans',
+              'admin.account-activation-plans',
+              'admin.account-activation-payments',
+              'admin.profile-verification-plans',
+            ],
+            'submenu' => [
+              ['url' => $routeUrl('admin.plans.index', [], '/admin/paquetes'), 'name' => 'Paquetes de anuncios', 'slug' => 'admin.plans.index'],
+              ['url' => $routeUrl('admin.account-activation-plans.index', [], '/admin/paquetes/activacion'), 'name' => 'Activacion', 'slug' => 'admin.account-activation-plans.index'],
+              ['url' => $routeUrl('admin.account-activation-payments.index', [], '/admin/pagos-activacion'), 'name' => 'Pagos activacion', 'slug' => 'admin.account-activation-payments.index'],
+              ['url' => $routeUrl('admin.profile-verification-plans.index', [], '/admin/paquetes/verificacion'), 'name' => 'Verificacion de perfil', 'slug' => 'admin.profile-verification-plans.index'],
+            ],
+          ],
           ['url' => $routeUrl('admin.email-templates.index', [], '/admin/plantillas-correo'), 'name' => 'Plantillas de correo', 'icon' => 'menu-icon icon-base ti tabler-mail', 'slug' => 'admin.email-templates.index'],
           ['url' => $routeUrl('admin.reviews.index', [], '/admin/resenas'), 'name' => 'Resenas', 'icon' => 'menu-icon icon-base ti tabler-message-star', 'slug' => 'admin.reviews.index'],
           ['url' => $routeUrl('admin.profile-verifications.index', [], '/admin/verificaciones-perfil'), 'name' => 'Verificaciones', 'icon' => 'menu-icon icon-base ti tabler-shield-check', 'slug' => 'admin.profile-verifications.index'],
           ['url' => $routeUrl('admin.internal-users.index', [], '/admin/internal-users'), 'name' => 'Equipo Interno', 'icon' => 'menu-icon icon-base ti tabler-settings', 'slug' => 'admin.internal-users.index'],
-          ['url' => $routeUrl('admin.system-settings.edit', [], '/admin/configuracion-sistema'), 'name' => 'Configuracion', 'icon' => 'menu-icon icon-base ti tabler-adjustments', 'slug' => 'admin.system-settings.edit'],
+          [
+            'name' => 'Configuracion',
+            'icon' => 'menu-icon icon-base ti tabler-adjustments',
+            'slug' => [
+              'admin.system-settings',
+              'admin.social-login-settings',
+            ],
+            'submenu' => [
+              ['url' => $routeUrl('admin.system-settings.edit', [], '/admin/configuracion-sistema'), 'name' => 'Sistema', 'slug' => 'admin.system-settings.edit'],
+              ['url' => $routeUrl('admin.social-login-settings.edit', [], '/admin/configuracion-social-login'), 'name' => 'Social Login', 'slug' => 'admin.social-login-settings.edit'],
+            ],
+          ],
           [
             'name' => 'SEO',
             'icon' => 'menu-icon icon-base ti tabler-world-search',

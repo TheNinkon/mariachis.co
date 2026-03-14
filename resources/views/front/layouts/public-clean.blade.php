@@ -49,6 +49,7 @@
       $footerSocialLinks = collect();
       $footerDescription = '';
       $footerSiteName = 'Mariachis.co';
+      $footerPrimaryCityUrl = route('home');
       if (! $isClientAuthFlow) {
           $seoSettings = app(\App\Services\Seo\SeoSettingsService::class);
           $footerSiteName = $seoSettings->siteName();
@@ -62,6 +63,11 @@
               ->orderByDesc('total')
               ->limit(5)
               ->get();
+
+          $footerPrimaryCity = $footerCities->first();
+          if ($footerPrimaryCity && filled($footerPrimaryCity->city_name)) {
+              $footerPrimaryCityUrl = route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($footerPrimaryCity->city_name)]);
+          }
 
           $preferredEventSlugs = ['bodas', 'cumpleanos', 'aniversarios', 'serenatas', 'corporativos'];
           $footerEvents = \App\Models\EventType::query()
@@ -107,10 +113,9 @@
               ->values();
 
           $footerResources = collect([
-              ['label' => 'Cómo funciona', 'url' => route('home').'#como-funciona'],
               ['label' => 'Publica tu anuncio', 'url' => route('mariachi.register')],
+              ['label' => 'Anuncios en tu ciudad', 'url' => $footerPrimaryCityUrl],
               ['label' => 'Blog', 'url' => route('blog.index')],
-              ['label' => 'Centro de ayuda', 'url' => route('static.help')],
           ]);
 
           $footerSocialLinks = collect([
@@ -145,15 +150,56 @@
                 <span class="public-clean-account-name">{{ $authUser->first_name ?: 'Mi cuenta' }}</span>
               </summary>
               <div class="public-clean-account-menu">
-                <a href="{{ route('client.dashboard') }}">Mi cuenta</a>
-                <a href="{{ route('client.dashboard') }}">Solicitudes / mensajería</a>
-                <a href="{{ route('client.account.favorites') }}">Lista de deseos</a>
-                <a href="{{ route('client.account.recent') }}">Vistos recientemente</a>
-                <a href="{{ route('client.account.profile') }}">Perfil</a>
-                <a href="{{ route('client.account.security') }}">Seguridad</a>
+                <a href="{{ route('client.dashboard') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
+                  </svg>
+                  <span>Mi cuenta</span>
+                </a>
+                <a href="{{ route('client.dashboard') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 4.5h5.25M6.75 3.75h10.5A2.25 2.25 0 0 1 19.5 6v12l-3.75-2.25L12 18l-3.75-2.25L4.5 18V6a2.25 2.25 0 0 1 2.25-2.25Z" />
+                  </svg>
+                  <span>Solicitudes / mensajería</span>
+                </a>
+                <a href="{{ route('client.account.favorites') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25s-6.75-4.35-8.625-8.4A4.875 4.875 0 0 1 12 6.375a4.875 4.875 0 0 1 8.625 5.475C18.75 15.9 12 20.25 12 20.25Z" />
+                  </svg>
+                  <span>Lista de deseos</span>
+                </a>
+                <a href="{{ route('client.account.recent') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3.75 2.25" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  </svg>
+                  <span>Vistos recientemente</span>
+                </a>
+                <a href="{{ route('client.account.profile') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 21a5.25 5.25 0 1 1 10.5 0" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25A2.25 2.25 0 0 1 6 3h12a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 18 21H6a2.25 2.25 0 0 1-2.25-2.25V5.25Z" />
+                  </svg>
+                  <span>Perfil</span>
+                </a>
+                <a href="{{ route('client.account.security') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7.875a4.5 4.5 0 1 0-9 0V10.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 10.5h13.5v8.25a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V10.5Z" />
+                  </svg>
+                  <span>Seguridad</span>
+                </a>
                 <form action="{{ $clientLogoutRoute }}" method="POST">
                   @csrf
-                  <button type="submit">Cerrar sesión</button>
+                  <button type="submit">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 12h9m0 0-3-3m3 3-3 3" />
+                    </svg>
+                    <span>Cerrar sesión</span>
+                  </button>
                 </form>
               </div>
             </details>
@@ -173,7 +219,6 @@
           <nav class="public-clean-footer-inline" aria-label="Enlaces legales">
             <a href="{{ route('static.terms') }}">Términos y condiciones</a>
             <a href="{{ route('static.privacy') }}">Privacidad y cookies</a>
-            <a href="/#como-funciona">Cómo funciona</a>
           </nav>
         </div>
       </footer>
@@ -287,7 +332,6 @@
             <nav class="public-clean-footer-inline" aria-label="Enlaces legales">
               <a href="{{ route('static.terms') }}">Términos y condiciones</a>
               <a href="{{ route('static.privacy') }}">Privacidad y cookies</a>
-              <a href="{{ route('home') }}#como-funciona">Cómo funciona</a>
             </nav>
           </div>
         </div>

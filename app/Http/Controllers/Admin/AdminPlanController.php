@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AdminPlanController extends Controller
@@ -129,7 +130,26 @@ class AdminPlanController extends Controller
             };
         }
 
-        return $request->validate($rules);
+        $validated = $request->validate($rules);
+        $termMonths = collect([
+            (int) data_get($validated, 'entitlements.'.EntitlementKey::LISTING_TERM_PRIMARY_MONTHS, EntitlementKey::defaultFor(EntitlementKey::LISTING_TERM_PRIMARY_MONTHS)),
+            (int) data_get($validated, 'entitlements.'.EntitlementKey::LISTING_TERM_SECONDARY_MONTHS, EntitlementKey::defaultFor(EntitlementKey::LISTING_TERM_SECONDARY_MONTHS)),
+            (int) data_get($validated, 'entitlements.'.EntitlementKey::LISTING_TERM_TERTIARY_MONTHS, EntitlementKey::defaultFor(EntitlementKey::LISTING_TERM_TERTIARY_MONTHS)),
+        ])->filter(fn (int $months): bool => $months > 0)->values();
+
+        if ($termMonths->isEmpty()) {
+            throw ValidationException::withMessages([
+                'entitlements.'.EntitlementKey::LISTING_TERM_PRIMARY_MONTHS => 'Define al menos una vigencia mayor a 0 meses para este paquete.',
+            ]);
+        }
+
+        if ($termMonths->count() !== $termMonths->unique()->count()) {
+            throw ValidationException::withMessages([
+                'entitlements.'.EntitlementKey::LISTING_TERM_SECONDARY_MONTHS => 'No repitas el mismo numero de meses entre las vigencias del paquete.',
+            ]);
+        }
+
+        return $validated;
     }
 
     /**

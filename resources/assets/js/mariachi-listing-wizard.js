@@ -12,6 +12,7 @@ import Sortable from 'sortablejs';
   const photoTrigger = document.querySelector('[data-photo-trigger]');
   const preserveForms = Array.from(document.querySelectorAll('form[data-preserve-step]'));
   const stepLinks = Array.from(document.querySelectorAll('[data-step-link]'));
+  const upgradeToFinalTriggers = Array.from(document.querySelectorAll('[data-upgrade-to-final="true"]'));
   const listingId = wizardElement?.dataset.listingId || '';
   const stepStorageKey = listingId ? `listing_wizard_step_${listingId}` : null;
   const stepOrder = ['basic', 'location', 'filters', 'faqs', 'photos', 'videos', 'final'];
@@ -28,10 +29,13 @@ import Sortable from 'sortablejs';
     });
   }
 
-  const normalizeStepKey = value => {
+  function normalizeWizardStep(value) {
     const normalized = String(value || '').trim().toLowerCase();
     return legacyStepAliases[normalized] || normalized;
-  };
+  }
+
+  const normalizeStepKey = value => normalizeWizardStep(value);
+  const initialStep = normalizeWizardStep(wizardElement?.dataset.initialStep || '');
 
   const persistStep = stepKey => {
     if (!stepStorageKey) {
@@ -87,6 +91,11 @@ import Sortable from 'sortablejs';
     stepperInstance.to(index + 1);
   };
 
+  const showFinalStep = () => {
+    persistStep('final');
+    showStep('final');
+  };
+
   const nextButtons = Array.from(document.querySelectorAll('[data-step-next]'));
   const prevButtons = Array.from(document.querySelectorAll('[data-step-prev]'));
 
@@ -137,6 +146,12 @@ import Sortable from 'sortablejs';
     });
 
     window.setTimeout(() => {
+      if (initialStep && stepOrder.includes(initialStep)) {
+        showStep(initialStep);
+        persistStep(initialStep);
+        return;
+      }
+
       const storedStep = getStoredStep();
       if (storedStep && storedStep !== getCurrentStepKey()) {
         showStep(storedStep);
@@ -156,6 +171,13 @@ import Sortable from 'sortablejs';
   stepLinks.forEach(link => {
     link.addEventListener('click', () => {
       persistStep(link.getAttribute('data-step-link') || getCurrentStepKey());
+    });
+  });
+
+  upgradeToFinalTriggers.forEach(trigger => {
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      showFinalStep();
     });
   });
 
@@ -237,6 +259,31 @@ import Sortable from 'sortablejs';
   const faqCountTarget = document.querySelector('[data-faq-count]');
   const faqTemplate = document.getElementById('listing-faq-item-template');
   const maxFaqItems = Number(faqList?.getAttribute('data-faq-max') || 10);
+  const richEditor = document.querySelector('[data-rich-editor]');
+  const richSurface = richEditor?.querySelector('[data-rich-surface]');
+  const richInput = richEditor?.querySelector('[data-rich-input]');
+  const richCommandButtons = Array.from(richEditor?.querySelectorAll('[data-rich-command]') || []);
+  const richLinkPanel = richEditor?.querySelector('[data-rich-link-panel]');
+  const richLinkInput = richEditor?.querySelector('[data-rich-link-input]');
+  const richLinkError = richEditor?.querySelector('[data-rich-link-error]');
+  const richLinkApplyButton = richEditor?.querySelector('[data-rich-link-apply]');
+  const richLinkCancelButtons = Array.from(richEditor?.querySelectorAll('[data-rich-link-cancel]') || []);
+  const filterGroups = Array.from(document.querySelectorAll('[data-filter-group]'));
+  const billingTermButtons = Array.from(document.querySelectorAll('[data-billing-term-button]'));
+  const paymentPlanCards = Array.from(document.querySelectorAll('[data-plan-card]'));
+  const paymentPlanButtons = Array.from(document.querySelectorAll('[data-open-payment-sheet]'));
+  const paymentSheetElement = document.getElementById('nequiPaymentSheet');
+  const paymentSheet = window.bootstrap?.Offcanvas && paymentSheetElement
+    ? window.bootstrap.Offcanvas.getOrCreateInstance(paymentSheetElement)
+    : null;
+  const paymentPlanNameTargets = Array.from(document.querySelectorAll('[data-payment-plan-name]'));
+  const paymentPlanAmountTargets = Array.from(document.querySelectorAll('[data-payment-plan-amount]'));
+  const paymentPlanDurationTargets = Array.from(document.querySelectorAll('[data-payment-plan-duration]'));
+  const paymentPlanCodeInputs = Array.from(document.querySelectorAll('[data-payment-plan-code]'));
+  const paymentPlanTermInputs = Array.from(document.querySelectorAll('[data-payment-plan-term-months]'));
+  const paymentPlanPriceInputs = Array.from(document.querySelectorAll('[data-payment-plan-price]'));
+  const paymentSheetForm = paymentSheetElement?.querySelector('form');
+  const planSelectionError = document.querySelector('[data-plan-selection-error]');
   const zonesById = new Map(
     locationZones.map(zone => [Number(zone.id), { id: Number(zone.id), city_id: Number(zone.city_id), name: zone.name }])
   );
@@ -258,6 +305,10 @@ import Sortable from 'sortablejs';
   let mapPickerLocation = null;
   let mapPickerPlace = null;
   let geocodeRequestVersion = 0;
+  let savedRichSelection = null;
+  let activeBillingTermMonths = Number(
+    document.querySelector('[data-billing-term-picker]')?.getAttribute('data-active-term-months') || 1
+  );
 
   const setAutosaveState = (state, text) => {
     if (!autosaveBadge) {
@@ -468,6 +519,396 @@ import Sortable from 'sortablejs';
     const firstField = item.querySelector('input[name="faq_question[]"]');
     if (firstField instanceof HTMLInputElement) {
       firstField.focus();
+    }
+  };
+
+  const sanitizeRichEditorHtml = html => {
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    const allowedTags = new Set(['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'h2', 'h3']);
+    const isAllowedLink = href => /^(https?:|mailto:|tel:)/i.test(String(href || '').trim());
+
+    const unwrapElement = element => {
+      const parent = element.parentNode;
+      if (!parent) {
+        return;
+      }
+
+      while (element.firstChild) {
+        parent.insertBefore(element.firstChild, element);
+      }
+
+      parent.removeChild(element);
+    };
+
+    const replaceElement = (element, tagName) => {
+      const replacement = document.createElement(tagName);
+
+      while (element.firstChild) {
+        replacement.appendChild(element.firstChild);
+      }
+
+      element.parentNode?.replaceChild(replacement, element);
+
+      return replacement;
+    };
+
+    const walk = node => {
+      Array.from(node.childNodes).forEach(childNode => {
+        if (childNode.nodeType === Node.COMMENT_NODE) {
+          childNode.parentNode?.removeChild(childNode);
+          return;
+        }
+
+        if (childNode.nodeType !== Node.ELEMENT_NODE) {
+          return;
+        }
+
+        let element = childNode;
+        let tag = element.tagName.toLowerCase();
+
+        if (tag === 'b') {
+          element = replaceElement(element, 'strong');
+          tag = 'strong';
+        } else if (tag === 'i') {
+          element = replaceElement(element, 'em');
+          tag = 'em';
+        } else if (tag === 'div') {
+          element = replaceElement(element, 'p');
+          tag = 'p';
+        }
+
+        if (!allowedTags.has(tag)) {
+          unwrapElement(element);
+          return;
+        }
+
+        Array.from(element.attributes).forEach(attribute => {
+          if (tag === 'a' && attribute.name === 'href' && isAllowedLink(attribute.value)) {
+            return;
+          }
+
+          element.removeAttribute(attribute.name);
+        });
+
+        if (tag === 'a') {
+          const href = String(element.getAttribute('href') || '').trim();
+          if (!isAllowedLink(href)) {
+            unwrapElement(element);
+            return;
+          }
+
+          element.setAttribute('rel', 'nofollow noopener noreferrer');
+          element.setAttribute('target', '_blank');
+        }
+
+        walk(element);
+      });
+    };
+
+    walk(template.content);
+
+    return template.innerHTML
+      .replace(/<(p|h2|h3)>\s*<\/\1>/gi, '')
+      .trim();
+  };
+
+  const syncRichEditorInput = () => {
+    if (!(richSurface instanceof HTMLElement) || !(richInput instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    const sanitized = sanitizeRichEditorHtml(richSurface.innerHTML);
+    if (richSurface.innerHTML !== sanitized) {
+      richSurface.innerHTML = sanitized;
+    }
+
+    richInput.value = sanitized;
+  };
+
+  const getRichSelectionRange = () => {
+    if (!(richSurface instanceof HTMLElement)) {
+      return null;
+    }
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      return null;
+    }
+
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentNode
+      : range.commonAncestorContainer;
+
+    if (!(container instanceof Node) || !richSurface.contains(container)) {
+      return null;
+    }
+
+    return range;
+  };
+
+  const captureRichSelection = () => {
+    const range = getRichSelectionRange();
+    savedRichSelection = range ? range.cloneRange() : null;
+  };
+
+  const restoreRichSelection = () => {
+    if (!(richSurface instanceof HTMLElement)) {
+      return;
+    }
+
+    richSurface.focus();
+
+    const selection = window.getSelection();
+    if (!selection) {
+      return;
+    }
+
+    selection.removeAllRanges();
+
+    if (savedRichSelection instanceof Range) {
+      selection.addRange(savedRichSelection);
+    }
+  };
+
+  const clearRichLinkError = () => {
+    if (richLinkError instanceof HTMLElement) {
+      richLinkError.textContent = '';
+    }
+  };
+
+  const normalizeRichLinkUrl = value => {
+    let url = String(value || '').trim();
+    if (!url) {
+      return '';
+    }
+
+    if (!/^(https?:|mailto:|tel:)/i.test(url)) {
+      url = `https://${url.replace(/^\/+/, '')}`;
+    }
+
+    return /^(https?:|mailto:|tel:)/i.test(url) ? url : '';
+  };
+
+  const closeRichLinkPanel = (shouldFocusEditor = true) => {
+    if (!(richLinkPanel instanceof HTMLElement)) {
+      return;
+    }
+
+    richLinkPanel.hidden = true;
+    clearRichLinkError();
+
+    if (richLinkInput instanceof HTMLInputElement) {
+      richLinkInput.value = '';
+    }
+
+    if (shouldFocusEditor && richSurface instanceof HTMLElement) {
+      restoreRichSelection();
+    }
+  };
+
+  const openRichLinkPanel = () => {
+    if (!(richLinkPanel instanceof HTMLElement) || !(richLinkInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    captureRichSelection();
+    clearRichLinkError();
+    richLinkPanel.hidden = false;
+
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode instanceof Node && selection.anchorNode.parentElement
+      ? selection.anchorNode.parentElement.closest('a')
+      : null;
+
+    richLinkInput.value = anchor?.getAttribute('href') || '';
+    window.setTimeout(() => {
+      richLinkInput.focus();
+      richLinkInput.select();
+    }, 0);
+  };
+
+  const applyRichLink = () => {
+    if (!(richSurface instanceof HTMLElement) || !(richLinkInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const normalizedUrl = normalizeRichLinkUrl(richLinkInput.value);
+    if (!normalizedUrl) {
+      if (richLinkError instanceof HTMLElement) {
+        richLinkError.textContent = 'Escribe un enlace válido: https://, mailto: o tel:.';
+      }
+      richLinkInput.focus();
+      return;
+    }
+
+    restoreRichSelection();
+
+    const selection = window.getSelection();
+    const selectedText = selection ? String(selection).trim() : '';
+
+    if (selectedText !== '') {
+      document.execCommand('createLink', false, normalizedUrl);
+    } else {
+      const safeUrl = normalizedUrl
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<a href="${safeUrl}" target="_blank" rel="nofollow noopener noreferrer">${safeUrl}</a>`
+      );
+    }
+
+    syncRichEditorInput();
+    captureRichSelection();
+    closeRichLinkPanel(false);
+    queueAutosave();
+    richSurface.focus();
+  };
+
+  const executeRichCommand = button => {
+    if (!(richSurface instanceof HTMLElement)) {
+      return;
+    }
+
+    const command = button.dataset.richCommand || '';
+    const commandValue = button.dataset.richValue || null;
+    if (command === 'createLink') {
+      openRichLinkPanel();
+      return;
+    }
+
+    restoreRichSelection();
+
+    document.execCommand(command, false, commandValue);
+
+    syncRichEditorInput();
+    captureRichSelection();
+    queueAutosave();
+  };
+
+  const updateFilterGroup = group => {
+    const limit = Number(group.getAttribute('data-limit') || 0);
+    const checkboxes = Array.from(group.querySelectorAll('input[type="checkbox"]'));
+    const countTarget = group.querySelector('[data-filter-count]');
+    const upgradeBox = group.querySelector('[data-filter-upgrade]');
+    const selectedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+    const reachedLimit = limit <= 0 || selectedCount >= limit;
+    const hasBlockedOptions = checkboxes.some(checkbox => !checkbox.checked);
+
+    if (countTarget) {
+      countTarget.textContent = String(selectedCount);
+    }
+
+    if (upgradeBox instanceof HTMLElement) {
+      upgradeBox.hidden = !(reachedLimit && hasBlockedOptions);
+    }
+
+    checkboxes.forEach(checkbox => {
+      const shouldDisable = !checkbox.checked && reachedLimit;
+      checkbox.disabled = shouldDisable;
+      checkbox.closest('.form-check')?.classList.toggle('is-disabled', shouldDisable);
+    });
+  };
+
+  const syncPaymentSheet = button => {
+    const price = Number(button.dataset.planPrice || 0);
+
+    paymentPlanNameTargets.forEach(target => {
+      target.textContent = button.dataset.planName || '';
+    });
+
+    paymentPlanAmountTargets.forEach(target => {
+      target.textContent = `$${copFormatter.format(price)} COP`;
+    });
+
+    paymentPlanDurationTargets.forEach(target => {
+      target.textContent = button.dataset.planTermLabel || '1 mes';
+    });
+
+    paymentPlanCodeInputs.forEach(input => {
+      input.value = button.dataset.planCode || '';
+    });
+
+    paymentPlanTermInputs.forEach(input => {
+      input.value = button.dataset.planTermMonths || '1';
+    });
+
+    paymentPlanPriceInputs.forEach(input => {
+      input.value = String(price);
+    });
+  };
+
+  const parsePlanTerms = rawValue => {
+    try {
+      const parsed = JSON.parse(rawValue || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  };
+
+  const resolvePlanTerm = (terms, requestedMonths) => {
+    const normalizedMonths = Number(requestedMonths || 0);
+    return terms.find(term => Number(term.months || 0) === normalizedMonths) || terms[0] || null;
+  };
+
+  const updateBillingButtons = months => {
+    billingTermButtons.forEach(button => {
+      button.classList.toggle('is-active', Number(button.dataset.termMonths || 0) === months);
+    });
+  };
+
+  const updatePlanCardForTerm = card => {
+    const terms = parsePlanTerms(card.getAttribute('data-plan-terms'));
+    const activeTerm = resolvePlanTerm(terms, activeBillingTermMonths);
+
+    if (!activeTerm) {
+      return;
+    }
+
+    const totalTarget = card.querySelector('[data-plan-total]');
+    const periodTarget = card.querySelector('[data-plan-period-label]');
+    const monthlyTarget = card.querySelector('[data-plan-monthly-equivalent]');
+    const savingsTarget = card.querySelector('[data-plan-savings]');
+    const actionButton = card.querySelector('[data-open-payment-sheet]');
+
+    if (totalTarget) {
+      totalTarget.textContent = `$${copFormatter.format(Number(activeTerm.total_price_cop || 0))}`;
+    }
+
+    if (periodTarget) {
+      periodTarget.textContent = `Total ${activeTerm.label || '1 mes'}`;
+    }
+
+    if (monthlyTarget) {
+      monthlyTarget.textContent = `$${copFormatter.format(Number(activeTerm.monthly_equivalent_cop || 0))} / mes equivalente`;
+    }
+
+    if (savingsTarget instanceof HTMLElement) {
+      savingsTarget.textContent = activeTerm.savings_copy || 'Precio regular';
+      savingsTarget.classList.toggle('is-muted', Number(activeTerm.discount_percent || 0) === 0);
+    }
+
+    if (actionButton instanceof HTMLElement) {
+      actionButton.dataset.planPrice = String(Number(activeTerm.total_price_cop || 0));
+      actionButton.dataset.planTermMonths = String(Number(activeTerm.months || 1));
+      actionButton.dataset.planTermLabel = activeTerm.label || '1 mes';
+    }
+  };
+
+  const applyBillingTermSelection = months => {
+    activeBillingTermMonths = Number(months || 1);
+    updateBillingButtons(activeBillingTermMonths);
+    paymentPlanCards.forEach(updatePlanCardForTerm);
+
+    if (paymentPlanButtons[0]) {
+      syncPaymentSheet(paymentPlanButtons[0]);
     }
   };
 
@@ -731,7 +1172,8 @@ import Sortable from 'sortablejs';
       .filter(Boolean);
 
     const countedSelected = selectedZones.length + (primaryZoneId > 0 ? 1 : 0);
-    const atLimit = maxZones <= 0 || countedSelected >= maxZones;
+    const hasExtraCoverage = zonePicker?.getAttribute('data-has-extra-coverage') !== 'false';
+    const atLimit = !hasExtraCoverage || maxZones <= 0 || countedSelected >= maxZones;
     if (zoneCountTarget) {
       zoneCountTarget.textContent = String(countedSelected);
     }
@@ -747,7 +1189,7 @@ import Sortable from 'sortablejs';
       zoneLimitBadge.classList.toggle('bg-label-warning', atLimit);
     }
     if (zoneUpgradeTile) {
-      zoneUpgradeTile.hidden = !atLimit;
+      zoneUpgradeTile.hidden = !(atLimit && hasExtraCoverage);
     }
 
     zoneSelectedContainer.innerHTML = '';
@@ -1351,6 +1793,184 @@ import Sortable from 'sortablejs';
   if (faqAddButton instanceof HTMLButtonElement) {
     faqAddButton.addEventListener('click', () => {
       addFaqItem();
+    });
+  }
+
+  if (richSurface instanceof HTMLElement && richInput instanceof HTMLTextAreaElement) {
+    syncRichEditorInput();
+
+    richCommandButtons.forEach(button => {
+      button.addEventListener('mousedown', event => {
+        event.preventDefault();
+        captureRichSelection();
+      });
+
+      button.addEventListener('click', () => {
+        executeRichCommand(button);
+      });
+    });
+
+    if (richLinkApplyButton instanceof HTMLButtonElement) {
+      richLinkApplyButton.addEventListener('click', () => {
+        applyRichLink();
+      });
+    }
+
+    if (richLinkInput instanceof HTMLInputElement) {
+      richLinkInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          applyRichLink();
+          return;
+        }
+
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeRichLinkPanel();
+        }
+      });
+
+      richLinkInput.addEventListener('input', () => {
+        clearRichLinkError();
+      });
+    }
+
+    richLinkCancelButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        closeRichLinkPanel();
+      });
+    });
+
+    richSurface.addEventListener('input', () => {
+      syncRichEditorInput();
+      captureRichSelection();
+      queueAutosave();
+    });
+
+    richSurface.addEventListener('focus', () => {
+      captureRichSelection();
+    });
+
+    richSurface.addEventListener('mouseup', () => {
+      captureRichSelection();
+    });
+
+    richSurface.addEventListener('keyup', () => {
+      captureRichSelection();
+    });
+
+    richSurface.addEventListener('blur', () => {
+      syncRichEditorInput();
+    });
+
+    richSurface.addEventListener('paste', event => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData('text/plain') || '';
+      document.execCommand('insertText', false, text);
+      syncRichEditorInput();
+      queueAutosave();
+    });
+
+    richSurface.addEventListener('drop', event => {
+      if (event.dataTransfer?.files?.length) {
+        event.preventDefault();
+      }
+    });
+
+    document.addEventListener('mousedown', event => {
+      if (!(richLinkPanel instanceof HTMLElement) || richLinkPanel.hidden) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Node && richEditor instanceof HTMLElement && richEditor.contains(target)) {
+        return;
+      }
+
+      closeRichLinkPanel(false);
+    });
+  }
+
+  filterGroups.forEach(group => {
+    Array.from(group.querySelectorAll('input[type="checkbox"]')).forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        updateFilterGroup(group);
+      });
+    });
+
+    updateFilterGroup(group);
+  });
+
+  if (paymentPlanButtons.length && paymentSheet && csrfToken) {
+    if (billingTermButtons.length) {
+      billingTermButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          applyBillingTermSelection(Number(button.dataset.termMonths || 1));
+        });
+      });
+
+      applyBillingTermSelection(activeBillingTermMonths);
+    } else {
+      paymentPlanCards.forEach(updatePlanCardForTerm);
+    }
+
+    paymentPlanButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        if (!button.dataset.selectUrl) {
+          return;
+        }
+
+        if (planSelectionError instanceof HTMLElement) {
+          planSelectionError.classList.add('d-none');
+          planSelectionError.textContent = '';
+        }
+
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.textContent = 'Preparando pago...';
+
+        try {
+          const response = await fetch(button.dataset.selectUrl, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+              'X-CSRF-TOKEN': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+              plan_code: button.dataset.planCode || '',
+              term_months: button.dataset.planTermMonths || '1'
+            }).toString()
+          });
+
+          const payload = await response.json().catch(() => ({}));
+
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.message || 'No pudimos preparar el pago para este plan.');
+          }
+
+          syncPaymentSheet(button);
+          showFinalStep();
+          paymentSheet.show();
+        } catch (error) {
+          if (planSelectionError instanceof HTMLElement) {
+            planSelectionError.textContent = error instanceof Error ? error.message : 'No pudimos preparar el pago para este plan.';
+            planSelectionError.classList.remove('d-none');
+          }
+        } finally {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
+      });
+    });
+
+    syncPaymentSheet(paymentPlanButtons[0]);
+  }
+
+  if (paymentSheetForm instanceof HTMLFormElement) {
+    paymentSheetForm.addEventListener('submit', () => {
+      showFinalStep();
     });
   }
 

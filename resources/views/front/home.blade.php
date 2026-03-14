@@ -7,24 +7,28 @@
 @section('content')
     <main>
       <section class="hero-split-shell hero-split-shell--flush hero-split-shell--home">
-        <div class="hero-split-grid hero-split-grid--home">
-          <div class="hero-split-left hero-split-left--home" data-reveal>
-            <h1 class="hero-home-immersive__title">
-              <span class="hero-home-immersive__title-main">Encuentra mariachis para</span>
-              <span class="hero-home-immersive__title-accent">bodas, serenatas y eventos</span>
-            </h1>
-            <p class="hero-home-immersive__lead">Más de {{ number_format($publishedProfilesCount ?? 0) }} mariachis para tu celebración.</p>
-          </div>
+        <div class="layout-shell--wide">
+          <div class="hero-split-grid-shell">
+            <div class="hero-split-grid hero-split-grid--home">
+              <div class="hero-split-left hero-split-left--home" data-reveal>
+                <h1 class="hero-home-immersive__title">
+                  <span class="hero-home-immersive__title-main">Encuentra mariachis para</span>
+                  <span class="hero-home-immersive__title-accent">bodas, serenatas y eventos</span>
+                </h1>
+                <p class="hero-home-immersive__lead">Más de {{ number_format($publishedProfilesCount ?? 0) }} mariachis para tu celebración.</p>
+              </div>
 
-          <div class="hero-split-right hero-split-right--home" data-reveal>
-            <div class="hero-split-home-media">
-              <img src="img/2.webp" alt="Mariachis en vivo durante un evento" class="hero-split-home-media__image" />
-              <div class="hero-split-home-media__veil" aria-hidden="true"></div>
+              <div class="hero-split-right hero-split-right--home" data-reveal>
+                <div class="hero-split-home-media">
+                  <img src="{{ asset('marketplace/img/home-hero-tight.webp') }}" alt="Mariachis en vivo durante un evento" class="hero-split-home-media__image" />
+                  <div class="hero-split-home-media__veil" aria-hidden="true"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         <div class="hero-home-search-bridge">
-          <div class="mx-auto w-full max-w-7xl px-4 md:px-8">
+          <div class="layout-shell--wide">
             @include('front.partials.search-form', [
               'eventTypes' => $eventTypes,
               'serviceTypes' => $serviceTypes,
@@ -37,7 +41,7 @@
         </div>
       </section>
 
-      <section id="categorias" class="layout-shell py-14">
+      <section id="categorias" class="layout-shell--wide py-14">
         <div class="mb-6 flex flex-wrap items-end justify-between gap-4" data-reveal>
           <div>
             <p class="text-xs font-bold uppercase tracking-[0.15em] text-brand-600">Categorías</p>
@@ -95,7 +99,7 @@
         </div>
       </section>
 
-      <section class="layout-shell py-14">
+      <section class="layout-shell--wide py-14">
         <div class="mb-7 flex flex-wrap items-end justify-between gap-4" data-reveal>
           <div>
             <p class="text-xs font-bold uppercase tracking-[0.15em] text-brand-600">Anuncios destacados</p>
@@ -180,7 +184,7 @@
         </div>
       </section>
 
-      <section id="ciudades" class="layout-shell pt-10 pb-10">
+      <section id="ciudades" class="layout-shell--wide pt-10 pb-10">
         <div class="mb-5 flex items-end justify-between gap-4" data-reveal>
           <div>
             <p class="text-xs font-bold uppercase tracking-[0.14em] text-brand-600">Por zona</p>
@@ -223,7 +227,7 @@
         </div>
       </section>
 
-      <section class="layout-shell pb-14">
+      <section class="layout-shell--wide pb-14">
         <div class="home-city-showcase p-4 md:p-6" data-home-city-showcase data-reveal>
           <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -299,7 +303,7 @@
         </div>
       </section>
 
-      <section class="layout-shell py-14" id="como-funciona">
+      <section class="layout-shell--wide py-14" id="como-funciona">
         <div class="blog-preview" data-reveal>
           <div class="blog-preview__head">
             <div>
@@ -344,19 +348,23 @@
 
       <section id="soy-mariachi" class="home-artist-cta relative overflow-hidden bg-slate-950 text-white">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(244,63,94,0.32),transparent_35%),radial-gradient(circle_at_10%_80%,rgba(251,191,36,0.26),transparent_30%)]"></div>
-        <div class="layout-shell home-artist-cta__inner grid md:grid-cols-12">
+        <div class="layout-shell--wide home-artist-cta__inner grid md:grid-cols-12">
           <div class="home-artist-cta__copy relative z-10 md:col-span-8" data-reveal>
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-brand-200">CTA para artistas</p>
-            <h2 class="home-artist-cta__title mt-3">Convierte tu grupo en una marca visible en tu ciudad</h2>
-            <p class="mt-4 max-w-2xl text-sm leading-relaxed text-slate-200">Completa tu perfil y aparecerás automáticamente en los bloques públicos cuando el anuncio esté listo.</p>
+            <h2 class="home-artist-cta__title">Convierte tu grupo en una marca visible en tu ciudad</h2>
           </div>
           <div class="home-artist-cta__action relative z-10 flex items-center md:col-span-4 md:justify-end" data-reveal>
-            <a href="{{ route('mariachi.register') }}" target="_blank" rel="noopener" class="home-artist-cta__btn inline-flex rounded-xl bg-brand-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-600">Quiero publicar mi anuncio</a>
+            <a href="{{ route('mariachi.register') }}" target="_blank" rel="noopener" class="home-artist-cta__btn">
+              <span>Publicar mi anuncio</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="m13 5 7 7-7 7" />
+              </svg>
+            </a>
           </div>
         </div>
       </section>
 
-      <section class="layout-shell py-14">
+      <section class="layout-shell--wide py-14">
         <div class="artist-seo-hub" data-reveal>
           <div class="artist-seo-hub__head">
             <div>
@@ -406,7 +414,7 @@
         </div>
       </section>
 
-      <section class="layout-shell home-trustpilot-shell pb-16">
+      <section class="layout-shell--wide home-trustpilot-shell pb-16">
         @php
           $trustpilotReviewCount = (int) ($trustpilot['review_count'] ?? 0);
           $trustpilotScore = (float) ($trustpilot['trust_score'] ?? 0);

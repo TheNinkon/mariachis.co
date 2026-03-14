@@ -25,7 +25,7 @@
             <tr>
               <td align="center" style="padding:8px 40px 0;">
                 <p style="margin:0;font-size:18px;line-height:1.7;color:#334155;">
-                  Tu cuenta de mariachi ya está creada. Verifica tu correo para proteger tu acceso y continuar con la configuración de tu perfil.
+                  Tu cuenta de mariachi ya esta creada. Ahora debes completar la activacion y enviar el comprobante para que el admin habilite tu acceso.
                 </p>
               </td>
             </tr>
@@ -39,21 +39,21 @@
             <tr>
               <td align="center" style="padding:28px 32px 0;">
                 <a href="{{ $verifyUrl }}" style="display:inline-block;min-width:280px;padding:16px 26px;border-radius:12px;background:#00563b;color:#ffffff;text-decoration:none;font-size:20px;font-weight:800;line-height:1.2;">
-                  Verificar mi correo
+                  Activar mi cuenta
                 </a>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:18px 32px 0;">
                 <a href="{{ $loginUrl }}" style="font-size:14px;line-height:1.6;font-weight:700;color:#00563b;text-decoration:none;">
-                  Entrar al panel mariachi
+                  Entrar cuando mi cuenta este activa
                 </a>
               </td>
             </tr>
             <tr>
               <td align="center" style="padding:28px 40px 0;">
                 <p style="margin:0;font-size:16px;line-height:1.8;color:#334155;">
-                  Este enlace caduca en {{ $expiresInDays }} días. Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicará ningún cambio.
+                  Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicara ningun cambio.
                 </p>
               </td>
             </tr>

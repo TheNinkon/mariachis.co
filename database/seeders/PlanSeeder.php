@@ -44,6 +44,12 @@ class PlanSeeder extends Seeder
             $entitlements = array_replace(
                 [
                     EntitlementKey::MAX_LISTINGS_TOTAL => (int) ($attributes['listing_limit'] ?? 1),
+                    EntitlementKey::LISTING_TERM_PRIMARY_MONTHS => 1,
+                    EntitlementKey::LISTING_TERM_PRIMARY_DISCOUNT_PERCENT => 0,
+                    EntitlementKey::LISTING_TERM_SECONDARY_MONTHS => 3,
+                    EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT => 10,
+                    EntitlementKey::LISTING_TERM_TERTIARY_MONTHS => 12,
+                    EntitlementKey::LISTING_TERM_TERTIARY_DISCOUNT_PERCENT => 20,
                     EntitlementKey::MAX_PHOTOS_PER_LISTING => (int) ($attributes['max_photos_per_listing'] ?? 5),
                     EntitlementKey::CAN_ADD_VIDEO => (int) ($attributes['max_videos_per_listing'] ?? 0) > 0,
                     EntitlementKey::MAX_VIDEOS_PER_LISTING => (int) ($attributes['max_videos_per_listing'] ?? 0),

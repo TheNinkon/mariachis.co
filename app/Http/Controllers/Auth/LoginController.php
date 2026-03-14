@@ -40,10 +40,11 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         if ($request->user()?->status !== User::STATUS_ACTIVE) {
+            $message = $request->user()?->accessStatusMessage() ?? 'Tu cuenta no esta disponible en este momento.';
             Auth::logout();
 
             throw ValidationException::withMessages([
-                'email' => 'Tu cuenta está desactivada. Contacta a soporte.',
+                'email' => $message,
             ]);
         }
 

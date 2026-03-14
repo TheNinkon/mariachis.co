@@ -97,13 +97,32 @@ class MariachiAccountSettingsController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        return $user->mariachiProfile()->firstOrCreate([], [
+        $profile = $user->mariachiProfile()->firstOrCreate([], [
+            'business_name' => $user->display_name,
             'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 0,
             'stage_status' => 'provider_incomplete',
             'verification_status' => 'unverified',
         ]);
+
+        $shouldRefresh = false;
+
+        if (! filled($profile->business_name)) {
+            $profile->ensureBusinessNameFromUser();
+            $shouldRefresh = true;
+        }
+
+        if (! filled($profile->slug) && ! $profile->slug_locked) {
+            $profile->ensureSlug();
+            $shouldRefresh = true;
+        }
+
+        if ($shouldRefresh) {
+            $profile->refresh();
+        }
+
+        return $profile;
     }
 
     /**

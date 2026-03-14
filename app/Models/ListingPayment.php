@@ -20,6 +20,7 @@ class ListingPayment extends Model
         'mariachi_listing_id',
         'mariachi_profile_id',
         'plan_code',
+        'duration_months',
         'amount_cop',
         'method',
         'proof_path',
@@ -33,6 +34,7 @@ class ListingPayment extends Model
     protected function casts(): array
     {
         return [
+            'duration_months' => 'integer',
             'amount_cop' => 'integer',
             'reviewed_at' => 'datetime',
         ];

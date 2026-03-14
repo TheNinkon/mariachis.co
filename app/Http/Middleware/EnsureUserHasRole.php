@@ -6,6 +6,7 @@ use App\Support\PortalHosts;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use App\Models\User;
 
 class EnsureUserHasRole
 {
@@ -17,11 +18,11 @@ class EnsureUserHasRole
             abort(403);
         }
 
-        if ($user->status !== 'active') {
+        if ($user->status !== User::STATUS_ACTIVE) {
             auth()->logout();
 
             return redirect()->route(PortalHosts::loginRouteNameForUser($user))->withErrors([
-                'email' => 'Tu cuenta está desactivada. Contacta a soporte.',
+                'email' => $user->accessStatusMessage(),
             ]);
         }
 

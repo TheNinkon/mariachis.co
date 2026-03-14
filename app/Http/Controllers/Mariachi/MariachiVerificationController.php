@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Mariachi;
 
 use App\Http\Controllers\Controller;
+use App\Models\MariachiProfileHandleAlias;
 use App\Models\MariachiProfile;
 use App\Models\ProfileVerificationPayment;
 use App\Models\VerificationRequest;
@@ -152,16 +153,37 @@ class MariachiVerificationController extends Controller
             ->where('id', '!=', $profile->id)
             ->exists();
 
-        if ($exists) {
+        $aliasInUse = MariachiProfileHandleAlias::query()
+            ->where('old_slug', $handle)
+            ->where('mariachi_profile_id', '!=', $profile->id)
+            ->exists();
+
+        if ($exists || $aliasInUse) {
             return back()->withErrors([
                 'handle' => 'Ese handle ya está en uso.',
             ]);
         }
 
-        $profile->update([
-            'slug' => $handle,
-            'slug_locked' => true,
-        ]);
+        DB::transaction(function () use ($profile, $handle): void {
+            $currentSlug = (string) $profile->slug;
+
+            if ($currentSlug !== '' && $currentSlug !== $handle) {
+                MariachiProfileHandleAlias::query()
+                    ->where('mariachi_profile_id', $profile->id)
+                    ->where('old_slug', $handle)
+                    ->delete();
+
+                MariachiProfileHandleAlias::query()->updateOrCreate(
+                    ['old_slug' => $currentSlug],
+                    ['mariachi_profile_id' => $profile->id]
+                );
+            }
+
+            $profile->update([
+                'slug' => $handle,
+                'slug_locked' => true,
+            ]);
+        });
 
         return back()->with('status', 'Handle personalizado actualizado.');
     }
@@ -171,12 +193,31 @@ class MariachiVerificationController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        return $user->mariachiProfile()->firstOrCreate([], [
+        $profile = $user->mariachiProfile()->firstOrCreate([], [
+            'business_name' => $user->display_name,
             'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 0,
             'stage_status' => 'provider_incomplete',
             'verification_status' => 'unverified',
         ]);
+
+        $shouldRefresh = false;
+
+        if (! filled($profile->business_name)) {
+            $profile->ensureBusinessNameFromUser();
+            $shouldRefresh = true;
+        }
+
+        if (! filled($profile->slug) && ! $profile->slug_locked) {
+            $profile->ensureSlug();
+            $shouldRefresh = true;
+        }
+
+        if ($shouldRefresh) {
+            $profile->refresh();
+        }
+
+        return $profile;
     }
 }

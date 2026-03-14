@@ -7,6 +7,7 @@ use App\Models\MariachiProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -23,10 +24,25 @@ class MariachiProviderProfileController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request): RedirectResponse|JsonResponse
     {
         $profile = $this->providerProfile();
         $user = $request->user();
+        $canManageProfilePhoto = $profile->canManageProfilePhoto();
+        $canManageProfileCover = $profile->canManageProfileCover();
+
+        $request->merge([
+            'business_name' => trim((string) $request->input('business_name', $profile->business_name)),
+            'short_description' => trim((string) $request->input('short_description', $profile->short_description)),
+            'email' => trim((string) $request->input('email', $user->email)),
+            'phone' => trim((string) $request->input('phone', $user->phone ?? '')),
+            'whatsapp' => trim((string) $request->input('whatsapp', $profile->whatsapp ?? '')),
+            'website' => trim((string) $request->input('website', $profile->website ?? '')),
+            'instagram' => trim((string) $request->input('instagram', $profile->instagram ?? '')),
+            'facebook' => trim((string) $request->input('facebook', $profile->facebook ?? '')),
+            'tiktok' => trim((string) $request->input('tiktok', $profile->tiktok ?? '')),
+            'youtube' => trim((string) $request->input('youtube', $profile->youtube ?? '')),
+        ]);
 
         $validated = $request->validate([
             'business_name' => ['required', 'string', 'max:140'],
@@ -39,8 +55,25 @@ class MariachiProviderProfileController extends Controller
             'facebook' => ['nullable', 'url', 'max:255'],
             'tiktok' => ['nullable', 'url', 'max:255'],
             'youtube' => ['nullable', 'url', 'max:255'],
-            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'logo' => $canManageProfilePhoto
+                ? ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']
+                : ['nullable'],
+            'cover' => $canManageProfileCover
+                ? ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:6144']
+                : ['nullable'],
         ]);
+
+        if (! $canManageProfilePhoto && $request->hasFile('logo')) {
+            return back()->withInput()->withErrors([
+                'logo' => 'La foto de perfil se desbloquea cuando tu anuncio ya quedó pagado y validado, o cuando activas Verificación.',
+            ]);
+        }
+
+        if (! $canManageProfileCover && $request->hasFile('cover')) {
+            return back()->withInput()->withErrors([
+                'cover' => 'La portada del perfil se desbloquea cuando tu verificación ya está activa.',
+            ]);
+        }
 
         $logoPath = $profile->logo_path;
         if ($request->hasFile('logo')) {
@@ -51,16 +84,26 @@ class MariachiProviderProfileController extends Controller
             $logoPath = $request->file('logo')->store('mariachi-provider-logos', 'public');
         }
 
+        $coverPath = $profile->cover_path;
+        if ($request->hasFile('cover')) {
+            if ($coverPath) {
+                Storage::disk('public')->delete($coverPath);
+            }
+
+            $coverPath = $request->file('cover')->store('mariachi-provider-covers', 'public');
+        }
+
         $profile->update([
             'business_name' => $validated['business_name'],
             'short_description' => $validated['short_description'],
-            'whatsapp' => $validated['whatsapp'] ?: null,
-            'website' => $validated['website'] ?: null,
-            'instagram' => $validated['instagram'] ?: null,
-            'facebook' => $validated['facebook'] ?: null,
-            'tiktok' => $validated['tiktok'] ?: null,
-            'youtube' => $validated['youtube'] ?: null,
+            'whatsapp' => ($validated['whatsapp'] ?? null) ?: null,
+            'website' => ($validated['website'] ?? null) ?: null,
+            'instagram' => ($validated['instagram'] ?? null) ?: null,
+            'facebook' => ($validated['facebook'] ?? null) ?: null,
+            'tiktok' => ($validated['tiktok'] ?? null) ?: null,
+            'youtube' => ($validated['youtube'] ?? null) ?: null,
             'logo_path' => $logoPath,
+            'cover_path' => $coverPath,
             'profile_completed' => true,
             'stage_status' => 'provider_ready',
         ]);
@@ -78,6 +121,13 @@ class MariachiProviderProfileController extends Controller
             ]);
         }
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Perfil del proveedor actualizado.',
+                'business_name' => $profile->business_name,
+            ]);
+        }
+
         return back()->with('status', 'Perfil del proveedor actualizado.');
     }
 
@@ -86,12 +136,31 @@ class MariachiProviderProfileController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        return $user->mariachiProfile()->firstOrCreate([], [
+        $profile = $user->mariachiProfile()->firstOrCreate([], [
+            'business_name' => $user->display_name,
             'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 0,
             'stage_status' => 'provider_incomplete',
             'verification_status' => 'unverified',
         ]);
+
+        $shouldRefresh = false;
+
+        if (! filled($profile->business_name)) {
+            $profile->ensureBusinessNameFromUser();
+            $shouldRefresh = true;
+        }
+
+        if (! filled($profile->slug) && ! $profile->slug_locked) {
+            $profile->ensureSlug();
+            $shouldRefresh = true;
+        }
+
+        if ($shouldRefresh) {
+            $profile->refresh();
+        }
+
+        return $profile;
     }
 }

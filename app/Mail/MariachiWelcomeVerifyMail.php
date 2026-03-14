@@ -29,7 +29,7 @@ class MariachiWelcomeVerifyMail extends Mailable
         $rendered = $this->resolvedTemplate();
 
         return new Envelope(
-            subject: $rendered['subject'] ?? 'Bienvenido a Mariachis.co: verifica tu correo para empezar',
+            subject: $rendered['subject'] ?? 'Bienvenido a Mariachis.co: activa tu cuenta para empezar',
         );
     }
 
@@ -70,14 +70,14 @@ class MariachiWelcomeVerifyMail extends Mailable
             [
                 'logoUrl' => 'https://mariachis.co/front/assets/logo-wordmark.png',
                 'emailTitle' => 'Bienvenido a Mariachis.co',
-                'emailLead' => 'Tu cuenta de mariachi ya está creada. Verifica tu correo para proteger tu acceso y continuar con la configuración de tu perfil.',
+                'emailLead' => 'Tu cuenta de mariachi ya esta creada. Ahora debes completar la activacion y enviar el comprobante para que el admin habilite tu acceso.',
                 'user_email' => $this->user->email,
                 'verifyUrl' => $this->verifyUrl,
-                'buttonLabel' => 'Verificar mi correo',
+                'buttonLabel' => 'Activar mi cuenta',
                 'loginUrl' => route('mariachi.login'),
-                'loginLabel' => 'Entrar al panel mariachi',
+                'loginLabel' => 'Entrar cuando mi cuenta este activa',
                 'expiresInDays' => $this->expiresInDays,
-                'securityLine' => 'Este enlace caduca en '.$this->expiresInDays.' días. Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicará ningún cambio.',
+                'securityLine' => 'Si no solicitaste esta cuenta, puedes ignorar este correo y no se aplicara ningun cambio.',
                 'closingLine' => $displayName !== ''
                     ? 'Gracias, '.$displayName.'.'
                     : 'Gracias por unirte a Mariachis.co.',

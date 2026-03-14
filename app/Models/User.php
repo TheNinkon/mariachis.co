@@ -26,6 +26,7 @@ class User extends Authenticatable
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
+    public const STATUS_PENDING_ACTIVATION = 'pending_activation';
 
     /**
      * The attributes that are mass assignable.
@@ -41,6 +42,8 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'activation_token',
+        'activation_paid_at',
         'auth_provider',
         'auth_provider_id',
     ];
@@ -64,6 +67,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'activation_paid_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -137,6 +141,11 @@ class User extends Authenticatable
         return $this->hasMany(VerificationRequest::class, 'reviewed_by_user_id');
     }
 
+    public function activationPayments(): HasMany
+    {
+        return $this->hasMany(AccountActivationPayment::class)->latest('id');
+    }
+
     public function getDisplayNameAttribute(): string
     {
         $fullName = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
@@ -162,6 +171,20 @@ class User extends Authenticatable
     public function isClient(): bool
     {
         return $this->role === self::ROLE_CLIENT;
+    }
+
+    public function requiresActivation(): bool
+    {
+        return $this->isMariachi() && $this->status === self::STATUS_PENDING_ACTIVATION;
+    }
+
+    public function accessStatusMessage(): string
+    {
+        return match ($this->status) {
+            self::STATUS_PENDING_ACTIVATION => 'Tu cuenta requiere activacion (pago pendiente).',
+            self::STATUS_INACTIVE => 'Tu cuenta esta desactivada. Contacta a soporte.',
+            default => 'Tu cuenta no esta disponible en este momento.',
+        };
     }
 
     public function sendPasswordResetNotification($token): void

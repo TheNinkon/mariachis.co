@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ClientMagicLinkMail;
 use App\Models\ClientLoginToken;
 use App\Models\User;
+use App\Services\SocialLoginSettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,9 +29,11 @@ class ClientLoginController extends Controller
     private const MAGIC_LINK_IP_MAX_ATTEMPTS = 12;
     private const MAGIC_LINK_DECAY_SECONDS = 900;
 
-    public function create(): View
+    public function create(SocialLoginSettingsService $socialLoginSettings): View
     {
-        return view('front.auth.client-login');
+        return view('front.auth.client-login', [
+            'socialProviders' => $socialLoginSettings->clientEnabledProviders(),
+        ]);
     }
 
     public function showEmailForm(Request $request): View

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\ClientForgotPasswordController;
 use App\Http\Controllers\Auth\ClientLoginController;
 use App\Http\Controllers\Auth\ClientRegistrationController;
 use App\Http\Controllers\Auth\ClientResetPasswordController;
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Client\ClientDashboardController;
 use App\Http\Controllers\Client\ClientFavoriteController;
 use App\Http\Controllers\Client\ClientQuoteConversationController;
@@ -79,7 +80,14 @@ Route::domain($publicHost)->group(function () use (
     Route::get('/resolver-anuncios', [PublicListingCollectionController::class, 'resolve'])->name('public.listings.resolve');
     Route::get('/@{handle}', [PublicProviderController::class, 'show'])
         ->where('handle', '[a-z0-9-]+')
+        ->defaults('section', 'perfil')
         ->name('mariachi.provider.public.show');
+    Route::get('/@{handle}/{section}', [PublicProviderController::class, 'show'])
+        ->where([
+            'handle' => '[a-z0-9-]+',
+            'section' => 'perfil|anuncios|cobertura|redes',
+        ])
+        ->name('mariachi.provider.public.section');
     Route::get('/mariachis/{citySlug}/{scopeSlug}', [SeoLandingController::class, 'showCityCategory'])
         ->where(['citySlug' => $seoLandingSlugPattern, 'scopeSlug' => $seoLandingSlugPattern])
         ->name('seo.landing.city-category');
@@ -89,6 +97,12 @@ Route::domain($publicHost)->group(function () use (
 
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [ClientLoginController::class, 'create'])->name('client.login');
+        Route::get('/auth/{provider}', [SocialAuthController::class, 'redirect'])
+            ->where('provider', 'google|facebook')
+            ->name('client.social.redirect');
+        Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+            ->where('provider', 'google|facebook')
+            ->name('client.social.callback');
         Route::get('/login/email', [ClientLoginController::class, 'showEmailForm'])->name('client.login.email');
         Route::post('/login/email', [ClientLoginController::class, 'captureEmail'])->name('client.login.email.capture');
         Route::get('/login/email/opciones', [ClientLoginController::class, 'showEmailOptions'])->name('client.login.email.options');

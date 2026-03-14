@@ -87,7 +87,7 @@ class PublicMarketplaceTest extends TestCase
         $response->assertSee('rel="canonical"', false);
     }
 
-    public function test_public_provider_handle_page_returns_404_when_profile_is_not_published(): void
+    public function test_public_provider_handle_page_is_accessible_for_active_profile_without_listings(): void
     {
         $user = User::factory()->create([
             'role' => User::ROLE_MARIACHI,
@@ -103,6 +103,30 @@ class PublicMarketplaceTest extends TestCase
             'profile_completed' => false,
             'profile_completion' => 20,
             'stage_status' => 'profile_incomplete',
+        ]);
+        $profile->ensureSlug();
+
+        $this->get('/@'.$profile->slug)
+            ->assertOk()
+            ->assertSee('Mariachi Privado');
+    }
+
+    public function test_public_provider_handle_page_returns_404_when_owner_is_not_active(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_INACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Oculto',
+            'responsible_name' => 'Responsable',
+            'short_description' => 'Perfil con cuenta inactiva.',
+            'profile_completed' => true,
+            'profile_completion' => 100,
+            'stage_status' => 'profile_complete',
         ]);
         $profile->ensureSlug();
 

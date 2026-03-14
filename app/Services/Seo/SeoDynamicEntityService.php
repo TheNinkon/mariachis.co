@@ -400,7 +400,7 @@ class SeoDynamicEntityService
             'canonical_path' => '/@'.$entity->slug,
             'name' => $providerName,
             'description' => $entity->short_description ?: $entity->full_description,
-            'image' => $entity->logo_path ? asset('storage/'.$entity->logo_path) : null,
+            'image' => $entity->shouldShowProfilePhoto() ? asset('storage/'.$entity->logo_path) : null,
             'city_name' => $entity->city_name ?: 'Colombia',
             'area_served' => array_values(array_filter([
                 $entity->city_name,

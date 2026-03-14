@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CatalogSuggestion;
+use App\Models\EventType;
 use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\MarketplaceCity;
@@ -254,5 +255,125 @@ class MariachiListingLocationTest extends TestCase
         $this->assertTrue($renderedFaqs->take(3)->every(fn (array $faq): bool => $faq['is_system'] === true));
         $this->assertFalse($renderedFaqs->last()['is_system']);
         $this->assertSame('¿Cuánto dura el show?', $renderedFaqs->last()['question']);
+    }
+
+    public function test_listing_description_is_sanitized_on_save_and_rendered_safely_in_the_editor(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Centro',
+            'responsible_name' => 'Carlos',
+            'subscription_plan_code' => 'basic',
+            'subscription_listing_limit' => 1,
+            'subscription_active' => true,
+        ]);
+
+        $listing = MariachiListing::query()->create([
+            'mariachi_profile_id' => $profile->id,
+            'title' => 'Mariachi para eventos',
+            'short_description' => 'Serenatas y bodas',
+            'description' => 'Show completo.',
+            'base_price' => 350000,
+            'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'is_active' => false,
+        ]);
+
+        $unsafeDescription = '<p onmouseover="alert(1)">Hola <strong data-test="1">mundo</strong></p>'
+            .'<script>alert(1)</script>'
+            .'<img src="x" onerror="alert(1)">'
+            .'<h2>Repertorio</h2>'
+            .'<a href="javascript:alert(1)">inseguro</a>'
+            .'<a href="https://example.com">seguro</a>';
+
+        $this->actingAs($user)
+            ->patch(route('mariachi.listings.update', ['listing' => $listing->id]), [
+                'title' => $listing->title,
+                'short_description' => $listing->short_description,
+                'description' => $unsafeDescription,
+                'base_price' => 350000,
+            ])
+            ->assertRedirect();
+
+        $listing->refresh();
+
+        $this->assertNotNull($listing->description);
+        $this->assertStringContainsString('<strong>mundo</strong>', $listing->description);
+        $this->assertStringContainsString('<h2>Repertorio</h2>', $listing->description);
+        $this->assertStringContainsString('href="https://example.com"', $listing->description);
+        $this->assertStringNotContainsString('<script', $listing->description);
+        $this->assertStringNotContainsString('<img', $listing->description);
+        $this->assertStringNotContainsString('javascript:', $listing->description);
+        $this->assertStringNotContainsString('onmouseover', $listing->description);
+
+        $this->actingAs($user)
+            ->get(route('mariachi.listings.edit', ['listing' => $listing->id]))
+            ->assertOk()
+            ->assertDontSee('javascript:alert(1)', false)
+            ->assertDontSee('onmouseover', false)
+            ->assertSee('Repertorio')
+            ->assertSee('seguro');
+    }
+
+    public function test_listing_update_rejects_more_event_types_than_the_plan_allows(): void
+    {
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $profile = MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'city_name' => 'Bogota',
+            'business_name' => 'Mariachi Centro',
+            'responsible_name' => 'Carlos',
+            'subscription_plan_code' => 'basic',
+            'subscription_listing_limit' => 1,
+            'subscription_active' => true,
+        ]);
+
+        $listing = MariachiListing::query()->create([
+            'mariachi_profile_id' => $profile->id,
+            'title' => 'Mariachi para eventos',
+            'short_description' => 'Serenatas y bodas',
+            'description' => 'Show completo.',
+            'base_price' => 350000,
+            'status' => MariachiListing::STATUS_DRAFT,
+            'review_status' => MariachiListing::REVIEW_DRAFT,
+            'payment_status' => MariachiListing::PAYMENT_NONE,
+            'is_active' => false,
+        ]);
+
+        $eventTypeIds = collect(range(1, 4))->map(function (int $index): int {
+            return EventType::query()->create([
+                'name' => 'Evento '.$index,
+                'slug' => 'evento-'.$index,
+                'icon' => 'sparkles',
+                'sort_order' => $index,
+                'is_featured' => false,
+                'is_active' => true,
+            ])->id;
+        })->all();
+
+        $this->actingAs($user)
+            ->from(route('mariachi.listings.edit', ['listing' => $listing->id]))
+            ->patch(route('mariachi.listings.update', ['listing' => $listing->id]), [
+                'title' => $listing->title,
+                'short_description' => $listing->short_description,
+                'description' => $listing->description,
+                'base_price' => 350000,
+                'event_type_ids' => $eventTypeIds,
+            ])
+            ->assertRedirect(route('mariachi.listings.edit', ['listing' => $listing->id]))
+            ->assertSessionHasErrors('event_type_ids');
+
+        $this->assertSame(0, $listing->eventTypes()->count());
     }
 }

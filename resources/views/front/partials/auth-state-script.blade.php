@@ -31,6 +31,10 @@
           'count' => (int) $row->total,
       ])
       ->values();
+  $footerPrimaryCity = $footerCities->first();
+  $footerPrimaryCityUrl = $footerPrimaryCity
+      ? route('seo.landing.slug', ['slug' => $footerPrimaryCity['slug']])
+      : route('home');
 @endphp
 <script>
   window.__MM_AUTH__ = {
@@ -43,5 +47,10 @@
   };
   window.__MM_FOOTER__ = {
     cities: @json($footerCities),
+    urls: {
+      signup: @json(route('mariachi.register')),
+      city: @json($footerPrimaryCityUrl),
+      blog: @json(route('blog.index')),
+    },
   };
 </script>

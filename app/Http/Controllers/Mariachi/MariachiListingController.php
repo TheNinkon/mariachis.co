@@ -22,6 +22,8 @@ use App\Services\MediaProtectionService;
 use App\Services\NequiPaymentSettingsService;
 use App\Services\PlanAssignmentService;
 use App\Services\SubscriptionCapabilityService;
+use App\Support\Entitlements\EntitlementKey;
+use App\Support\ListingDescriptionSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +41,8 @@ class MariachiListingController extends Controller
         private readonly PlanAssignmentService $planAssignmentService,
         private readonly MediaProtectionService $mediaProtectionService,
         private readonly GoogleMapsSettingsService $googleMapsSettings,
-        private readonly NequiPaymentSettingsService $nequiSettings
+        private readonly NequiPaymentSettingsService $nequiSettings,
+        private readonly ListingDescriptionSanitizer $listingDescriptionSanitizer
     ) {
     }
 
@@ -99,7 +102,8 @@ class MariachiListingController extends Controller
 
         return redirect()
             ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Borrador listo. Cambia el titulo, la descripcion corta y el precio base para continuar.');
+            ->with('status', 'Borrador listo. Cambia el titulo, la descripcion corta y el precio base para continuar.')
+            ->with('force_listing_step', 'basic');
     }
 
     public function store(Request $request): RedirectResponse
@@ -129,7 +133,8 @@ class MariachiListingController extends Controller
 
         return redirect()
             ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Borrador creado. Completa el anuncio, elige plan y luego envíalo a revisión.');
+            ->with('status', 'Borrador creado. Completa el anuncio, elige plan y luego envíalo a revisión.')
+            ->with('force_listing_step', 'basic');
     }
 
     public function plans(MariachiListing $listing): View
@@ -167,10 +172,24 @@ class MariachiListingController extends Controller
 
         $validated = $request->validate([
             'plan_code' => ['required', Rule::in(array_keys($plans))],
+            'term_months' => ['nullable', 'integer', 'min:1', 'max:36'],
         ]);
 
         $planCode = $validated['plan_code'];
         $selectedPlan = $plans[$planCode];
+        $requestedTermMonths = isset($validated['term_months']) ? (int) $validated['term_months'] : null;
+
+        if ($requestedTermMonths !== null && ! isset($selectedPlan['terms'][$requestedTermMonths])) {
+            return $this->planSelectionResponse(
+                $request,
+                false,
+                'La duracion elegida no esta disponible para este plan.',
+                route('mariachi.listings.edit', ['listing' => $listing->id]),
+                422
+            );
+        }
+
+        $selectedTerm = $this->resolvePlanBillingTerm($selectedPlan, $requestedTermMonths);
 
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
@@ -182,12 +201,16 @@ class MariachiListingController extends Controller
             ->first();
         abort_unless($planModel, 422);
 
-        if ($listing->payment_status === MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $planCode) {
+        if (
+            $listing->payment_status === MariachiListing::PAYMENT_APPROVED
+            && $listing->selected_plan_code === $planCode
+            && (int) ($listing->plan_duration_months ?: 1) === (int) $selectedTerm['months']
+        ) {
             return $this->planSelectionResponse(
                 $request,
                 true,
                 'Ese plan ya esta aprobado para este anuncio.',
-                route('mariachi.listings.plans', ['listing' => $listing->id])
+                route('mariachi.listings.edit', ['listing' => $listing->id])
             );
         }
 
@@ -196,13 +219,14 @@ class MariachiListingController extends Controller
                 $request,
                 false,
                 'Ya enviaste un comprobante. Espera la validacion del admin antes de cambiar el plan.',
-                route('mariachi.listings.plans', ['listing' => $listing->id]),
+                route('mariachi.listings.edit', ['listing' => $listing->id]),
                 409
             );
         }
 
         $listing->update([
             'selected_plan_code' => $planCode,
+            'plan_duration_months' => (int) $selectedTerm['months'],
             'plan_selected_at' => now(),
             'payment_status' => MariachiListing::PAYMENT_NONE,
             'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
@@ -220,8 +244,8 @@ class MariachiListingController extends Controller
         return $this->planSelectionResponse(
             $request,
             true,
-            'Plan seleccionado ('.$selectedPlan['name'].'). Ahora paga por Nequi y sube el comprobante.',
-            route('mariachi.listings.plans', ['listing' => $listing->id])
+            'Plan seleccionado ('.$selectedPlan['name'].' · '.$selectedTerm['label'].'). Ahora paga por Nequi y sube el comprobante.',
+            route('mariachi.listings.edit', ['listing' => $listing->id])
         );
     }
 
@@ -253,6 +277,7 @@ class MariachiListingController extends Controller
         $validated = $request->validate([
             'listing_id' => ['required', 'integer'],
             'plan_code' => ['required', Rule::in(array_keys($plans))],
+            'term_months' => ['nullable', 'integer', 'min:1', 'max:36'],
             'amount_cop' => ['required', 'integer', 'min:0'],
             'proof_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'reference_text' => ['nullable', 'string', 'max:120'],
@@ -264,6 +289,16 @@ class MariachiListingController extends Controller
 
         $planCode = $validated['plan_code'];
         $selectedPlan = $plans[$planCode];
+        $requestedTermMonths = isset($validated['term_months'])
+            ? (int) $validated['term_months']
+            : (int) ($listing->plan_duration_months ?: 1);
+        if (! isset($selectedPlan['terms'][$requestedTermMonths])) {
+            return back()->withErrors([
+                'term_months' => 'La duracion elegida no esta disponible para este plan.',
+            ]);
+        }
+
+        $selectedTerm = $selectedPlan['terms'][$requestedTermMonths];
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
 
@@ -274,7 +309,7 @@ class MariachiListingController extends Controller
             ->first();
         abort_unless($planModel, 422);
 
-        if ((int) $validated['amount_cop'] !== (int) $selectedPlan['price_cop']) {
+        if ((int) $validated['amount_cop'] !== (int) $selectedTerm['total_price_cop']) {
             return back()->withErrors([
                 'amount_cop' => 'El monto enviado no coincide con el valor configurado para este plan.',
             ]);
@@ -285,7 +320,8 @@ class MariachiListingController extends Controller
         $listing->payments()->create([
             'mariachi_profile_id' => $profile->id,
             'plan_code' => $planCode,
-            'amount_cop' => (int) $selectedPlan['price_cop'],
+            'duration_months' => (int) $selectedTerm['months'],
+            'amount_cop' => (int) $selectedTerm['total_price_cop'],
             'method' => ListingPayment::METHOD_NEQUI,
             'proof_path' => $proofPath,
             'status' => ListingPayment::STATUS_PENDING,
@@ -294,6 +330,7 @@ class MariachiListingController extends Controller
 
         $listing->update([
             'selected_plan_code' => $planCode,
+            'plan_duration_months' => (int) $selectedTerm['months'],
             'plan_selected_at' => now(),
             'payment_status' => MariachiListing::PAYMENT_PENDING,
             'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
@@ -307,21 +344,13 @@ class MariachiListingController extends Controller
         ]);
 
         return redirect()
-            ->route('mariachi.listings.plans', ['listing' => $listing->id])
+            ->route('mariachi.listings.edit', ['listing' => $listing->id])
             ->with('status', 'Comprobante enviado. El equipo admin validara tu pago antes de publicar el anuncio.');
     }
 
     public function edit(MariachiListing $listing): View|RedirectResponse
     {
         $this->ensureOwned($listing);
-
-        if ($listing->isPaymentPending()) {
-            return redirect()
-                ->route('mariachi.listings.plans', ['listing' => $listing->id])
-                ->withErrors([
-                    'listing' => 'Pago enviado, esperando validacion. No puedes editar este anuncio mientras revisamos el comprobante.',
-                ]);
-        }
 
         if ($listing->isPendingReview()) {
             return redirect()
@@ -361,7 +390,9 @@ class MariachiListingController extends Controller
             'listingIssues' => $this->entitlementsService->listingAdjustmentIssues($listing),
             'maxCitiesAllowed' => $maxCitiesAllowed,
             'plans' => $this->availablePlans(),
+            'nequi' => $this->nequiSettings->publicConfig(),
             'googleMaps' => $this->googleMapsSettings->publicConfig(),
+            'editorDescription' => $this->listingDescriptionSanitizer->sanitize($listing->description),
             'eventTypes' => EventType::query()->active()->ordered()->get(['id', 'name', 'slug', 'icon']),
             'serviceTypes' => ServiceType::query()->active()->ordered()->get(['id', 'name', 'slug', 'icon']),
             'groupSizeOptions' => GroupSizeOption::query()->active()->ordered()->get(['id', 'name', 'slug', 'icon']),
@@ -385,7 +416,7 @@ class MariachiListingController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:180'],
             'short_description' => ['required', 'string', 'max:280'],
-            'description' => ['nullable', 'string', 'max:5000'],
+            'description' => ['nullable', 'string', 'max:12000'],
             'base_price' => ['nullable', 'numeric', 'min:0'],
             'city_name' => ['nullable', 'string', 'max:120'],
             'zone_name' => ['nullable', 'string', 'max:120'],
@@ -435,8 +466,21 @@ class MariachiListingController extends Controller
 
         $profile = $listing->mariachiProfile;
         abort_unless($profile, 404);
+        $validated['description'] = $this->listingDescriptionSanitizer->sanitize($validated['description'] ?? null);
+        $validated = $this->normalizeListingSelectionInputs($validated);
+
+        $filterLimitErrors = $this->filterSelectionLimitErrors(
+            $validated,
+            $this->capabilityService->resolveCapabilities($profile, $listing)
+        );
+        if ($filterLimitErrors !== []) {
+            return back()->withInput()->withErrors($filterLimitErrors);
+        }
 
         $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile, $listing);
+        if ($maxZonesCovered <= 1) {
+            $validated['travels_to_other_cities'] = false;
+        }
         if ($zones->count() > $maxZonesCovered) {
             return back()
                 ->withInput()
@@ -464,7 +508,7 @@ class MariachiListingController extends Controller
             'longitude' => $validated['longitude'] ?? null,
             'google_place_id' => $validated['google_place_id'] ?? null,
             'google_location_payload' => $this->decodeGooglePayload($validated['google_location_payload'] ?? null),
-            'travels_to_other_cities' => $request->boolean('travels_to_other_cities'),
+            'travels_to_other_cities' => (bool) ($validated['travels_to_other_cities'] ?? false),
         ] + $reviewResetPayload);
 
         $listing->eventTypes()->sync($validated['event_type_ids'] ?? []);
@@ -492,7 +536,7 @@ class MariachiListingController extends Controller
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:180'],
             'short_description' => ['nullable', 'string', 'max:280'],
-            'description' => ['nullable', 'string', 'max:5000'],
+            'description' => ['nullable', 'string', 'max:12000'],
             'base_price' => ['nullable', 'numeric', 'min:0'],
             'city_name' => ['nullable', 'string', 'max:120'],
             'zone_name' => ['nullable', 'string', 'max:120'],
@@ -531,12 +575,49 @@ class MariachiListingController extends Controller
         ]);
 
         $syncAll = $request->boolean('autosave_sync');
+        $profile = $listing->mariachiProfile;
+        abort_unless($profile, 404);
+        if (array_key_exists('description', $validated)) {
+            $validated['description'] = $this->listingDescriptionSanitizer->sanitize($validated['description'] ?? null);
+        }
+        $validated = $this->normalizeListingSelectionInputs($validated);
+
+        $filterLimitErrors = $this->filterSelectionLimitErrors(
+            $validated,
+            $this->capabilityService->resolveCapabilities($profile, $listing)
+        );
+        if ($filterLimitErrors !== []) {
+            return response()->json([
+                'ok' => false,
+                'message' => array_values($filterLimitErrors)[0],
+                'errors' => $filterLimitErrors,
+            ], 422);
+        }
+
         [$city, $cityName] = $this->resolveListingCity($validated, $listing);
         [$zones, $zoneName] = $this->resolveListingZones($validated, $city);
+
+        if ($city && $zones->contains(fn (MarketplaceZone $zone): bool => (int) $zone->marketplace_city_id !== (int) $city->id)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Las zonas seleccionadas deben pertenecer a la ciudad principal del anuncio.',
+            ], 422);
+        }
+
+        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile, $listing);
+        if ($zones->count() > $maxZonesCovered) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Tu plan permite hasta '.$maxZonesCovered.' zona(s) por anuncio.',
+            ], 422);
+        }
 
         $travelsToOtherCities = array_key_exists('travels_to_other_cities', $validated)
             ? $request->boolean('travels_to_other_cities')
             : $listing->travels_to_other_cities;
+        if ($maxZonesCovered <= 1) {
+            $travelsToOtherCities = false;
+        }
         $shouldResetReview = $this->shouldResetReviewAfterFormChange($listing, $validated, $city, $cityName, $zones, $zoneName);
         $reviewResetPayload = $shouldResetReview ? $this->reviewResetPayloadOnOwnerChange($listing) : [];
 
@@ -572,24 +653,6 @@ class MariachiListingController extends Controller
         }
         if ($syncAll || array_key_exists('budget_range_ids', $validated)) {
             $listing->budgetRanges()->sync($validated['budget_range_ids'] ?? []);
-        }
-
-        if ($city && $zones->contains(fn (MarketplaceZone $zone): bool => (int) $zone->marketplace_city_id !== (int) $city->id)) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Las zonas seleccionadas deben pertenecer a la ciudad principal del anuncio.',
-            ], 422);
-        }
-
-        $profile = $listing->mariachiProfile;
-        abort_unless($profile, 404);
-
-        $maxZonesCovered = $this->entitlementsService->maxZonesCovered($profile, $listing);
-        if ($zones->count() > $maxZonesCovered) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Tu plan permite hasta '.$maxZonesCovered.' zona(s) por anuncio.',
-            ], 422);
         }
 
         if ($syncAll || array_key_exists('zone_ids', $validated) || array_key_exists('primary_marketplace_zone_id', $validated)) {
@@ -1119,55 +1182,144 @@ class MariachiListingController extends Controller
             ->orderBy('id')
             ->get();
 
-        if ($plans->isNotEmpty()) {
-            return $plans
-                ->mapWithKeys(fn (Plan $plan): array => [
-                    $plan->code => [
-                        'id' => $plan->id,
-                        'code' => $plan->code,
-                        'slug' => $plan->slug,
-                        'name' => $plan->name,
-                        'badge_text' => $plan->badge_text,
-                        'is_public' => (bool) $plan->is_public,
-                        'price_cop' => (int) $plan->price_cop,
-                        'listing_limit' => (int) ($plan->entitlementValue('max_listings_total', $plan->listing_limit) ?? 1),
-                        'included_cities' => (int) ($plan->entitlementValue('max_cities_covered', $plan->included_cities) ?? 1),
-                        'max_zones_covered' => (int) ($plan->entitlementValue('max_zones_covered', max(5, $plan->included_cities * 5)) ?? 5),
-                        'max_photos_per_listing' => (int) ($plan->entitlementValue('max_photos_per_listing', $plan->max_photos_per_listing) ?? 0),
-                        'can_add_video' => (bool) ($plan->entitlementValue('can_add_video', $plan->max_videos_per_listing > 0) ?? false),
-                        'max_videos_per_listing' => (int) ($plan->entitlementValue('max_videos_per_listing', $plan->max_videos_per_listing) ?? 0),
-                        'show_whatsapp' => (bool) ($plan->entitlementValue('can_show_whatsapp', $plan->show_whatsapp) ?? false),
-                        'show_phone' => (bool) ($plan->entitlementValue('can_show_phone', $plan->show_phone) ?? false),
-                        'description' => $plan->description ?: 'Paquete configurable para anuncios de mariachi.',
-                    ],
-                ])
-                ->all();
-        }
+        return $plans->reduce(function (array $carry, Plan $plan): array {
+            $planTerms = $this->resolvePlanPricingTermsFromEntitlements($plan);
+            $billingTerms = $this->buildPlanBillingTerms((int) $plan->price_cop, $planTerms);
 
-        return collect((array) config('monetization.plans', []))
-            ->mapWithKeys(function (array $plan, string $code): array {
+            if ($billingTerms === []) {
+                return $carry;
+            }
+
+            $carry[$plan->code] = [
+                'id' => $plan->id,
+                'code' => $plan->code,
+                'slug' => $plan->slug,
+                'name' => $plan->name,
+                'badge_text' => $plan->badge_text,
+                'is_public' => (bool) $plan->is_public,
+                'price_cop' => (int) $plan->price_cop,
+                'billing_cycle' => (string) ($plan->billing_cycle ?: 'monthly'),
+                'listing_limit' => (int) ($plan->entitlementValue('max_listings_total', $plan->listing_limit) ?? 1),
+                'included_cities' => (int) ($plan->entitlementValue('max_cities_covered', $plan->included_cities) ?? 1),
+                'max_zones_covered' => (int) ($plan->entitlementValue('max_zones_covered', max(5, $plan->included_cities * 5)) ?? 5),
+                'max_photos_per_listing' => (int) ($plan->entitlementValue('max_photos_per_listing', $plan->max_photos_per_listing) ?? 0),
+                'can_add_video' => (bool) ($plan->entitlementValue('can_add_video', $plan->max_videos_per_listing > 0) ?? false),
+                'max_videos_per_listing' => (int) ($plan->entitlementValue('max_videos_per_listing', $plan->max_videos_per_listing) ?? 0),
+                'max_event_types' => (int) ($plan->entitlementValue('max_event_types', 3) ?? 3),
+                'max_service_types' => (int) ($plan->entitlementValue('max_service_types', 1) ?? 1),
+                'max_group_sizes' => (int) ($plan->entitlementValue('max_group_sizes', 1) ?? 1),
+                'max_budget_ranges' => (int) ($plan->entitlementValue('max_budget_ranges', 3) ?? 3),
+                'show_whatsapp' => (bool) ($plan->entitlementValue('can_show_whatsapp', $plan->show_whatsapp) ?? false),
+                'show_phone' => (bool) ($plan->entitlementValue('can_show_phone', $plan->show_phone) ?? false),
+                'description' => $plan->description ?: 'Paquete configurable para anuncios de mariachi.',
+                'terms' => $billingTerms,
+                'default_term_months' => $this->defaultPlanBillingTermMonths($planTerms),
+            ];
+
+            return $carry;
+        }, []);
+    }
+
+    /**
+     * @return array<int, array{months:int,label:string,short_label:string,discount_percent:int,highlight:string}>
+     */
+    private function resolvePlanPricingTermsFromEntitlements(Plan $plan): array
+    {
+        return collect([
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_MONTHS, 0) ?? 0),
+                'discount_percent' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_MONTHS, 0) ?? 0),
+                'discount_percent' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_MONTHS, 0) ?? 0),
+                'discount_percent' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+        ])
+            ->map(function (array $term): array {
+                $months = max(0, (int) ($term['months'] ?? 0));
+                $discount = max(0, min(100, (int) ($term['discount_percent'] ?? 0)));
+
                 return [
-                    $code => [
-                        'id' => null,
-                        'code' => $code,
-                        'slug' => null,
-                        'name' => (string) ($plan['name'] ?? strtoupper($code)),
-                        'badge_text' => $plan['badge_text'] ?? null,
-                        'is_public' => (bool) ($plan['is_public'] ?? true),
-                        'price_cop' => (int) ($plan['price_cop'] ?? 0),
-                        'listing_limit' => (int) ($plan['listing_limit'] ?? 1),
-                        'included_cities' => (int) ($plan['included_cities'] ?? 1),
-                        'max_zones_covered' => (int) (($plan['entitlements']['max_zones_covered'] ?? null) ?: max(5, (int) ($plan['included_cities'] ?? 1) * 5)),
-                        'max_photos_per_listing' => (int) ($plan['max_photos_per_listing'] ?? 5),
-                        'can_add_video' => (bool) (($plan['entitlements']['can_add_video'] ?? null) ?? (($plan['max_videos_per_listing'] ?? 0) > 0)),
-                        'max_videos_per_listing' => (int) ($plan['max_videos_per_listing'] ?? 0),
-                        'show_whatsapp' => (bool) ($plan['show_whatsapp'] ?? false),
-                        'show_phone' => (bool) ($plan['show_phone'] ?? false),
-                        'description' => (string) ($plan['description'] ?? 'Plan base para anuncios de mariachi.'),
-                    ],
+                    'months' => $months,
+                    'label' => $this->listingTermLabel($months),
+                    'short_label' => $months <= 1 ? 'Mensual' : $months.'m',
+                    'discount_percent' => $discount,
+                    'highlight' => $discount > 0 ? 'Ahorra '.$discount.'%' : 'Precio regular',
                 ];
             })
+            ->filter(fn (array $term): bool => $term['months'] > 0)
+            ->sortBy('months')
+            ->keyBy('months')
             ->all();
+    }
+
+    private function listingTermLabel(int $months): string
+    {
+        return $months === 1 ? '1 mes' : $months.' meses';
+    }
+
+    /**
+     * @return array<int, array{months:int,label:string,short_label:string,discount_percent:int,discount_amount_cop:int,subtotal_price_cop:int,total_price_cop:int,monthly_equivalent_cop:int,savings_copy:string,highlight:string}>
+     */
+    private function buildPlanBillingTerms(int $monthlyPriceCop, array $termDefinitions): array
+    {
+        $terms = [];
+        $definitions = $termDefinitions;
+
+        foreach ($definitions as $months => $term) {
+            $subtotal = max(0, $monthlyPriceCop) * $months;
+            $discountAmount = (int) round($subtotal * ($term['discount_percent'] / 100));
+            $total = max(0, $subtotal - $discountAmount);
+
+            $terms[$months] = [
+                'months' => $months,
+                'label' => $term['label'],
+                'short_label' => $term['short_label'],
+                'discount_percent' => $term['discount_percent'],
+                'discount_amount_cop' => $discountAmount,
+                'subtotal_price_cop' => $subtotal,
+                'total_price_cop' => $total,
+                'monthly_equivalent_cop' => (int) round($total / max(1, $months)),
+                'savings_copy' => $term['discount_percent'] > 0
+                    ? 'Ahorras '.$term['discount_percent'].'%'
+                    : 'Precio regular',
+                'highlight' => $term['highlight'],
+            ];
+        }
+
+        return $terms;
+    }
+
+    /**
+     * @param  array<string, mixed>  $plan
+     * @return array{months:int,label:string,short_label:string,discount_percent:int,discount_amount_cop:int,subtotal_price_cop:int,total_price_cop:int,monthly_equivalent_cop:int,savings_copy:string,highlight:string}
+     */
+    private function resolvePlanBillingTerm(array $plan, ?int $requestedMonths = null): array
+    {
+        $terms = (array) ($plan['terms'] ?? []);
+
+        if ($requestedMonths !== null && isset($terms[$requestedMonths])) {
+            return $terms[$requestedMonths];
+        }
+
+        $defaultMonths = (int) ($plan['default_term_months'] ?? $this->defaultPlanBillingTermMonths($terms));
+
+        if (isset($terms[$defaultMonths])) {
+            return $terms[$defaultMonths];
+        }
+
+        return (array) reset($terms);
+    }
+
+    private function defaultPlanBillingTermMonths(?array $terms = null): int
+    {
+        $resolvedTerms = is_array($terms) ? $terms : [];
+
+        return (int) array_key_first($resolvedTerms) ?: 1;
     }
 
     private function ensureOwned(MariachiListing $listing): void
@@ -1411,12 +1563,78 @@ class MariachiListingController extends Controller
         return $rows;
     }
 
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeListingSelectionInputs(array $validated): array
+    {
+        foreach (['event_type_ids', 'service_type_ids', 'group_size_option_ids', 'budget_range_ids', 'zone_ids'] as $key) {
+            if (! array_key_exists($key, $validated)) {
+                continue;
+            }
+
+            $validated[$key] = $this->normalizedIdList((array) $validated[$key]);
+        }
+
+        if (array_key_exists('travels_to_other_cities', $validated)) {
+            $validated['travels_to_other_cities'] = (bool) $validated['travels_to_other_cities'];
+        }
+
+        return $validated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @param  array<string, mixed>  $capabilities
+     * @return array<string, string>
+     */
+    private function filterSelectionLimitErrors(array $validated, array $capabilities): array
+    {
+        $limits = [
+            'event_type_ids' => [
+                'limit' => max(0, (int) ($capabilities[EntitlementKey::MAX_EVENT_TYPES] ?? $capabilities['max_event_types'] ?? 0)),
+                'label' => 'tipos de evento',
+            ],
+            'service_type_ids' => [
+                'limit' => max(0, (int) ($capabilities[EntitlementKey::MAX_SERVICE_TYPES] ?? $capabilities['max_service_types'] ?? 0)),
+                'label' => 'tipos de servicio',
+            ],
+            'group_size_option_ids' => [
+                'limit' => max(0, (int) ($capabilities[EntitlementKey::MAX_GROUP_SIZES] ?? $capabilities['max_group_sizes'] ?? 0)),
+                'label' => 'tamanos de grupo',
+            ],
+            'budget_range_ids' => [
+                'limit' => max(0, (int) ($capabilities[EntitlementKey::MAX_BUDGET_RANGES] ?? $capabilities['max_budget_ranges'] ?? 0)),
+                'label' => 'rangos de presupuesto',
+            ],
+        ];
+
+        $errors = [];
+
+        foreach ($limits as $key => $meta) {
+            if (! array_key_exists($key, $validated)) {
+                continue;
+            }
+
+            $selected = $this->normalizedIdList((array) $validated[$key]);
+            if (count($selected) <= $meta['limit']) {
+                continue;
+            }
+
+            $errors[$key] = 'Tu plan permite hasta '.$meta['limit'].' '.$meta['label'].' por anuncio.';
+        }
+
+        return $errors;
+    }
+
     private function providerProfile(): MariachiProfile
     {
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
         $profile = $user->mariachiProfile()->firstOrCreate([], [
+            'business_name' => $user->display_name,
             'city_name' => null,
             'profile_completed' => false,
             'profile_completion' => 0,
@@ -1426,6 +1644,22 @@ class MariachiListingController extends Controller
             'subscription_listing_limit' => 1,
             'subscription_active' => true,
         ]);
+
+        $shouldRefresh = false;
+
+        if (! filled($profile->business_name)) {
+            $profile->ensureBusinessNameFromUser();
+            $shouldRefresh = true;
+        }
+
+        if (! filled($profile->slug) && ! $profile->slug_locked) {
+            $profile->ensureSlug();
+            $shouldRefresh = true;
+        }
+
+        if ($shouldRefresh) {
+            $profile->refresh();
+        }
 
         $this->ensureDefaultSubscription($profile);
 

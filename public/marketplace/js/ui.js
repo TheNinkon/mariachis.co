@@ -868,19 +868,32 @@
   }
 
   function getFooterState() {
-    const fallback = { cities: [] };
+    const fallback = {
+      cities: [],
+      urls: {
+        signup: "/partner/signup",
+        city: "/",
+        blog: "/blog",
+      },
+    };
     const raw = window.__MM_FOOTER__;
     if (!raw || typeof raw !== "object") {
       return fallback;
     }
 
     const cities = Array.isArray(raw.cities) ? raw.cities : [];
+    const urls = raw.urls && typeof raw.urls === "object" ? raw.urls : {};
     return {
       cities: cities.slice(0, 5).map((item) => ({
         name: String(item.name || ""),
         slug: String(item.slug || ""),
         count: Number(item.count || 0),
       })),
+      urls: {
+        signup: String(urls.signup || fallback.urls.signup),
+        city: String(urls.city || fallback.urls.city),
+        blog: String(urls.blog || fallback.urls.blog),
+      },
     };
   }
 
@@ -888,6 +901,7 @@
     const authState = getClientAuthState();
     const authName = authState.firstName || "Mi cuenta";
     const authInitials = authState.initials || "C";
+    const menuIconClass = "h-[1.05rem] w-[1.05rem] shrink-0 text-slate-700";
 
     if (authState.isAuthenticated) {
       return `
@@ -910,15 +924,56 @@
                   </svg>
                 </button>
                 <div data-header-account-menu class="absolute right-0 top-[calc(100%+0.6rem)] z-50 hidden w-[17rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_28px_42px_-28px_rgba(15,23,42,0.6)]">
-                  <a href="/mi-cuenta/solicitudes" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Mi cuenta</a>
-                  <a href="/mi-cuenta/solicitudes" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Solicitudes / mensajería</a>
-                  <a href="/mi-cuenta/favoritos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Lista de deseos</a>
-                  <a href="/mi-cuenta/vistos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Vistos recientemente</a>
-                  <a href="/mi-cuenta/perfil" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Perfil</a>
-                  <a href="/mi-cuenta/seguridad" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Seguridad</a>
+                  <a href="/mi-cuenta/solicitudes" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
+                    </svg>
+                    <span>Mi cuenta</span>
+                  </a>
+                  <a href="/mi-cuenta/solicitudes" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 8.25v8.25a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5V8.25m19.5 0L15.75 3.75h-7.5L2.25 8.25m19.5 0v.75A2.25 2.25 0 0 1 19.5 11.25h-3.621a2.25 2.25 0 0 0-2.122 1.5l-.27.81a2.25 2.25 0 0 1-2.122 1.5H8.636a2.25 2.25 0 0 1-2.122-1.5l-.27-.81a2.25 2.25 0 0 0-2.122-1.5H2.25A2.25 2.25 0 0 1 0 9V8.25" />
+                    </svg>
+                    <span>Solicitudes / mensajería</span>
+                  </a>
+                  <a href="/mi-cuenta/favoritos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25s-6.75-4.35-8.625-8.4A4.875 4.875 0 0 1 12 6.375a4.875 4.875 0 0 1 8.625 5.475C18.75 15.9 12 20.25 12 20.25Z" />
+                    </svg>
+                    <span>Lista de deseos</span>
+                  </a>
+                  <a href="/mi-cuenta/vistos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3.75 2.25" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    </svg>
+                    <span>Vistos recientemente</span>
+                  </a>
+                  <a href="/mi-cuenta/perfil" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 21a5.25 5.25 0 1 1 10.5 0" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25A2.25 2.25 0 0 1 6 3h12a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 18 21H6a2.25 2.25 0 0 1-2.25-2.25V5.25Z" />
+                    </svg>
+                    <span>Perfil</span>
+                  </a>
+                  <a href="/mi-cuenta/seguridad" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7.875a4.5 4.5 0 1 0-9 0V10.5" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 10.5h13.5v8.25a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V10.5Z" />
+                    </svg>
+                    <span>Seguridad</span>
+                  </a>
                   <form method="POST" action="/auth/logout" class="border-t border-slate-100">
                     <input type="hidden" name="_token" value="${escapeHtml(authState.csrfToken)}" />
-                    <button type="submit" class="w-full px-4 py-3 text-left text-sm font-semibold text-brand-700 transition hover:bg-brand-100">Cerrar sesión</button>
+                    <button type="submit" class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold text-brand-700 transition hover:bg-brand-100">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass} text-brand-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6A2.25 2.25 0 0 0 5.25 5.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 12h9m0 0-3-3m3 3-3 3" />
+                      </svg>
+                      <span>Cerrar sesión</span>
+                    </button>
                   </form>
                 </div>
               </div>
@@ -945,10 +1000,34 @@
                 </svg>
               </button>
               <div data-header-account-menu class="absolute right-0 top-[calc(100%+0.6rem)] z-50 hidden w-[17rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_28px_42px_-28px_rgba(15,23,42,0.6)]">
-                <a href="/login" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Iniciar sesión / Registrarse</a>
-                <a href="/lista-de-deseos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Lista de deseos</a>
-                <a href="/vistos-recientemente" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Vistos recientemente</a>
-                <a href="#" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Ayuda</a>
+                <a href="/login" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 20.25a7.5 7.5 0 0 1 15 0" />
+                  </svg>
+                  <span>Iniciar sesión / Registrarse</span>
+                </a>
+                <a href="/lista-de-deseos" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25s-6.75-4.35-8.625-8.4A4.875 4.875 0 0 1 12 6.375a4.875 4.875 0 0 1 8.625 5.475C18.75 15.9 12 20.25 12 20.25Z" />
+                  </svg>
+                  <span>Lista de deseos</span>
+                </a>
+                <a href="/vistos-recientemente" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3.75 2.25" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  </svg>
+                  <span>Vistos recientemente</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="${menuIconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25h.008v.008h-.008v-.008Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 8.25a1.5 1.5 0 1 1 3 0c0 .965-.75 1.243-1.125 1.875-.19.32-.375.73-.375 1.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <span>Ayuda</span>
+                </a>
               </div>
             </div>
           </div>
@@ -981,11 +1060,9 @@
           <div>
             <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Marketplace</h3>
             <ul class="mt-4 grid gap-2 text-sm text-slate-200">
-              <li><a href="/#como-funciona" class="hover:text-white">Cómo funciona</a></li>
-              <li><a href="/#soy-mariachi" class="hover:text-white">Publica tu anuncio</a></li>
-              <li><a href="/mariachis/bogota" class="hover:text-white">Anuncios en tu ciudad</a></li>
-              <li><a href="/blog" class="hover:text-white">Blog</a></li>
-              <li><a href="#" class="hover:text-white">Centro de ayuda</a></li>
+              <li><a href="${escapeHtml(footerState.urls.signup)}" class="hover:text-white">Publica tu anuncio</a></li>
+              <li><a href="${escapeHtml(footerState.urls.city)}" class="hover:text-white">Anuncios en tu ciudad</a></li>
+              <li><a href="${escapeHtml(footerState.urls.blog)}" class="hover:text-white">Blog</a></li>
             </ul>
           </div>
         </div>

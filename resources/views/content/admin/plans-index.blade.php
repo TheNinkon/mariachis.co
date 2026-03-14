@@ -3,6 +3,10 @@
 @section('title', 'Paquetes')
 
 @section('content')
+  @php
+    use App\Support\Entitlements\EntitlementKey;
+  @endphp
+
   @if (session('status'))
     <div class="alert alert-success">{{ session('status') }}</div>
   @endif
@@ -99,7 +103,10 @@
         <h5 class="mb-1">Paquetes y capacidades</h5>
         <p class="mb-0 text-body-secondary">Define limites reales y features sin depender del nombre del plan.</p>
       </div>
-      <a href="{{ route('admin.plans.create') }}" class="btn btn-primary">Nuevo paquete</a>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ route('admin.profile-verification-plans.index') }}" class="btn btn-outline-primary">Verificacion de perfil</a>
+        <a href="{{ route('admin.plans.create') }}" class="btn btn-primary">Nuevo paquete</a>
+      </div>
     </div>
 
     <div class="table-responsive">
@@ -119,6 +126,22 @@
           @forelse ($plans as $plan)
             @php
               $entitlements = $plan->entitlements->mapWithKeys(fn ($entitlement): array => [$entitlement->key => $entitlement->value]);
+              $pricingSummary = collect([
+                [
+                  'months' => (int) ($entitlements[EntitlementKey::LISTING_TERM_PRIMARY_MONTHS] ?? 0),
+                  'discount' => (int) ($entitlements[EntitlementKey::LISTING_TERM_PRIMARY_DISCOUNT_PERCENT] ?? 0),
+                ],
+                [
+                  'months' => (int) ($entitlements[EntitlementKey::LISTING_TERM_SECONDARY_MONTHS] ?? 0),
+                  'discount' => (int) ($entitlements[EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT] ?? 0),
+                ],
+                [
+                  'months' => (int) ($entitlements[EntitlementKey::LISTING_TERM_TERTIARY_MONTHS] ?? 0),
+                  'discount' => (int) ($entitlements[EntitlementKey::LISTING_TERM_TERTIARY_DISCOUNT_PERCENT] ?? 0),
+                ],
+              ])->filter(fn (array $term): bool => $term['months'] > 0)
+                ->map(fn (array $term): string => $term['months'].'m'.($term['discount'] > 0 ? ' -'.$term['discount'].'%' : ''))
+                ->implode(' · ') ?: 'Sin vigencias guardadas';
             @endphp
             <tr>
               <td>
@@ -126,6 +149,7 @@
                   <span class="fw-semibold">{{ $plan->name }}</span>
                   <small class="text-muted">{{ $plan->code }}{{ $plan->badge_text ? ' · '.$plan->badge_text : '' }}</small>
                   <small class="text-muted">{{ $plan->description ?: 'Sin descripcion' }}</small>
+                  <small class="text-muted">Vigencias: {{ $pricingSummary }}</small>
                 </div>
               </td>
               <td>

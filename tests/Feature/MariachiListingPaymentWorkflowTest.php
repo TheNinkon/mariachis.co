@@ -14,6 +14,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\NequiPaymentSettingsService;
 use App\Services\SystemSettingService;
+use App\Support\Entitlements\EntitlementKey;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -48,6 +49,7 @@ class MariachiListingPaymentWorkflowTest extends TestCase
         $listing->refresh();
 
         $this->assertSame($plan->code, $listing->selected_plan_code);
+        $this->assertSame(1, $listing->plan_duration_months);
         $this->assertSame(MariachiListing::PAYMENT_NONE, $listing->payment_status);
         $this->assertSame(MariachiListing::STATUS_AWAITING_PAYMENT, $listing->status);
         $this->assertFalse($listing->is_active);
@@ -60,7 +62,7 @@ class MariachiListingPaymentWorkflowTest extends TestCase
                 'proof_image' => UploadedFile::fake()->image('proof.png'),
                 'reference_text' => 'NEQ-001',
             ])
-            ->assertRedirect(route('mariachi.listings.plans', $listing));
+            ->assertRedirect(route('mariachi.listings.edit', $listing));
 
         $listing->refresh();
         $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
@@ -70,11 +72,110 @@ class MariachiListingPaymentWorkflowTest extends TestCase
         $this->assertFalse($listing->is_active);
         $this->assertSame(ListingPayment::STATUS_PENDING, $payment->status);
         $this->assertSame($plan->code, $payment->plan_code);
+        $this->assertSame(1, $payment->duration_months);
         Storage::disk('public')->assertExists($payment->proof_path);
 
         $this->actingAs($mariachi)
             ->get(route('mariachi.listings.edit', $listing))
-            ->assertRedirect(route('mariachi.listings.plans', $listing));
+            ->assertOk()
+            ->assertSee('Planes disponibles')
+            ->assertSee('Ya enviaste un comprobante');
+    }
+
+    public function test_mariachi_can_pay_an_annual_term_with_discounted_total(): void
+    {
+        Storage::fake('public');
+        $this->configureNequi();
+
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $listing = $this->createCompleteListing($mariachi);
+        $plan = Plan::query()->active()->public()->firstOrFail();
+        $annualAmount = $this->expectedPlanTermAmount($plan, 12);
+
+        $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $plan->code,
+                'term_months' => 12,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'ok' => true,
+            ]);
+
+        $listing->refresh();
+
+        $this->assertSame(12, $listing->plan_duration_months);
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $plan->code,
+                'term_months' => 12,
+                'amount_cop' => $annualAmount,
+                'proof_image' => UploadedFile::fake()->image('proof-annual.png'),
+                'reference_text' => 'NEQ-ANUAL',
+            ])
+            ->assertRedirect(route('mariachi.listings.edit', $listing));
+
+        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
+
+        $this->assertSame(12, $payment->duration_months);
+        $this->assertSame($annualAmount, $payment->amount_cop);
+    }
+
+    public function test_plan_specific_term_settings_can_be_changed_from_the_package(): void
+    {
+        Storage::fake('public');
+        $this->configureNequi();
+
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $listing = $this->createCompleteListing($mariachi);
+        $plan = Plan::query()->active()->public()->firstOrFail();
+
+        $plan->entitlements()->updateOrCreate(
+            ['key' => EntitlementKey::LISTING_TERM_SECONDARY_MONTHS],
+            ['value' => 6, 'value_type' => 'integer', 'metadata' => null]
+        );
+        $plan->entitlements()->updateOrCreate(
+            ['key' => EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT],
+            ['value' => 15, 'value_type' => 'integer', 'metadata' => null]
+        );
+
+        $expectedAmount = (int) round(($plan->price_cop * 6) * 0.85);
+
+        $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $plan->code,
+                'term_months' => 6,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'ok' => true,
+            ]);
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $plan->code,
+                'term_months' => 6,
+                'amount_cop' => $expectedAmount,
+                'proof_image' => UploadedFile::fake()->image('proof-semester.png'),
+                'reference_text' => 'NEQ-SEMESTRAL',
+            ])
+            ->assertRedirect(route('mariachi.listings.edit', $listing));
+
+        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
+
+        $this->assertSame(6, $payment->duration_months);
+        $this->assertSame($expectedAmount, $payment->amount_cop);
     }
 
     public function test_admin_can_approve_pending_payment_and_publish_the_listing(): void
@@ -117,6 +218,23 @@ class MariachiListingPaymentWorkflowTest extends TestCase
             'plan_id' => $plan->id,
             'status' => Subscription::STATUS_ACTIVE,
         ]);
+    }
+
+    public function test_listing_editor_uses_only_database_plans_and_shows_empty_state_when_none_exist(): void
+    {
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $listing = $this->createCompleteListing($mariachi);
+
+        Plan::query()->delete();
+
+        $this->actingAs($mariachi)
+            ->get(route('mariachi.listings.edit', $listing))
+            ->assertOk()
+            ->assertSee('No hay planes configurados todavía para este anuncio.');
     }
 
     public function test_admin_can_reject_pending_payment_and_mariachi_can_retry(): void
@@ -164,7 +282,7 @@ class MariachiListingPaymentWorkflowTest extends TestCase
                 'proof_image' => UploadedFile::fake()->image('proof-retry.png'),
                 'reference_text' => 'NEQ-002',
             ])
-            ->assertRedirect(route('mariachi.listings.plans', $listing));
+            ->assertRedirect(route('mariachi.listings.edit', $listing));
 
         $listing->refresh();
 
@@ -342,5 +460,28 @@ class MariachiListingPaymentWorkflowTest extends TestCase
                 'reference_text' => 'NEQ-001',
             ])
             ->assertRedirect();
+    }
+
+    private function expectedPlanTermAmount(Plan $plan, int $months): int
+    {
+        $monthlyPrice = (int) $plan->price_cop;
+        $discountPercent = collect([
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_MONTHS, 0) ?? 0),
+                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_MONTHS, 0) ?? 0),
+                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+            [
+                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_MONTHS, 0) ?? 0),
+                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_DISCOUNT_PERCENT, 0) ?? 0),
+            ],
+        ])->firstWhere('months', $months)['discount'] ?? 0;
+
+        $subtotal = $monthlyPrice * $months;
+
+        return (int) round($subtotal - ($subtotal * ($discountPercent / 100)));
     }
 }

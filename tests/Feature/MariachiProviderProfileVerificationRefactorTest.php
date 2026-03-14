@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\MariachiProfile;
 use App\Models\ProfileVerificationPayment;
+use App\Models\ProfileVerificationPlan;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MariachiProviderProfileVerificationRefactorTest extends TestCase
@@ -76,6 +78,77 @@ class MariachiProviderProfileVerificationRefactorTest extends TestCase
         $this->assertSame('payment_pending', $profile->fresh()->verification_status);
     }
 
+    public function test_partner_verification_page_uses_database_driven_plans(): void
+    {
+        $plan = ProfileVerificationPlan::query()->where('code', 'verification-1m')->firstOrFail();
+        $plan->update([
+            'amount_cop' => 19900,
+            'name' => '1 mes actualizado',
+        ]);
+
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $this->createProfile($mariachi);
+
+        $this->actingAs($mariachi)
+            ->get(route('mariachi.verification.edit'))
+            ->assertOk()
+            ->assertSee('1 mes actualizado')
+            ->assertSee('$19.900');
+    }
+
+    public function test_unverified_partner_gets_random_public_handle_instead_of_name_slug(): void
+    {
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $profile = $this->createProfile($mariachi, [
+            'business_name' => 'Mariachis Explosion',
+            'slug' => null,
+            'slug_locked' => false,
+            'verification_status' => 'unverified',
+            'verification_expires_at' => null,
+        ]);
+
+        $this->actingAs($mariachi)
+            ->get(route('mariachi.provider-profile.edit'))
+            ->assertOk();
+
+        $profile->refresh();
+
+        $this->assertMatchesRegularExpression('/^m-[a-z0-9]{8}$/', (string) $profile->slug);
+        $this->assertNotSame('mariachis-explosion', $profile->slug);
+    }
+
+    public function test_partner_profile_bootstrap_backfills_business_name_from_registered_user(): void
+    {
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+            'first_name' => 'Juan',
+            'last_name' => 'Macias',
+            'name' => 'Juan Macias',
+        ]);
+
+        $profile = $this->createProfile($mariachi, [
+            'business_name' => null,
+            'slug' => null,
+            'slug_locked' => false,
+        ]);
+
+        $this->actingAs($mariachi)
+            ->get(route('mariachi.provider-profile.edit'))
+            ->assertOk();
+
+        $profile->refresh();
+
+        $this->assertSame('Juan Macias', $profile->business_name);
+        $this->assertMatchesRegularExpression('/^m-[a-z0-9]{8}$/', (string) $profile->slug);
+    }
+
     public function test_verified_partner_can_update_premium_handle_and_profile_update_keeps_it_locked(): void
     {
         $mariachi = User::factory()->create([
@@ -90,6 +163,7 @@ class MariachiProviderProfileVerificationRefactorTest extends TestCase
             'verification_expires_at' => now()->addMonth(),
         ]);
         $profile->ensureSlug();
+        $previousSlug = $profile->fresh()->slug;
 
         $this->actingAs($mariachi)
             ->from(route('mariachi.verification.edit'))
@@ -102,6 +176,10 @@ class MariachiProviderProfileVerificationRefactorTest extends TestCase
         $profile->refresh();
         $this->assertSame('mariachi-premium', $profile->slug);
         $this->assertTrue($profile->slug_locked);
+        $this->assertDatabaseHas('mariachi_profile_handle_aliases', [
+            'mariachi_profile_id' => $profile->id,
+            'old_slug' => $previousSlug,
+        ]);
 
         $this->actingAs($mariachi)
             ->from(route('mariachi.provider-profile.edit'))
@@ -121,6 +199,67 @@ class MariachiProviderProfileVerificationRefactorTest extends TestCase
             ->assertSessionHas('status');
 
         $this->assertSame('mariachi-premium', $profile->fresh()->slug);
+    }
+
+    public function test_old_handle_redirects_permanently_to_new_verified_handle(): void
+    {
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $oldHandle = 'm-'.Str::lower(Str::random(8));
+        $profile = $this->createProfile($mariachi, [
+            'business_name' => 'Mariachi Alias Test',
+            'slug' => $oldHandle,
+            'slug_locked' => false,
+            'verification_status' => 'verified',
+            'verification_expires_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($mariachi)
+            ->from(route('mariachi.verification.edit'))
+            ->patch(route('mariachi.verification.handle.update'), [
+                'handle' => 'alias-premium',
+            ])
+            ->assertRedirect(route('mariachi.verification.edit'));
+
+        $profile->refresh();
+
+        $this->assertSame('alias-premium', $profile->slug);
+        $this->assertDatabaseHas('mariachi_profile_handle_aliases', [
+            'mariachi_profile_id' => $profile->id,
+            'old_slug' => $oldHandle,
+        ]);
+
+        $this->get(route('mariachi.provider.public.show', ['handle' => $oldHandle]))
+            ->assertStatus(301)
+            ->assertRedirect(route('mariachi.provider.public.show', ['handle' => 'alias-premium']));
+    }
+
+    public function test_admin_can_update_verification_plan_from_packages_section(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+            'password' => Hash::make('password'),
+        ]);
+        $plan = ProfileVerificationPlan::query()->where('code', 'verification-3m')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->from(route('admin.profile-verification-plans.index'))
+            ->put(route('admin.profile-verification-plans.update', $plan), [
+                'code' => $plan->code,
+                'name' => '3 meses especial',
+                'duration_months' => 3,
+                'amount_cop' => 59900,
+                'sort_order' => 25,
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('admin.profile-verification-plans.index'))
+            ->assertSessionHas('status');
+
+        $this->assertSame('3 meses especial', $plan->fresh()->name);
+        $this->assertSame(59900, $plan->fresh()->amount_cop);
     }
 
     public function test_admin_approval_syncs_request_payment_and_profile_expiration(): void
@@ -197,6 +336,7 @@ class MariachiProviderProfileVerificationRefactorTest extends TestCase
             'profile_completion' => 100,
             'stage_status' => 'provider_ready',
             'verification_status' => 'unverified',
+            'slug_locked' => false,
         ], $attributes));
     }
 }

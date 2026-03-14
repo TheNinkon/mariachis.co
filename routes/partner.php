@@ -32,6 +32,8 @@ Route::domain(config('domains.partner'))->group(function (): void {
 
         Route::get('/signup', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
         Route::post('/signup', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
+        Route::get('/signup/activar/{user}/{token}', [MariachiRegistrationController::class, 'activation'])->name('mariachi.activation.show');
+        Route::post('/signup/activar/{user}/{token}/nequi', [MariachiRegistrationController::class, 'storeActivationPayment'])->name('mariachi.activation.payments.nequi.store');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.password.request');
         Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.password.email');

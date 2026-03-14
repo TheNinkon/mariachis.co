@@ -30,7 +30,8 @@ class MariachiListingOpenDraftLimitTest extends TestCase
 
         $response
             ->assertRedirect(route('mariachi.listings.edit', ['listing' => $listing->id]))
-            ->assertSessionHas('status');
+            ->assertSessionHas('status')
+            ->assertSessionHas('force_listing_step', 'basic');
 
         $this->assertSame('Nuevo anuncio', $listing->title);
         $this->assertSame('Completa la informacion del anuncio', $listing->short_description);
@@ -115,7 +116,9 @@ class MariachiListingOpenDraftLimitTest extends TestCase
 
         $newListing = $profile->listings()->latest('id')->first();
 
-        $response->assertRedirect(route('mariachi.listings.edit', ['listing' => $newListing->id]));
+        $response
+            ->assertRedirect(route('mariachi.listings.edit', ['listing' => $newListing->id]))
+            ->assertSessionHas('force_listing_step', 'basic');
         $this->assertSame(6, $profile->listings()->count());
         $this->assertSame(5, $profile->listings()->openDrafts()->count());
     }

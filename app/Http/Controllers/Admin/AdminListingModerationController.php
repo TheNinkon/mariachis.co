@@ -281,6 +281,9 @@ class AdminListingModerationController extends Controller
         $reviewerId = $request->user()->id;
 
         DB::transaction(function () use ($listing, $payment, $profile, $plan, $reviewerId): void {
+            $durationMonths = max(1, (int) ($payment->duration_months ?: $listing->plan_duration_months ?: 1));
+            $activatedAt = $listing->activated_at ?? now();
+
             $payment->update([
                 'status' => ListingPayment::STATUS_APPROVED,
                 'reviewed_by' => $reviewerId,
@@ -297,12 +300,16 @@ class AdminListingModerationController extends Controller
                     'listing_payment_id' => $payment->id,
                     'reviewed_by_user_id' => $reviewerId,
                     'method' => $payment->method,
+                    'duration_months' => $durationMonths,
                 ],
-                true
+                true,
+                $durationMonths,
+                (int) $payment->amount_cop
             );
 
             $listing->update([
                 'selected_plan_code' => $payment->plan_code,
+                'plan_duration_months' => $durationMonths,
                 'plan_selected_at' => $listing->plan_selected_at ?? $payment->created_at ?? now(),
                 'payment_status' => MariachiListing::PAYMENT_APPROVED,
                 'review_status' => MariachiListing::REVIEW_APPROVED,
@@ -312,7 +319,8 @@ class AdminListingModerationController extends Controller
                 'rejection_reason' => null,
                 'status' => MariachiListing::STATUS_ACTIVE,
                 'is_active' => true,
-                'activated_at' => $listing->activated_at ?? now(),
+                'activated_at' => $activatedAt,
+                'plan_expires_at' => $activatedAt->copy()->addMonthsNoOverflow($durationMonths),
                 'deactivated_at' => null,
             ]);
         });

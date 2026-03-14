@@ -170,6 +170,12 @@
       background: linear-gradient(180deg, rgba(255, 193, 7, 0.12), rgba(255, 255, 255, 0.92));
     }
 
+    button.listing-upgrade-tile {
+      width: 100%;
+      appearance: none;
+      cursor: pointer;
+    }
+
     .listing-zone-list--compact .listing-zone-empty {
       min-height: 7rem;
       padding: 1rem;
@@ -349,6 +355,405 @@
       justify-content: flex-end;
     }
 
+    .listing-rich-editor {
+      position: relative;
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .listing-rich-editor__toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.85rem;
+      border-bottom: 1px solid rgba(75, 70, 92, 0.1);
+      background: #f8f7fa;
+    }
+
+    .listing-rich-editor__toolbar .btn {
+      min-width: 2.5rem;
+    }
+
+    .listing-rich-editor__link-panel {
+      position: absolute;
+      top: 4.35rem;
+      right: 1rem;
+      width: min(25rem, calc(100% - 2rem));
+      z-index: 5;
+      display: grid;
+      gap: 0.85rem;
+      padding: 1rem;
+      border: 1px solid rgba(75, 70, 92, 0.14);
+      border-radius: 1rem;
+      background: #fff;
+      box-shadow: 0 18px 44px -28px rgba(47, 43, 61, 0.45);
+    }
+
+    .listing-rich-editor__link-panel[hidden] {
+      display: none !important;
+    }
+
+    .listing-rich-editor__link-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .listing-rich-editor__link-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .listing-rich-editor__link-error:empty {
+      display: none;
+    }
+
+    .listing-rich-editor__surface {
+      min-height: 17rem;
+      padding: 1rem;
+      outline: none;
+      line-height: 1.6;
+      color: #444050;
+    }
+
+    .listing-rich-editor__surface:empty::before {
+      content: attr(data-placeholder);
+      color: #8a8d93;
+    }
+
+    .listing-rich-editor__surface h2,
+    .listing-rich-editor__surface h3 {
+      margin-top: 0.95rem;
+      margin-bottom: 0.6rem;
+      color: #2f2b3d;
+    }
+
+    .listing-rich-editor__surface p,
+    .listing-rich-editor__surface ul,
+    .listing-rich-editor__surface ol {
+      margin-bottom: 0.8rem;
+    }
+
+    .listing-rich-editor__surface ul,
+    .listing-rich-editor__surface ol {
+      padding-left: 1.25rem;
+    }
+
+    .listing-rich-editor__hint {
+      padding: 0.75rem 1rem 0.95rem;
+      border-top: 1px solid rgba(75, 70, 92, 0.08);
+      background: rgba(0, 86, 59, 0.03);
+      font-size: 0.8rem;
+      color: #6d6b77;
+    }
+
+    .listing-coverage-toggle {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      padding: 1rem;
+      background: #fff;
+    }
+
+    .listing-coverage-toggle.is-disabled {
+      background: #f8f7fa;
+      border-style: dashed;
+    }
+
+    .listing-filter-card,
+    .listing-final-card,
+    .payment-plan-card {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      background: #fff;
+      height: 100%;
+    }
+
+    .listing-filter-card {
+      padding: 1rem;
+    }
+
+    .listing-filter-card__head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .listing-filter-card__body {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .listing-filter-card__body .form-check.is-disabled {
+      opacity: 0.55;
+    }
+
+    .listing-filter-upgrade[hidden] {
+      display: none !important;
+    }
+
+    .payment-billing-switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(75, 70, 92, 0.1);
+      border-radius: 1.2rem;
+      background: linear-gradient(180deg, rgba(0, 86, 59, 0.04), rgba(255, 255, 255, 0.98));
+      margin-bottom: 1.25rem;
+    }
+
+    .payment-billing-switch__copy {
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .payment-billing-switch__eyebrow {
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #00563b;
+    }
+
+    .payment-billing-switch__title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #2f2b3d;
+    }
+
+    .payment-billing-switch__hint {
+      font-size: 0.84rem;
+      color: #8a8d93;
+    }
+
+    .payment-billing-switch__group {
+      display: inline-grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+      padding: 0.35rem;
+      border-radius: 999px;
+      background: rgba(75, 70, 92, 0.06);
+      min-width: min(100%, 28rem);
+    }
+
+    .payment-billing-switch__button {
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      padding: 0.7rem 1rem;
+      display: grid;
+      gap: 0.15rem;
+      text-align: center;
+      color: #6d6b77;
+      transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .payment-billing-switch__button strong {
+      font-size: 0.96rem;
+      line-height: 1.1;
+    }
+
+    .payment-billing-switch__button span {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: inherit;
+      opacity: 0.85;
+    }
+
+    .payment-billing-switch__button.is-active {
+      background: #fff;
+      color: #00563b;
+      box-shadow: 0 0.65rem 1.4rem -1rem rgba(34, 41, 47, 0.32);
+    }
+
+    .payment-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1.1rem;
+      align-items: stretch;
+    }
+
+    .payment-plan-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1.35rem;
+      background: #fff;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .payment-plan-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 1.2rem 2.4rem -1.6rem rgba(34, 41, 47, 0.28);
+      border-color: rgba(0, 86, 59, 0.22);
+    }
+
+    .payment-plan-card.is-current {
+      border-color: rgba(0, 86, 59, 0.28);
+      box-shadow: 0 1.1rem 2rem -1.7rem rgba(0, 86, 59, 0.34);
+    }
+
+    .payment-plan-card__body {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100%;
+      padding: 1.35rem;
+    }
+
+    .payment-plan-card__head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .payment-plan-card__title {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin: 0;
+      font-size: 1.55rem;
+      line-height: 1.1;
+    }
+
+    .payment-plan-card__description {
+      margin: 0;
+      min-height: 3.9rem;
+      color: #6d6b77;
+      line-height: 1.5;
+    }
+
+    .payment-plan-card__pricing {
+      display: grid;
+      gap: 0.6rem;
+      padding: 1rem;
+      border-radius: 1rem;
+      background: linear-gradient(180deg, rgba(0, 86, 59, 0.06), rgba(255, 255, 255, 0.98));
+      border: 1px solid rgba(0, 86, 59, 0.1);
+    }
+
+    .payment-plan-card__price {
+      margin: 0;
+      display: flex;
+      align-items: end;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      font-size: 2rem;
+      line-height: 1;
+      font-weight: 800;
+      color: #2f2b3d;
+      letter-spacing: -0.03em;
+    }
+
+    .payment-plan-card__price small {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #8a8d93;
+      letter-spacing: 0;
+      padding-bottom: 0.2rem;
+    }
+
+    .payment-plan-card__billing {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .payment-plan-card__billing-copy {
+      display: grid;
+      gap: 0.2rem;
+      color: #8a8d93;
+      font-size: 0.82rem;
+    }
+
+    .payment-plan-card__billing-copy strong {
+      color: #444050;
+      font-size: 0.92rem;
+    }
+
+    .payment-plan-card__savings {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      background: rgba(40, 199, 111, 0.14);
+      color: #146c43;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .payment-plan-card__savings.is-muted {
+      background: rgba(75, 70, 92, 0.06);
+      color: #6d6b77;
+    }
+
+    .payment-plan-card__features {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0;
+      padding: 0.15rem 0 0;
+      list-style: none;
+    }
+
+    .payment-plan-card__features li {
+      display: flex;
+      align-items: start;
+      gap: 0.6rem;
+      color: #6d6b77;
+      line-height: 1.4;
+    }
+
+    .payment-plan-card__features li::before {
+      content: '';
+      width: 0.46rem;
+      height: 0.46rem;
+      border-radius: 999px;
+      background: rgba(0, 86, 59, 0.35);
+      margin-top: 0.42rem;
+      flex-shrink: 0;
+    }
+
+    .payment-plan-card__actions {
+      margin-top: auto;
+      padding-top: 0.3rem;
+    }
+
+    .payment-sheet.offcanvas-bottom {
+      height: auto;
+      max-height: 92vh;
+      border-top-left-radius: 1.25rem;
+      border-top-right-radius: 1.25rem;
+    }
+
+    .payment-sheet-qr {
+      width: 100%;
+      max-width: 260px;
+      border-radius: 1rem;
+      border: 1px solid rgba(34, 41, 47, 0.08);
+      background: rgba(34, 41, 47, 0.03);
+    }
+
+    .payment-sheet-placeholder {
+      min-height: 220px;
+      border: 1px dashed rgba(34, 41, 47, 0.16);
+      border-radius: 1rem;
+      color: var(--bs-secondary-color);
+    }
+
     .listing-faq-shell {
       border: 1px solid rgba(75, 70, 92, 0.12);
       border-radius: 1rem;
@@ -494,6 +899,31 @@
       .listing-owner-actions {
         justify-content: flex-start;
       }
+
+      .listing-rich-editor__link-panel {
+        position: static;
+        width: auto;
+        margin: 0 0.85rem 0.85rem;
+        box-shadow: none;
+      }
+
+      .payment-billing-switch {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .payment-billing-switch__group {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .payment-plan-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .payment-plan-card__description {
+        min-height: 0;
+      }
     }
   </style>
 @endsection
@@ -565,6 +995,9 @@
 
     $basePriceValue = old('base_price', $listing->base_price);
     $basePriceValue = filled($basePriceValue) ? (int) round((float) $basePriceValue) : null;
+    $editorDescription = app(\App\Support\ListingDescriptionSanitizer::class)->sanitize(
+      old('description', $editorDescription ?? $listing->description)
+    ) ?? '';
     $reviewMap = [
       \App\Models\MariachiListing::REVIEW_DRAFT => ['label' => 'Borrador de revision', 'class' => 'secondary'],
       \App\Models\MariachiListing::REVIEW_PENDING => ['label' => 'En revision', 'class' => 'warning'],
@@ -579,20 +1012,37 @@
     ];
     $reviewMeta = $reviewMap[$listing->review_status] ?? ['label' => $listing->reviewStatusLabel(), 'class' => 'secondary'];
     $paymentMeta = $paymentMap[$listing->payment_status] ?? ['label' => $listing->paymentStatusLabel(), 'class' => 'secondary'];
+    $selectedPlan = $listing->selected_plan_code ? ($plans[$listing->selected_plan_code] ?? null) : null;
+    $defaultPlan = $selectedPlan ?: (count($plans) ? reset($plans) : null);
+    $planDurationOptions = $defaultPlan ? array_values($defaultPlan['terms'] ?? []) : [];
+    $selectedTermMonths = (int) old('term_months', $listing->plan_duration_months ?: ($defaultPlan['default_term_months'] ?? ($planDurationOptions[0]['months'] ?? 1)));
+    $defaultPlanTerm = $defaultPlan && isset($defaultPlan['terms'][$selectedTermMonths])
+      ? $defaultPlan['terms'][$selectedTermMonths]
+      : ($defaultPlan ? reset($defaultPlan['terms']) : null);
+    $latestPayment = $listing->latestPayment;
     $canSubmitForReview = $listing->canBeSubmittedForReview();
     $submitForReviewLabel = $listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED ? 'Reenviar a revisión' : 'Enviar a revisión';
     $maxPhotos = (int) ($capabilities['max_photos_per_listing'] ?? 0);
     $maxVideos = (int) ($capabilities['max_videos_per_listing'] ?? 0);
     $maxZones = (int) ($capabilities['max_zones_covered'] ?? 0);
+    $maxEventTypes = (int) ($capabilities['max_event_types'] ?? 0);
+    $maxServiceTypes = (int) ($capabilities['max_service_types'] ?? 0);
+    $maxGroupSizes = (int) ($capabilities['max_group_sizes'] ?? 0);
+    $maxBudgetRanges = (int) ($capabilities['max_budget_ranges'] ?? 0);
     $photoCount = $listing->photos->count();
     $videoCount = $listing->videos->count();
     $canAddMorePhotos = $photoCount < $maxPhotos;
     $canAddMoreVideos = $videoCount < $maxVideos;
+    $canAddCoverageExtras = $maxZones > 1;
     $canPauseListing = $listing->canOwnerPause();
     $canResumeListing = $listing->canOwnerResume();
     $usesDraftPlaceholders = trim((string) $listing->title) === 'Nuevo anuncio'
       || trim((string) $listing->short_description) === 'Completa la informacion del anuncio'
       || $basePriceValue === null;
+    $forcedInitialStep = session('force_listing_step');
+    $initialWizardStep = is_string($forcedInitialStep) && $forcedInitialStep !== ''
+      ? $forcedInitialStep
+      : ($listing->isPaymentPending() ? 'final' : '');
   @endphp
 
   @if(session('status'))
@@ -695,7 +1145,7 @@
     </div>
   </div>
 
-  <div id="listing-wizard" class="bs-stepper vertical mb-6" data-listing-wizard data-listing-id="{{ $listing->id }}">
+  <div id="listing-wizard" class="bs-stepper vertical mb-6" data-listing-wizard data-listing-id="{{ $listing->id }}" data-initial-step="{{ $initialWizardStep }}">
     <div class="bs-stepper-header border-end">
       <div class="step" data-target="#step-basic" data-step-key="basic">
         <button type="button" class="step-trigger">
@@ -762,7 +1212,7 @@
           <span class="bs-stepper-circle"><i class="icon-base ti tabler-credit-card icon-sm"></i></span>
           <span class="bs-stepper-label">
             <span class="bs-stepper-title">Final</span>
-            <span class="bs-stepper-subtitle">Revisar, plan y pago</span>
+            <span class="bs-stepper-subtitle">Planes y pago</span>
           </span>
         </button>
       </div>
@@ -847,7 +1297,54 @@
             </div>
             <div class="col-12">
               <label class="form-label">Descripción completa</label>
-              <textarea class="form-control" name="description" rows="5" maxlength="5000">{{ old('description', $listing->description) }}</textarea>
+              <div class="listing-rich-editor" data-rich-editor>
+                <div class="listing-rich-editor__toolbar">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="bold" title="Negrita"><i class="icon-base ti tabler-bold icon-sm"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="italic" title="Cursiva"><i class="icon-base ti tabler-italic icon-sm"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="formatBlock" data-rich-value="H2" title="Título H2">H2</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="formatBlock" data-rich-value="H3" title="Título H3">H3</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="insertUnorderedList" title="Lista"><i class="icon-base ti tabler-list icon-sm"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="insertOrderedList" title="Lista numerada"><i class="icon-base ti tabler-list-numbers icon-sm"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="createLink" title="Enlace"><i class="icon-base ti tabler-link icon-sm"></i></button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-rich-command="removeFormat" title="Limpiar formato"><i class="icon-base ti tabler-clear-formatting icon-sm"></i></button>
+                </div>
+                <div class="listing-rich-editor__link-panel" data-rich-link-panel hidden>
+                  <div class="listing-rich-editor__link-head">
+                    <div>
+                      <div class="fw-semibold text-heading">Agregar enlace</div>
+                      <div class="small text-muted">Pega una URL, un correo <code>mailto:</code> o un teléfono <code>tel:</code>.</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-text-secondary" data-rich-link-cancel aria-label="Cerrar">
+                      <i class="icon-base ti tabler-x icon-sm"></i>
+                    </button>
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      class="form-control"
+                      placeholder="https://tu-enlace.com"
+                      data-rich-link-input
+                    />
+                  </div>
+                  <div class="small text-danger listing-rich-editor__link-error" data-rich-link-error></div>
+                  <div class="listing-rich-editor__link-actions">
+                    <button type="button" class="btn btn-sm btn-label-secondary" data-rich-link-cancel>Cancelar</button>
+                    <button type="button" class="btn btn-sm btn-primary" data-rich-link-apply>Aplicar enlace</button>
+                  </div>
+                </div>
+                <div
+                  class="listing-rich-editor__surface"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-multiline="true"
+                  data-rich-surface
+                  data-placeholder="Describe repertorio, tiempos, formato del show y lo que hace diferente a tu grupo."
+                >{!! $editorDescription !!}</div>
+                <textarea class="d-none" name="description" data-rich-input>{{ old('description', $listing->description) }}</textarea>
+                <div class="listing-rich-editor__hint">
+                  Usa negrita, cursiva, listas, enlaces y títulos. No se permiten imágenes ni embeds.
+                </div>
+              </div>
             </div>
 
             <div class="col-12 d-flex justify-content-between">
@@ -935,21 +1432,38 @@
 
             <div class="col-12 pt-2">
               <h6 class="mb-2">Cobertura adicional</h6>
-              <small class="text-muted d-block mb-2">La localidad principal se detecta automáticamente. Usa esta parte solo si además cubres otras localidades del mismo catálogo.</small>
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" value="1" id="travels" name="travels_to_other_cities" {{ old('travels_to_other_cities', $listing->travels_to_other_cities) ? 'checked' : '' }}>
-                <label class="form-check-label" for="travels">Me desplazo a otras ciudades</label>
+              <small class="text-muted d-block mb-3">La localidad principal se detecta automáticamente. Activa esta opción solo si también cubres otras localidades dentro de la misma ciudad.</small>
+              <div class="listing-coverage-toggle {{ $canAddCoverageExtras ? '' : 'is-disabled' }}">
+                <div class="form-check form-switch mb-2">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="1"
+                    id="travels"
+                    name="travels_to_other_cities"
+                    {{ $canAddCoverageExtras && old('travels_to_other_cities', $listing->travels_to_other_cities) ? 'checked' : '' }}
+                    @disabled(! $canAddCoverageExtras)
+                  >
+                  <label class="form-check-label" for="travels">Cubro más localidades dentro de esta ciudad</label>
+                </div>
+                <small class="text-muted d-block">No agrega otras ciudades ni cambia tu localidad principal. Solo amplía la cobertura dentro del mismo catálogo de ciudad.</small>
+                @unless($canAddCoverageExtras)
+                  <div class="alert alert-warning mt-3 mb-0">
+                    Tu plan no permite cobertura adicional. Si quieres sumar más localidades dentro de esta ciudad,
+                    <button type="button" class="btn btn-sm btn-warning ms-1" data-upgrade-to-final="true">mejora tu plan</button>.
+                  </div>
+                @endunless
               </div>
             </div>
 
             <div class="col-12">
               <label class="form-label">Localidades adicionales de cobertura</label>
-              <small class="d-block text-muted mb-3">Usa esta interfaz para ampliar cobertura. Tu plan permite hasta {{ $maxCitiesAllowed }} ciudad(es) y {{ $maxZones }} localidad(es) por anuncio, contando la localidad principal detectada.</small>
+              <small class="d-block text-muted mb-3">Tu plan permite hasta {{ $maxZones }} localidad(es) por anuncio, contando la localidad principal detectada. Aquí solo puedes sumar localidades adicionales de la misma ciudad.</small>
               <div
                 class="listing-zone-shell p-3"
                 data-zone-picker
                 data-max-zones="{{ $maxZones }}"
-                data-plan-url="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}"
+                data-has-extra-coverage="{{ $canAddCoverageExtras ? 'true' : 'false' }}"
               >
                 <div class="row g-3">
                   <div class="col-lg-6">
@@ -978,15 +1492,15 @@
                           </div>
                           <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                             <span class="badge bg-label-primary" data-zone-limit-badge>Máx {{ $maxZones }}</span>
-                            <a
-                              href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}"
+                            <button
+                              type="button"
                               class="btn btn-sm btn-outline-warning listing-zone-panel__upgrade-link"
                               data-zone-upgrade
-                              data-step-link="location"
+                              data-upgrade-to-final="true"
                               hidden
                             >
                               Ver Plan Pro
-                            </a>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1020,47 +1534,111 @@
         <div id="step-filters" class="content" data-step-key="filters">
           <div class="row g-4">
             <div class="col-md-6">
-              <h6 class="mb-2">Tipos de evento</h6>
-              @foreach($eventTypes as $eventType)
-                <div class="form-check mb-1">
-                  <input class="form-check-input" type="checkbox" name="event_type_ids[]" value="{{ $eventType->id }}" id="event-{{ $eventType->id }}" {{ in_array($eventType->id, old('event_type_ids', $selectedEventTypeIds)) ? 'checked' : '' }}>
-                  <label class="form-check-label d-inline-flex align-items-center gap-1" for="event-{{ $eventType->id }}"><x-catalog-icon :name="$eventType->icon" class="h-4 w-4" />{{ $eventType->name }}</label>
+              <div class="listing-filter-card" data-filter-group data-filter-name="tipos de evento" data-limit="{{ $maxEventTypes }}">
+                <div class="listing-filter-card__head">
+                  <div>
+                    <h6 class="mb-1">Tipos de evento</h6>
+                    <p class="listing-step-note mb-0">Selecciona hasta {{ $maxEventTypes }} opciones para este anuncio.</p>
+                  </div>
+                  <span class="badge bg-label-primary"><span data-filter-count>0</span> / {{ $maxEventTypes }}</span>
                 </div>
-              @endforeach
-              <label class="form-label mt-3">Sugerir tipo de evento (opcional)</label>
-              <input class="form-control" name="suggest_event_type" value="{{ old('suggest_event_type') }}" placeholder="Ej: Pedida de mano" maxlength="120">
+                <div class="listing-filter-card__body">
+                  @foreach($eventTypes as $eventType)
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" name="event_type_ids[]" value="{{ $eventType->id }}" id="event-{{ $eventType->id }}" {{ in_array($eventType->id, old('event_type_ids', $selectedEventTypeIds)) ? 'checked' : '' }}>
+                      <label class="form-check-label d-inline-flex align-items-center gap-1" for="event-{{ $eventType->id }}"><x-catalog-icon :name="$eventType->icon" class="h-4 w-4" />{{ $eventType->name }}</label>
+                    </div>
+                  @endforeach
+                </div>
+                <div class="alert alert-warning mt-3 mb-0 listing-filter-upgrade" data-filter-upgrade hidden>
+                  Llegaste al límite de tu plan. <button type="button" class="btn btn-sm btn-warning ms-1" data-upgrade-to-final="true">Mejorar plan</button>
+                </div>
+                <label class="form-label mt-3">Sugerir tipo de evento (opcional)</label>
+                <input class="form-control" name="suggest_event_type" value="{{ old('suggest_event_type') }}" placeholder="Ej: Pedida de mano" maxlength="120">
+                @error('event_type_ids')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+              </div>
             </div>
 
             <div class="col-md-6">
-              <h6 class="mb-2">Tipos de servicio</h6>
-              @foreach($serviceTypes as $serviceType)
-                <div class="form-check mb-1">
-                  <input class="form-check-input" type="checkbox" name="service_type_ids[]" value="{{ $serviceType->id }}" id="service-{{ $serviceType->id }}" {{ in_array($serviceType->id, old('service_type_ids', $selectedServiceTypeIds)) ? 'checked' : '' }}>
-                  <label class="form-check-label d-inline-flex align-items-center gap-1" for="service-{{ $serviceType->id }}"><x-catalog-icon :name="$serviceType->icon" class="h-4 w-4" />{{ $serviceType->name }}</label>
+              <div class="listing-filter-card" data-filter-group data-filter-name="tipos de servicio" data-limit="{{ $maxServiceTypes }}">
+                <div class="listing-filter-card__head">
+                  <div>
+                    <h6 class="mb-1">Tipos de servicio</h6>
+                    <p class="listing-step-note mb-0">Selecciona hasta {{ $maxServiceTypes }} opciones para definir mejor el formato.</p>
+                  </div>
+                  <span class="badge bg-label-primary"><span data-filter-count>0</span> / {{ $maxServiceTypes }}</span>
                 </div>
-              @endforeach
-              <label class="form-label mt-3">Sugerir tipo de servicio (opcional)</label>
-              <input class="form-control" name="suggest_service_type" value="{{ old('suggest_service_type') }}" placeholder="Ej: Show con trompeta solista" maxlength="120">
+                <div class="listing-filter-card__body">
+                  @foreach($serviceTypes as $serviceType)
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" name="service_type_ids[]" value="{{ $serviceType->id }}" id="service-{{ $serviceType->id }}" {{ in_array($serviceType->id, old('service_type_ids', $selectedServiceTypeIds)) ? 'checked' : '' }}>
+                      <label class="form-check-label d-inline-flex align-items-center gap-1" for="service-{{ $serviceType->id }}"><x-catalog-icon :name="$serviceType->icon" class="h-4 w-4" />{{ $serviceType->name }}</label>
+                    </div>
+                  @endforeach
+                </div>
+                <div class="alert alert-warning mt-3 mb-0 listing-filter-upgrade" data-filter-upgrade hidden>
+                  Llegaste al límite de tu plan. <button type="button" class="btn btn-sm btn-warning ms-1" data-upgrade-to-final="true">Mejorar plan</button>
+                </div>
+                <label class="form-label mt-3">Sugerir tipo de servicio (opcional)</label>
+                <input class="form-control" name="suggest_service_type" value="{{ old('suggest_service_type') }}" placeholder="Ej: Show con trompeta solista" maxlength="120">
+                @error('service_type_ids')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+              </div>
             </div>
 
             <div class="col-md-6">
-              <h6 class="mb-2">Tamaño del grupo</h6>
-              @foreach($groupSizeOptions as $option)
-                <div class="form-check mb-1">
-                  <input class="form-check-input" type="checkbox" name="group_size_option_ids[]" value="{{ $option->id }}" id="group-{{ $option->id }}" {{ in_array($option->id, old('group_size_option_ids', $selectedGroupSizeIds)) ? 'checked' : '' }}>
-                  <label class="form-check-label d-inline-flex align-items-center gap-1" for="group-{{ $option->id }}"><x-catalog-icon :name="$option->icon" class="h-4 w-4" />{{ $option->name }}</label>
+              <div class="listing-filter-card" data-filter-group data-filter-name="tamanos de grupo" data-limit="{{ $maxGroupSizes }}">
+                <div class="listing-filter-card__head">
+                  <div>
+                    <h6 class="mb-1">Tamaño del grupo</h6>
+                    <p class="listing-step-note mb-0">Selecciona hasta {{ $maxGroupSizes }} opciones para indicar el formato disponible.</p>
+                  </div>
+                  <span class="badge bg-label-primary"><span data-filter-count>0</span> / {{ $maxGroupSizes }}</span>
                 </div>
-              @endforeach
+                <div class="listing-filter-card__body">
+                  @foreach($groupSizeOptions as $option)
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" name="group_size_option_ids[]" value="{{ $option->id }}" id="group-{{ $option->id }}" {{ in_array($option->id, old('group_size_option_ids', $selectedGroupSizeIds)) ? 'checked' : '' }}>
+                      <label class="form-check-label d-inline-flex align-items-center gap-1" for="group-{{ $option->id }}"><x-catalog-icon :name="$option->icon" class="h-4 w-4" />{{ $option->name }}</label>
+                    </div>
+                  @endforeach
+                </div>
+                <div class="alert alert-warning mt-3 mb-0 listing-filter-upgrade" data-filter-upgrade hidden>
+                  Llegaste al límite de tu plan. <button type="button" class="btn btn-sm btn-warning ms-1" data-upgrade-to-final="true">Mejorar plan</button>
+                </div>
+                @error('group_size_option_ids')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+              </div>
             </div>
 
             <div class="col-md-6">
-              <h6 class="mb-2">Presupuesto</h6>
-              @foreach($budgetRanges as $range)
-                <div class="form-check mb-1">
-                  <input class="form-check-input" type="checkbox" name="budget_range_ids[]" value="{{ $range->id }}" id="budget-{{ $range->id }}" {{ in_array($range->id, old('budget_range_ids', $selectedBudgetIds)) ? 'checked' : '' }}>
-                  <label class="form-check-label d-inline-flex align-items-center gap-1" for="budget-{{ $range->id }}"><x-catalog-icon :name="$range->icon" class="h-4 w-4" />{{ $range->name }}</label>
+              <div class="listing-filter-card" data-filter-group data-filter-name="rangos de presupuesto" data-limit="{{ $maxBudgetRanges }}">
+                <div class="listing-filter-card__head">
+                  <div>
+                    <h6 class="mb-1">Presupuesto</h6>
+                    <p class="listing-step-note mb-0">Selecciona hasta {{ $maxBudgetRanges }} rangos para cubrir varias búsquedas del marketplace.</p>
+                  </div>
+                  <span class="badge bg-label-primary"><span data-filter-count>0</span> / {{ $maxBudgetRanges }}</span>
                 </div>
-              @endforeach
+                <div class="listing-filter-card__body">
+                  @foreach($budgetRanges as $range)
+                    <div class="form-check mb-0">
+                      <input class="form-check-input" type="checkbox" name="budget_range_ids[]" value="{{ $range->id }}" id="budget-{{ $range->id }}" {{ in_array($range->id, old('budget_range_ids', $selectedBudgetIds)) ? 'checked' : '' }}>
+                      <label class="form-check-label d-inline-flex align-items-center gap-1" for="budget-{{ $range->id }}"><x-catalog-icon :name="$range->icon" class="h-4 w-4" />{{ $range->name }}</label>
+                    </div>
+                  @endforeach
+                </div>
+                <div class="alert alert-warning mt-3 mb-0 listing-filter-upgrade" data-filter-upgrade hidden>
+                  Llegaste al límite de tu plan. <button type="button" class="btn btn-sm btn-warning ms-1" data-upgrade-to-final="true">Mejorar plan</button>
+                </div>
+                @error('budget_range_ids')
+                  <div class="text-danger small mt-2">{{ $message }}</div>
+                @enderror
+              </div>
             </div>
 
             <div class="col-12 d-flex justify-content-between">
@@ -1275,13 +1853,13 @@
                 @endforeach
 
                 @if($maxPhotos <= 0 || ! $canAddMorePhotos)
-                  <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="listing-upgrade-tile text-decoration-none text-body" data-step-link="photos">
+                  <button type="button" class="listing-upgrade-tile text-body border-0 w-100" data-upgrade-to-final="true">
                     <span class="avatar avatar-xl bg-label-warning mb-3">
                       <span class="avatar-initial rounded"><i class="icon-base ti tabler-crown icon-lg"></i></span>
                     </span>
                     <strong>Agrega más fotos con Plan Pro</strong>
                     <span class="text-muted small mt-1">Tu plan actual permite hasta {{ $maxPhotos }} foto(s) por anuncio.</span>
-                  </a>
+                  </button>
                 @endif
               </div>
             </div>
@@ -1321,7 +1899,7 @@
                   </span>
                   <h6 class="mb-2">Tu plan actual no incluye videos</h6>
                   <p class="text-muted mb-3">Mejora tu plan para añadir videos al anuncio y aumentar la conversión.</p>
-                  <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="btn btn-warning" data-step-link="videos">Mejorar plan</a>
+                  <button type="button" class="btn btn-warning" data-upgrade-to-final="true">Mejorar plan</button>
                 </div>
               @else
                 <form method="POST" action="{{ route('mariachi.listings.videos.store', ['listing' => $listing->id]) }}" class="mb-4" data-preserve-step="videos">
@@ -1366,13 +1944,13 @@
               </div>
 
               @if($maxVideos > 0 && ! $canAddMoreVideos)
-                <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="listing-upgrade-tile text-decoration-none text-body mt-4" data-step-link="videos">
+                <button type="button" class="listing-upgrade-tile text-body border-0 w-100 mt-4" data-upgrade-to-final="true">
                   <span class="avatar avatar-xl bg-label-warning mb-3">
                     <span class="avatar-initial rounded"><i class="icon-base ti tabler-crown icon-lg"></i></span>
                   </span>
                   <strong>Agrega más videos con Plan Pro</strong>
                   <span class="text-muted small mt-1">Ya alcanzaste el tope de {{ $maxVideos }} video(s) para tu plan actual.</span>
-                </a>
+                </button>
               @endif
             </div>
           </div>
@@ -1390,135 +1968,174 @@
 
       <div id="step-review" class="content" data-step-key="final">
         <div class="row g-6">
-          <div class="col-lg-6">
-            <div class="card h-100">
-              <div class="card-body">
-                <h5 class="mb-3">Revisión final</h5>
-                <p class="text-muted mb-3">Guarda los cambios y luego selecciona plan para activar y pagar este anuncio.</p>
-                <table class="table table-borderless mb-0">
-                  <tbody>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Título</td>
-                      <td>{{ $listing->title ?: 'Sin título' }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Ciudad principal</td>
-                      <td>{{ $listing->city_name ?: 'Sin ciudad' }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Localidad principal</td>
-                      <td>{{ $listing->zone_name ?: 'Sin localidad detectada' }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Barrio detectado</td>
-                      <td>{{ $displayNeighborhood ?: 'Sin barrio detectado' }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Fotos</td>
-                      <td>{{ $listing->photos->count() }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Videos</td>
-                      <td>{{ $listing->videos->count() }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Completitud</td>
-                      <td><strong data-completion-text>{{ $listing->listing_completion }}%</strong></td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Estado actual</td>
-                      <td>{{ $listing->status }}</td>
-                    </tr>
-                    <tr>
-                      <td class="ps-0 text-nowrap">Estado de revisión</td>
-                      <td>{{ $reviewMeta['label'] }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          <div class="col-12">
+            <div class="listing-final-card p-4">
+              <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+                <div>
+                  <h5 class="mb-1">Planes disponibles</h5>
+                  <p class="listing-step-note mb-0">El anuncio se autoguarda. Aquí solo eliges plan, pagas por Nequi y subes el comprobante.</p>
+                </div>
+                <span class="badge bg-label-secondary">Completitud <span data-completion-text>{{ $listing->listing_completion }}%</span></span>
               </div>
-            </div>
-          </div>
 
-          <div class="col-lg-6">
-            <div class="card h-100">
-              <div class="card-body d-flex flex-column">
-                <h5 class="mb-2">Plan y pago</h5>
-                <p class="text-muted">Este formulario se autoguarda. Cuando la ficha esté completa, el siguiente paso es elegir plan y subir el comprobante de Nequi.</p>
+              <div class="alert alert-danger d-none mb-4" data-plan-selection-error></div>
 
-                @if(!$listing->listing_completed)
-                  <div class="alert alert-warning">
-                    Aún faltan bloques para completar el anuncio. Termina los campos requeridos antes de pasar a planes.
+              @if(! $listing->listing_completed)
+                <div class="alert alert-warning mb-4">
+                  Aún faltan bloques para completar el anuncio. Termina datos, ubicación, filtros y fotos antes de pagar.
+                </div>
+              @endif
+
+              @if(! $nequi['is_configured'])
+                <div class="alert alert-danger mb-4">
+                  El pago por Nequi no está configurado en este momento. No podrás enviar comprobantes hasta que el admin cargue los datos.
+                </div>
+              @endif
+
+              @if($listing->isPaymentPending())
+                <div class="alert alert-warning mb-4">
+                  Ya enviaste un comprobante. Tu anuncio queda esperando validación admin antes de continuar.
+                </div>
+              @elseif($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED)
+                <div class="alert alert-success mb-4">
+                  El pago de este anuncio ya fue aprobado. Si no necesitas cambiar plan, no hace falta volver a pagar.
+                </div>
+              @elseif($listing->isPaymentRejected())
+                <div class="alert alert-danger mb-4">
+                  Pago rechazado. {{ $latestPayment?->rejection_reason ?: 'Revisa el comprobante y vuelve a intentar.' }}
+                </div>
+              @endif
+
+              @if($plans)
+                @if($planDurationOptions)
+                  <div class="payment-billing-switch" data-billing-term-picker data-active-term-months="{{ $selectedTermMonths }}">
+                    <div class="payment-billing-switch__copy">
+                      <span class="payment-billing-switch__eyebrow">Duración del anuncio</span>
+                      <div class="payment-billing-switch__title">Elige cuánto tiempo quieres publicar este anuncio</div>
+                      <div class="payment-billing-switch__hint">El plazo cambia el total a pagar y aplica descuento automático en 3 y 12 meses.</div>
+                    </div>
+
+                    <div class="payment-billing-switch__group" role="tablist" aria-label="Duracion del anuncio">
+                      @foreach($planDurationOptions as $termOption)
+                        <button
+                          type="button"
+                          class="payment-billing-switch__button {{ (int) $termOption['months'] === $selectedTermMonths ? 'is-active' : '' }}"
+                          data-billing-term-button
+                          data-term-months="{{ $termOption['months'] }}">
+                          <strong>{{ $termOption['label'] }}</strong>
+                          <span>{{ $termOption['highlight'] }}</span>
+                        </button>
+                      @endforeach
+                    </div>
                   </div>
                 @endif
 
-                <div class="d-grid gap-2 mt-auto">
-                  <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="btn btn-success {{ $listing->listing_completed ? '' : 'disabled' }}">Elegir plan y pagar</a>
-                  @if($canSubmitForReview && $listingIssues === [] && $planIssues === [])
-                    <form method="POST" action="{{ route('mariachi.listings.submit-review', ['listing' => $listing->id]) }}">
-                      @csrf
-                      <button type="submit" class="btn btn-outline-primary w-100">{{ $submitForReviewLabel }}</button>
-                    </form>
-                  @elseif($listing->isPaymentPending())
-                    <div class="alert alert-warning mb-0">
-                      Ya enviaste el comprobante. El anuncio se activará solo después de la validación admin.
-                    </div>
-                  @elseif($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED)
-                    <div class="alert alert-success mb-0">
-                      El pago ya está aprobado. Si el anuncio cumple el flujo actual, no necesitas volver a pagar.
-                    </div>
-                  @elseif($canSubmitForReview)
-                    <div class="alert alert-warning mb-0">
-                      Este anuncio necesita ajustes de plan antes de poder enviarse a revision.
-                    </div>
-                  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_PENDING)
-                    <div class="alert alert-warning mb-0">
-                      Este anuncio ya está en revisión. No puedes modificarlo hasta recibir respuesta.
-                    </div>
-                  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED)
-                    <div class="alert alert-success mb-0">
-                      El anuncio está aprobado y, si además está activo, ya puede mostrarse públicamente.
-                    </div>
-                  @else
-                    <small class="text-muted">Para publicarse necesita anuncio completo y un pago aprobado para el plan seleccionado.</small>
-                  @endif
-                  <small class="text-muted">La publicación pública exige validación administrativa del pago y de la ficha cuando aplique.</small>
-                </div>
-              </div>
-            </div>
-          </div>
+                <div class="payment-plan-grid">
+                  @foreach($plans as $code => $plan)
+                    @php
+                      $activeTerm = $plan['terms'][$selectedTermMonths] ?? reset($plan['terms']);
+                      $isCurrentSelection = $listing->selected_plan_code === $code
+                        && (int) ($listing->plan_duration_months ?: 1) === (int) ($activeTerm['months'] ?? 1);
+                      $buttonLabel = 'Pagar con Nequi';
+                      if ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection) {
+                        $buttonLabel = 'Plan aprobado';
+                      } elseif ($listing->isPaymentPending()) {
+                        $buttonLabel = 'Comprobante en revisión';
+                      } elseif ($listing->isPaymentRejected() && $isCurrentSelection) {
+                        $buttonLabel = 'Reintentar pago con Nequi';
+                      } elseif ($isCurrentSelection) {
+                        $buttonLabel = 'Continuar con este plan';
+                      }
 
-          @if($plans)
-            <div class="col-12">
-              <div class="card">
-                <div class="card-header"><h5 class="mb-0">Planes disponibles</h5></div>
-                <div class="card-body">
-                  <div class="row g-4">
-                    @foreach($plans as $code => $plan)
-                      <div class="col-md-4">
-                        <div class="border rounded p-3 h-100 d-flex flex-column">
-                          <h6 class="mb-1">
-                            {{ $plan['name'] }}
+                      $isDisabled = ! $listing->listing_completed
+                        || $listing->isPaymentPending()
+                        || ! $nequi['is_configured']
+                        || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection);
+                    @endphp
+
+                    <div
+                      class="payment-plan-card {{ $isCurrentSelection ? 'is-current' : '' }}"
+                      data-plan-card
+                      data-plan-terms='@json(array_values($plan["terms"]))'>
+                      <div class="payment-plan-card__body">
+                        <div class="payment-plan-card__head">
+                          <h5 class="payment-plan-card__title">
+                            <span>{{ $plan['name'] }}</span>
                             @if($plan['badge_text'])
                               <span class="badge bg-label-primary">{{ $plan['badge_text'] }}</span>
                             @endif
-                          </h6>
-                          <p class="text-muted mb-2">{{ $plan['description'] }}</p>
-                          <p class="mb-2"><strong>${{ number_format((int) $plan['price_cop'], 0, ',', '.') }} COP / mes</strong></p>
-                          <ul class="small text-muted ps-3 mb-3">
-                            <li>{{ $plan['included_cities'] }} ciudad(es)</li>
-                            <li>{{ $plan['max_zones_covered'] }} localidad(es)</li>
-                            <li>{{ $plan['max_photos_per_listing'] }} foto(s)</li>
-                            <li>{{ $plan['can_add_video'] ? $plan['max_videos_per_listing'].' video(s)' : 'Sin videos' }}</li>
-                          </ul>
-                          <a href="{{ route('mariachi.listings.plans', ['listing' => $listing->id]) }}" class="btn btn-outline-primary w-100 mt-auto">Ver planes y pagar</a>
+                          </h5>
+                          @if($isCurrentSelection)
+                            <span class="badge bg-label-info">Seleccionado</span>
+                          @endif
+                        </div>
+
+                        <p class="payment-plan-card__description">{{ $plan['description'] }}</p>
+
+                        <div class="payment-plan-card__pricing">
+                          <p class="payment-plan-card__price">
+                            <span data-plan-total>${{ number_format((int) ($activeTerm['total_price_cop'] ?? 0), 0, ',', '.') }}</span>
+                            <small>COP</small>
+                          </p>
+
+                          <div class="payment-plan-card__billing">
+                            <div class="payment-plan-card__billing-copy">
+                              <span data-plan-period-label>Total {{ $activeTerm['label'] ?? '1 mes' }}</span>
+                              <strong data-plan-monthly-equivalent>${{ number_format((int) ($activeTerm['monthly_equivalent_cop'] ?? 0), 0, ',', '.') }} / mes equivalente</strong>
+                            </div>
+                            <span class="payment-plan-card__savings {{ (int) ($activeTerm['discount_percent'] ?? 0) === 0 ? 'is-muted' : '' }}" data-plan-savings>
+                              {{ $activeTerm['savings_copy'] ?? 'Precio regular' }}
+                            </span>
+                          </div>
+                        </div>
+
+                        <ul class="payment-plan-card__features">
+                          <li>{{ $plan['max_zones_covered'] }} localidad(es) por anuncio</li>
+                          <li>{{ $plan['max_photos_per_listing'] }} foto(s) por anuncio</li>
+                          <li>{{ $plan['can_add_video'] ? $plan['max_videos_per_listing'].' video(s) por anuncio' : 'Sin videos incluidos' }}</li>
+                          <li>{{ $plan['max_event_types'] }} tipo(s) de evento</li>
+                          <li>{{ $plan['max_service_types'] }} tipo(s) de servicio</li>
+                          <li>{{ $plan['max_group_sizes'] }} tamaño(s) de grupo</li>
+                          <li>{{ $plan['max_budget_ranges'] }} rango(s) de presupuesto</li>
+                        </ul>
+
+                        <div class="payment-plan-card__actions">
+                          <button
+                            type="button"
+                            class="btn btn-primary w-100"
+                            data-open-payment-sheet
+                            data-select-url="{{ route('mariachi.listings.plans.select', ['listing' => $listing->id]) }}"
+                            data-plan-code="{{ $code }}"
+                            data-plan-name="{{ $plan['name'] }}"
+                            data-plan-terms='@json(array_values($plan["terms"]))'
+                            data-plan-price="{{ (int) ($activeTerm['total_price_cop'] ?? 0) }}"
+                            data-plan-term-months="{{ (int) ($activeTerm['months'] ?? 1) }}"
+                            data-plan-term-label="{{ $activeTerm['label'] ?? '1 mes' }}"
+                            @disabled($isDisabled)>
+                            {{ $buttonLabel }}
+                          </button>
                         </div>
                       </div>
-                    @endforeach
-                  </div>
+                    </div>
+                  @endforeach
                 </div>
-              </div>
+              @else
+                <div class="alert alert-secondary mb-0">
+                  No hay planes configurados todavía para este anuncio.
+                </div>
+              @endif
+
+              @if($canSubmitForReview && $listingIssues === [] && $planIssues === [])
+                <div class="alert alert-success mt-4 mb-0 d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                  <div>Pago aprobado. Último paso: enviar el anuncio a revisión del equipo admin.</div>
+                  <form method="POST" action="{{ route('mariachi.listings.submit-review', ['listing' => $listing->id]) }}" class="m-0">
+                    @csrf
+                    <button type="submit" class="btn btn-success">{{ $submitForReviewLabel }}</button>
+                  </form>
+                </div>
+              @endif
             </div>
-          @endif
+          </div>
 
           <div class="col-12 d-flex justify-content-start">
             <button type="button" class="btn btn-label-secondary" data-step-prev>
@@ -1527,6 +2144,102 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="offcanvas offcanvas-bottom payment-sheet" tabindex="-1" id="nequiPaymentSheet" aria-labelledby="nequiPaymentSheetLabel">
+    <div class="offcanvas-header">
+      <div>
+        <h5 id="nequiPaymentSheetLabel" class="offcanvas-title">Pagar con Nequi</h5>
+        <small class="text-muted">Sube el comprobante para dejar este anuncio en revisión de pago.</small>
+      </div>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+
+    <div class="offcanvas-body">
+      <form method="POST" action="{{ route('mariachi.listings.payments.nequi.store', ['listing' => $listing->id]) }}" enctype="multipart/form-data" class="row g-4">
+        @csrf
+        <input type="hidden" name="listing_id" value="{{ $listing->id }}" />
+        <input type="hidden" name="plan_code" value="{{ $defaultPlan['code'] ?? array_key_first($plans) }}" data-payment-plan-code />
+        <input type="hidden" name="term_months" value="{{ (int) ($defaultPlanTerm['months'] ?? 1) }}" data-payment-plan-term-months />
+        <input type="hidden" name="amount_cop" value="{{ (int) ($defaultPlanTerm['total_price_cop'] ?? 0) }}" data-payment-plan-price />
+
+        <div class="col-lg-7">
+          <div class="card border shadow-none h-100">
+            <div class="card-body">
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Plan seleccionado</small>
+                <div class="fw-semibold" data-payment-plan-name>{{ $defaultPlan['name'] ?? 'Plan' }}</div>
+              </div>
+
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Monto a pagar</small>
+                <div class="fw-semibold" data-payment-plan-amount>
+                  ${{ number_format((int) ($defaultPlanTerm['total_price_cop'] ?? 0), 0, ',', '.') }} COP
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Duración</small>
+                <div class="fw-semibold" data-payment-plan-duration>{{ $defaultPlanTerm['label'] ?? '1 mes' }}</div>
+              </div>
+
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Teléfono Nequi</small>
+                <div class="fw-semibold">{{ $nequi['phone'] ?: 'Pendiente de configurar' }}</div>
+                @if($nequi['beneficiary_name'])
+                  <div class="text-body-secondary">Beneficiario: {{ $nequi['beneficiary_name'] }}</div>
+                @endif
+              </div>
+
+              <div class="alert alert-info mb-0">
+                Paga por Nequi, toma una captura clara del comprobante y súbela aquí. Tu anuncio quedará en revisión hasta validación del admin.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="card border shadow-none h-100">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+              @if($nequi['qr_image_url'])
+                <img src="{{ $nequi['qr_image_url'] }}" alt="QR de Nequi" class="payment-sheet-qr img-fluid" />
+              @else
+                <div class="payment-sheet-placeholder w-100 d-flex align-items-center justify-content-center text-center px-4">
+                  El admin aún no ha cargado un QR. Puedes pagar usando el teléfono Nequi mostrado.
+                </div>
+              @endif
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label" for="proof_image">Captura del comprobante</label>
+          <input
+            id="proof_image"
+            type="file"
+            name="proof_image"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            class="form-control"
+            required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label" for="reference_text">Referencia opcional</label>
+          <input
+            id="reference_text"
+            type="text"
+            name="reference_text"
+            class="form-control"
+            maxlength="120"
+            placeholder="Últimos dígitos, hora o nota breve" />
+        </div>
+
+        <div class="col-12 d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-label-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Ya pagué, enviar comprobante</button>
+        </div>
+      </form>
     </div>
   </div>
 
