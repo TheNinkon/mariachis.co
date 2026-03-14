@@ -11,6 +11,7 @@ use App\Http\Controllers\Mariachi\MariachiProviderProfileController;
 use App\Http\Controllers\Mariachi\MariachiQuoteConversationController;
 use App\Http\Controllers\Mariachi\MariachiReviewController;
 use App\Http\Controllers\Mariachi\MariachiVerificationController;
+use App\Http\Controllers\Mariachi\WompiPaymentController;
 use Illuminate\Support\Facades\Route;
 
 Route::domain(config('domains.partner'))->group(function (): void {
@@ -33,7 +34,11 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::get('/signup', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
         Route::post('/signup', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
         Route::get('/signup/activar/{user}/{token}', [MariachiRegistrationController::class, 'activation'])->name('mariachi.activation.show');
-        Route::post('/signup/activar/{user}/{token}/nequi', [MariachiRegistrationController::class, 'storeActivationPayment'])->name('mariachi.activation.payments.nequi.store');
+        Route::post('/signup/activar/{user}/{token}/wompi', [MariachiRegistrationController::class, 'startActivationCheckout'])->name('mariachi.activation.payments.wompi.checkout');
+        Route::get('/pagos/wompi/{type}/{reference}', [WompiPaymentController::class, 'redirect'])
+            ->whereIn('type', ['activation', 'listing', 'verification'])
+            ->name('mariachi.wompi.redirect');
+        Route::post('/pagos/wompi/webhook', [WompiPaymentController::class, 'webhook'])->name('mariachi.wompi.webhook');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.password.request');
         Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.password.email');
@@ -76,7 +81,7 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::post('/anuncios', [MariachiListingController::class, 'store'])->name('mariachi.listings.store');
         Route::get('/anuncios/{listing}/planes', [MariachiListingController::class, 'plans'])->name('mariachi.listings.plans');
         Route::post('/anuncios/{listing}/planes', [MariachiListingController::class, 'selectPlan'])->name('mariachi.listings.plans.select');
-        Route::post('/anuncios/{listing}/pagos/nequi', [MariachiListingController::class, 'storeNequiPayment'])->name('mariachi.listings.payments.nequi.store');
+        Route::post('/anuncios/{listing}/pagos/wompi', [MariachiListingController::class, 'startWompiCheckout'])->name('mariachi.listings.payments.wompi.checkout');
         Route::get('/anuncios/{listing}/editar', [MariachiListingController::class, 'edit'])->name('mariachi.listings.edit');
         Route::patch('/anuncios/{listing}/autosave', [MariachiListingController::class, 'autosave'])->name('mariachi.listings.autosave');
         Route::patch('/anuncios/{listing}', [MariachiListingController::class, 'update'])->name('mariachi.listings.update');

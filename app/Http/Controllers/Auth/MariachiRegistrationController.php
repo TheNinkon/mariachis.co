@@ -8,7 +8,8 @@ use App\Models\AccountActivationPayment;
 use App\Models\MariachiProfile;
 use App\Models\User;
 use App\Services\AccountActivationCatalogService;
-use App\Services\NequiPaymentSettingsService;
+use App\Services\WompiPaymentFlowService;
+use App\Services\WompiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -24,7 +25,8 @@ class MariachiRegistrationController extends Controller
 
     public function __construct(
         private readonly AccountActivationCatalogService $activationCatalog,
-        private readonly NequiPaymentSettingsService $nequiSettings
+        private readonly WompiPaymentFlowService $paymentFlows,
+        private readonly WompiService $wompi
     ) {
     }
 
@@ -40,7 +42,7 @@ class MariachiRegistrationController extends Controller
             'activationPlan' => $this->activationCatalog->activePlan(),
             'activationUser' => null,
             'activationPayment' => null,
-            'nequi' => $this->nequiSettings->publicConfig(),
+            'wompi' => $this->wompi->publicConfig(),
         ]);
     }
 
@@ -137,11 +139,11 @@ class MariachiRegistrationController extends Controller
             'activationUser' => $user,
             'activationToken' => $token,
             'activationPayment' => $activationPayment,
-            'nequi' => $this->nequiSettings->publicConfig(),
+            'wompi' => $this->wompi->publicConfig(),
         ]);
     }
 
-    public function storeActivationPayment(Request $request, User $user, string $token): RedirectResponse
+    public function startActivationCheckout(Request $request, User $user, string $token): RedirectResponse
     {
         if (! $this->isValidActivationUser($user, $token)) {
             abort(404);
@@ -152,8 +154,6 @@ class MariachiRegistrationController extends Controller
         }
 
         $activationPlan = $this->activationCatalog->activePlan();
-        $nequi = $this->nequiSettings->publicConfig();
-        $latestPayment = $user->activationPayments()->latest('id')->first();
 
         if (! $activationPlan) {
             return back()->withErrors([
@@ -161,38 +161,15 @@ class MariachiRegistrationController extends Controller
             ]);
         }
 
-        if (! $nequi['is_configured']) {
+        if (! $this->paymentFlows->isConfigured()) {
             return back()->withErrors([
-                'proof_image' => 'El pago por Nequi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.',
+                'activation' => 'Wompi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.',
             ]);
         }
 
-        if ($latestPayment?->isPending()) {
-            return back()->withErrors([
-                'activation' => 'Ya enviaste un comprobante. Espera la revision del admin antes de subir otro.',
-            ]);
-        }
-
-        $validated = $request->validate([
-            'proof_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'reference_text' => ['nullable', 'string', 'max:120'],
-        ]);
-
-        $proofPath = $request->file('proof_image')->store('activation-payments/proofs', 'public');
-
-        AccountActivationPayment::query()->create([
-            'user_id' => $user->id,
-            'account_activation_plan_id' => $activationPlan->id,
-            'amount_cop' => (int) $activationPlan->amount_cop,
-            'method' => AccountActivationPayment::METHOD_NEQUI,
-            'proof_path' => $proofPath,
-            'status' => AccountActivationPayment::STATUS_PENDING_REVIEW,
-            'reference_text' => $validated['reference_text'] ?? null,
-        ]);
-
-        return redirect()
-            ->route('mariachi.activation.show', ['user' => $user->id, 'token' => $token])
-            ->with('status', 'Pago enviado. Estamos revisando tu comprobante para activar la cuenta.');
+        return redirect()->away(
+            $this->paymentFlows->beginActivationCheckout($user, $activationPlan)
+        );
     }
 
     public function verifyEmail(Request $request, User $user, string $hash): RedirectResponse

@@ -272,17 +272,13 @@ import Sortable from 'sortablejs';
   const billingTermButtons = Array.from(document.querySelectorAll('[data-billing-term-button]'));
   const paymentPlanCards = Array.from(document.querySelectorAll('[data-plan-card]'));
   const paymentPlanButtons = Array.from(document.querySelectorAll('[data-open-payment-sheet]'));
-  const paymentSheetElement = document.getElementById('nequiPaymentSheet');
-  const paymentSheet = window.bootstrap?.Offcanvas && paymentSheetElement
-    ? window.bootstrap.Offcanvas.getOrCreateInstance(paymentSheetElement)
-    : null;
+  const wompiCheckoutForm = document.getElementById('wompiCheckoutForm');
   const paymentPlanNameTargets = Array.from(document.querySelectorAll('[data-payment-plan-name]'));
   const paymentPlanAmountTargets = Array.from(document.querySelectorAll('[data-payment-plan-amount]'));
   const paymentPlanDurationTargets = Array.from(document.querySelectorAll('[data-payment-plan-duration]'));
   const paymentPlanCodeInputs = Array.from(document.querySelectorAll('[data-payment-plan-code]'));
   const paymentPlanTermInputs = Array.from(document.querySelectorAll('[data-payment-plan-term-months]'));
   const paymentPlanPriceInputs = Array.from(document.querySelectorAll('[data-payment-plan-price]'));
-  const paymentSheetForm = paymentSheetElement?.querySelector('form');
   const planSelectionError = document.querySelector('[data-plan-selection-error]');
   const zonesById = new Map(
     locationZones.map(zone => [Number(zone.id), { id: Number(zone.id), city_id: Number(zone.city_id), name: zone.name }])
@@ -1901,7 +1897,7 @@ import Sortable from 'sortablejs';
     updateFilterGroup(group);
   });
 
-  if (paymentPlanButtons.length && paymentSheet && csrfToken) {
+  if (paymentPlanButtons.length && wompiCheckoutForm instanceof HTMLFormElement && csrfToken) {
     if (billingTermButtons.length) {
       billingTermButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -1952,7 +1948,7 @@ import Sortable from 'sortablejs';
 
           syncPaymentSheet(button);
           showFinalStep();
-          paymentSheet.show();
+          wompiCheckoutForm.submit();
         } catch (error) {
           if (planSelectionError instanceof HTMLElement) {
             planSelectionError.textContent = error instanceof Error ? error.message : 'No pudimos preparar el pago para este plan.';
@@ -1966,12 +1962,6 @@ import Sortable from 'sortablejs';
     });
 
     syncPaymentSheet(paymentPlanButtons[0]);
-  }
-
-  if (paymentSheetForm instanceof HTMLFormElement) {
-    paymentSheetForm.addEventListener('submit', () => {
-      showFinalStep();
-    });
   }
 
   mainForm.addEventListener('input', event => {

@@ -10,6 +10,7 @@ class AccountActivationPayment extends Model
 {
     use HasFactory;
 
+    public const METHOD_WOMPI = 'wompi';
     public const METHOD_NEQUI = 'nequi';
 
     public const STATUS_PENDING_REVIEW = 'pending_review';
@@ -21,6 +22,10 @@ class AccountActivationPayment extends Model
         'account_activation_plan_id',
         'amount_cop',
         'method',
+        'checkout_reference',
+        'provider_transaction_id',
+        'provider_transaction_status',
+        'provider_payload',
         'proof_path',
         'status',
         'reference_text',
@@ -33,6 +38,7 @@ class AccountActivationPayment extends Model
     {
         return [
             'amount_cop' => 'integer',
+            'provider_payload' => 'array',
             'reviewed_at' => 'datetime',
         ];
     }

@@ -43,12 +43,12 @@
           </div>
 
           <div class="d-flex gap-3 mb-4">
-            <span class="badge bg-label-info">NEQUI</span>
+            <span class="badge bg-label-info">WOMPI</span>
             <div>
-              <p class="mb-0 fw-semibold">Pago manual</p>
+              <p class="mb-0 fw-semibold">Checkout Wompi</p>
               <small class="text-muted">
-                Teléfono {{ $nequi['phone'] !== '' ? 'configurado' : 'pendiente' }}
-                · QR {{ $nequi['qr_image_url'] ? 'cargado' : 'sin imagen' }}
+                Llave pública {{ $wompi['public_key'] !== '' ? 'configurada' : 'pendiente' }}
+                · Webhook {{ $wompi['webhook_is_configured'] ? 'listo' : 'sin secreto' }}
               </small>
             </div>
           </div>
@@ -150,73 +150,38 @@
         </div>
 
         <div class="card">
-          <div class="card-header"><h5 class="mb-0">Nequi</h5></div>
+          <div class="card-header"><h5 class="mb-0">Wompi</h5></div>
           <div class="card-body">
-            <p class="text-muted mb-4">Estos datos alimentan el bottom-sheet de pago manual que ve el mariachi al elegir un plan.</p>
+            <p class="text-muted mb-4">La plataforma de pagos ahora toma la configuración directamente desde <code>.env</code>. No se edita desde esta pantalla.</p>
 
             <div class="row g-4">
               <div class="col-md-6">
-                <label class="form-label" for="nequi_phone">Telefono Nequi</label>
-                <input
-                  id="nequi_phone"
-                  type="text"
-                  name="nequi_phone"
-                  class="form-control @error('nequi_phone') is-invalid @enderror"
-                  value="{{ old('nequi_phone', $nequi['phone']) }}"
-                  placeholder="3001234567"
-                />
-                @error('nequi_phone')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <label class="form-label d-block">Entorno</label>
+                <div class="form-control-plaintext">{{ strtoupper($wompi['environment']) }}</div>
               </div>
 
               <div class="col-md-6">
-                <label class="form-label" for="nequi_beneficiary_name">Nombre beneficiario</label>
-                <input
-                  id="nequi_beneficiary_name"
-                  type="text"
-                  name="nequi_beneficiary_name"
-                  class="form-control @error('nequi_beneficiary_name') is-invalid @enderror"
-                  value="{{ old('nequi_beneficiary_name', $nequi['beneficiary_name']) }}"
-                  placeholder="Mariachis.co"
-                />
-                @error('nequi_beneficiary_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <label class="form-label d-block">Moneda</label>
+                <div class="form-control-plaintext">{{ $wompi['currency'] }}</div>
               </div>
 
-              <div class="col-md-7">
-                <label class="form-label" for="nequi_qr_image">QR Nequi</label>
-                <input
-                  id="nequi_qr_image"
-                  type="file"
-                  name="nequi_qr_image"
-                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                  class="form-control @error('nequi_qr_image') is-invalid @enderror"
-                />
-                @error('nequi_qr_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                <small class="text-muted">Sube una imagen cuadrada o vertical legible para el modal de pago.</small>
+              <div class="col-md-6">
+                <label class="form-label d-block">Llave pública</label>
+                <div class="form-control-plaintext">
+                  {{ $wompi['public_key'] !== '' ? 'Configurada' : 'Pendiente en .env' }}
+                </div>
               </div>
 
-              <div class="col-md-5">
-                @if($nequi['qr_image_url'])
-                  <label class="form-label d-block">Vista actual</label>
-                  <img src="{{ $nequi['qr_image_url'] }}" alt="QR Nequi actual" class="img-fluid rounded border" style="max-height: 180px;" />
-                @else
-                  <label class="form-label d-block">Vista actual</label>
-                  <div class="border rounded p-4 text-body-secondary text-center h-100 d-flex align-items-center justify-content-center">
-                    No hay QR cargado
-                  </div>
-                @endif
+              <div class="col-md-6">
+                <label class="form-label d-block">Webhook / eventos</label>
+                <div class="form-control-plaintext">
+                  {{ $wompi['webhook_is_configured'] ? 'Secreto configurado' : 'Falta WOMPI_EVENTS_SECRET' }}
+                </div>
               </div>
 
               <div class="col-12">
-                <div class="form-check form-switch">
-                  <input
-                    id="clear_nequi_qr_image"
-                    type="checkbox"
-                    name="clear_nequi_qr_image"
-                    value="1"
-                    class="form-check-input"
-                    {{ old('clear_nequi_qr_image') ? 'checked' : '' }}
-                  />
-                  <label class="form-check-label" for="clear_nequi_qr_image">Eliminar QR guardado</label>
+                <div class="alert alert-info mb-0">
+                  Variables esperadas: <code>WOMPI_ENVIRONMENT</code>, <code>WOMPI_PUBLIC_KEY</code>, <code>WOMPI_PRIVATE_KEY</code>, <code>WOMPI_INTEGRITY_SECRET</code> y <code>WOMPI_EVENTS_SECRET</code>.
                 </div>
               </div>
             </div>

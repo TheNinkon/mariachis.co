@@ -7,9 +7,7 @@ use App\Models\AccountActivationPlan;
 use App\Models\MariachiProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MariachiActivationRegistrationTest extends TestCase
@@ -49,7 +47,7 @@ class MariachiActivationRegistrationTest extends TestCase
         $this->assertMatchesRegularExpression('/^m-[a-z0-9]{8}$/', (string) $profile->slug);
     }
 
-    public function test_pending_activation_user_cannot_login_until_admin_approval(): void
+    public function test_pending_activation_user_cannot_login_until_payment_is_approved(): void
     {
         $user = User::factory()->create([
             'role' => User::ROLE_MARIACHI,
@@ -71,73 +69,82 @@ class MariachiActivationRegistrationTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_pending_user_can_submit_nequi_activation_proof(): void
+    public function test_pending_user_can_start_wompi_activation_checkout(): void
     {
-        Storage::fake('public');
-        config([
-            'payments.nequi.phone' => '3001234567',
-            'payments.nequi.beneficiary_name' => 'Mariachis.co',
-        ]);
+        $this->configureWompi();
 
         $plan = $this->ensureActivationPlan();
         $user = User::factory()->create([
             'role' => User::ROLE_MARIACHI,
             'status' => User::STATUS_PENDING_ACTIVATION,
             'activation_token' => str_repeat('b', 64),
+            'email' => 'activation@example.com',
+            'phone' => '+57 3001234567',
         ]);
 
-        $this->post(route('mariachi.activation.payments.nequi.store', [
-            'user' => $user->id,
-            'token' => $user->activation_token,
-        ]), [
-            'proof_image' => UploadedFile::fake()->image('activation-proof.png'),
-            'reference_text' => 'NEQUI-5678',
-        ])->assertRedirect(route('mariachi.activation.show', [
+        $response = $this->post(route('mariachi.activation.payments.wompi.checkout', [
             'user' => $user->id,
             'token' => $user->activation_token,
         ]));
+
+        $response->assertStatus(302);
 
         $payment = AccountActivationPayment::query()->firstOrFail();
 
         $this->assertSame($user->id, $payment->user_id);
         $this->assertSame($plan->id, $payment->account_activation_plan_id);
-        $this->assertSame(AccountActivationPayment::STATUS_PENDING_REVIEW, $payment->status);
         $this->assertSame($plan->amount_cop, $payment->amount_cop);
-        Storage::disk('public')->assertExists($payment->proof_path);
+        $this->assertSame(AccountActivationPayment::METHOD_WOMPI, $payment->method);
+        $this->assertSame(AccountActivationPayment::STATUS_PENDING_REVIEW, $payment->status);
+        $this->assertNotEmpty($payment->checkout_reference);
+
+        $this->assertWompiCheckoutRedirect($response->headers->get('Location'), [
+            'amount-in-cents' => (string) ($plan->amount_cop * 100),
+            'reference' => $payment->checkout_reference,
+        ]);
     }
 
-    public function test_admin_can_approve_activation_payment_and_enable_login(): void
+    public function test_wompi_webhook_approves_activation_payment_and_enables_login(): void
     {
-        $plan = $this->ensureActivationPlan();
-        $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
-            'status' => User::STATUS_ACTIVE,
-        ]);
+        $this->configureWompi();
+
         $user = User::factory()->create([
             'role' => User::ROLE_MARIACHI,
             'status' => User::STATUS_PENDING_ACTIVATION,
             'activation_token' => str_repeat('c', 64),
+            'email' => 'approval@example.com',
         ]);
 
-        $payment = AccountActivationPayment::query()->create([
-            'user_id' => $user->id,
-            'account_activation_plan_id' => $plan->id,
-            'amount_cop' => $plan->amount_cop,
-            'method' => AccountActivationPayment::METHOD_NEQUI,
-            'proof_path' => 'activation-payments/proofs/test.png',
-            'status' => AccountActivationPayment::STATUS_PENDING_REVIEW,
-            'reference_text' => 'NEQUI-APPROVE',
+        $this->ensureActivationPlan();
+
+        $this->post(route('mariachi.activation.payments.wompi.checkout', [
+            'user' => $user->id,
+            'token' => $user->activation_token,
+        ]))->assertStatus(302);
+
+        $payment = AccountActivationPayment::query()->firstOrFail();
+
+        $payload = $this->wompiEventPayload([
+            'id' => 'wompi-tx-activation-1',
+            'status' => 'APPROVED',
+            'reference' => $payment->checkout_reference,
+            'amount_in_cents' => $payment->amount_cop * 100,
+            'currency' => 'COP',
+            'status_message' => 'Payment approved',
         ]);
 
-        $this->actingAs($admin)
-            ->patch(route('admin.account-activation-payments.update', $payment), [
-                'action' => 'approve',
-            ])
-            ->assertRedirect();
+        $this->postJson(route('mariachi.wompi.webhook'), $payload)
+            ->assertOk()
+            ->assertJson(['ok' => true]);
 
-        $this->assertSame(User::STATUS_ACTIVE, $user->fresh()->status);
-        $this->assertNotNull($user->fresh()->activation_paid_at);
-        $this->assertSame(AccountActivationPayment::STATUS_APPROVED, $payment->fresh()->status);
+        $payment->refresh();
+        $user->refresh();
+
+        $this->assertSame(AccountActivationPayment::STATUS_APPROVED, $payment->status);
+        $this->assertSame('wompi-tx-activation-1', $payment->provider_transaction_id);
+        $this->assertSame('APPROVED', $payment->provider_transaction_status);
+        $this->assertSame(User::STATUS_ACTIVE, $user->status);
+        $this->assertNotNull($user->activation_paid_at);
     }
 
     public function test_admin_can_manage_activation_plan_from_packages_section(): void
@@ -176,5 +183,69 @@ class MariachiActivationRegistrationTest extends TestCase
                 'sort_order' => 10,
             ]
         );
+    }
+
+    private function configureWompi(): void
+    {
+        config([
+            'payments.wompi.environment' => 'sandbox',
+            'payments.wompi.public_key' => 'pub_test_checkout_activation',
+            'payments.wompi.integrity_secret' => 'test_integrity_secret',
+            'payments.wompi.events_secret' => 'test_events_secret',
+            'payments.wompi.currency' => 'COP',
+            'payments.wompi.checkout_url' => 'https://checkout.wompi.co/p/',
+            'payments.wompi.sandbox_api_base_url' => 'https://sandbox.wompi.co/v1',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $transaction
+     * @return array<string, mixed>
+     */
+    private function wompiEventPayload(array $transaction): array
+    {
+        $timestamp = '2026-03-14T12:00:00.000Z';
+        $properties = [
+            'transaction.id',
+            'transaction.status',
+            'transaction.reference',
+            'transaction.amount_in_cents',
+        ];
+
+        $concatenated = collect($properties)
+            ->map(fn (string $property): string => (string) data_get(['transaction' => $transaction], $property))
+            ->implode('');
+
+        return [
+            'event' => 'transaction.updated',
+            'data' => [
+                'transaction' => $transaction,
+            ],
+            'signature' => [
+                'properties' => $properties,
+                'checksum' => hash('sha256', $concatenated.$timestamp.config('payments.wompi.events_secret')),
+            ],
+            'timestamp' => $timestamp,
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $expected
+     */
+    private function assertWompiCheckoutRedirect(?string $location, array $expected): void
+    {
+        $this->assertNotNull($location);
+        $this->assertStringStartsWith('https://checkout.wompi.co/p/?', $location);
+
+        $query = [];
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+        $this->assertSame('pub_test_checkout_activation', $query['public-key'] ?? null);
+        $this->assertSame('COP', $query['currency'] ?? null);
+        $this->assertArrayHasKey('signature:integrity', $query);
+
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $query[$key] ?? null);
+        }
     }
 }

@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             RichMariachiProfilesSeeder::class,
             MarketplaceLocationSeeder::class,
             MarketplaceZoneSeederBogotaMedellin::class,
+            DemoMarketplaceListingsSeeder::class,
             ClientUserSeeder::class,
             BlogPostSeeder::class,
         ]);

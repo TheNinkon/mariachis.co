@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Mariachi;
 use App\Http\Controllers\Controller;
 use App\Models\MariachiProfileHandleAlias;
 use App\Models\MariachiProfile;
-use App\Models\ProfileVerificationPayment;
 use App\Models\VerificationRequest;
-use App\Services\NequiPaymentSettingsService;
 use App\Services\ProfileVerificationCatalogService;
+use App\Services\WompiPaymentFlowService;
+use App\Services\WompiService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,8 +18,9 @@ use Illuminate\View\View;
 class MariachiVerificationController extends Controller
 {
     public function __construct(
-        private readonly NequiPaymentSettingsService $nequiSettings,
-        private readonly ProfileVerificationCatalogService $verificationCatalog
+        private readonly ProfileVerificationCatalogService $verificationCatalog,
+        private readonly WompiPaymentFlowService $paymentFlows,
+        private readonly WompiService $wompi
     ) {
     }
 
@@ -32,15 +33,14 @@ class MariachiVerificationController extends Controller
         $latestRequest = $profile->verificationRequests->first();
         $latestPayment = $profile->verificationPayments->first();
         $verificationPlans = $this->verificationCatalog->plans();
-        $canSubmitVerification = ! $profile->hasActiveVerification()
-            && ! ($latestPayment?->isPending() || $latestRequest?->status === VerificationRequest::STATUS_PENDING);
+        $canSubmitVerification = ! $profile->hasActiveVerification();
 
         return view('content.mariachi.verification', [
             'profile' => $profile,
             'latestRequest' => $latestRequest,
             'latestPayment' => $latestPayment,
             'verificationPlans' => $verificationPlans,
-            'nequi' => $this->nequiSettings->publicConfig(),
+            'wompi' => $this->wompi->publicConfig(),
             'canSubmitVerification' => $canSubmitVerification,
         ]);
     }
@@ -49,9 +49,8 @@ class MariachiVerificationController extends Controller
     {
         $profile = $this->providerProfile();
         $plans = $this->verificationCatalog->plans();
-        $nequi = $this->nequiSettings->publicConfig();
-        $latestPayment = $profile->verificationPayments()->latest('id')->first();
-        $latestRequest = $profile->verificationRequests()->latest('id')->first();
+        $latestRequest = $profile->verificationRequests()->latest('submitted_at')->latest('id')->first();
+        $latestPayment = $profile->verificationPayments()->latest('created_at')->latest('id')->first();
 
         if ($profile->hasActiveVerification()) {
             $expiresAt = $profile->verification_expires_at?->format('Y-m-d');
@@ -63,25 +62,17 @@ class MariachiVerificationController extends Controller
             ]);
         }
 
-        if (! $nequi['is_configured']) {
+        if (! $this->paymentFlows->isConfigured()) {
             return back()->withErrors([
-                'proof_image' => 'El pago por Nequi no está configurado en este momento. Intenta más tarde o contacta a soporte.',
-            ]);
-        }
-
-        if (($latestPayment && $latestPayment->isPending()) || ($latestRequest && $latestRequest->status === VerificationRequest::STATUS_PENDING)) {
-            return back()->withErrors([
-                'verification' => 'Ya tienes una verificación en proceso. Espera la revisión del admin antes de enviar otra.',
+                'verification' => 'Wompi no está configurado en este momento. Intenta más tarde o contacta a soporte.',
             ]);
         }
 
         $validated = $request->validate([
             'plan_code' => ['required', Rule::in(array_keys($plans))],
-            'proof_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'id_document' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'identity_proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'reference_text' => ['nullable', 'string', 'max:120'],
         ]);
 
         $plan = $this->verificationCatalog->plan($validated['plan_code']);
@@ -91,39 +82,36 @@ class MariachiVerificationController extends Controller
             ]);
         }
 
-        $proofPath = $request->file('proof_image')->store('verification-payments/proofs', 'public');
+        if (
+            $latestRequest?->status === VerificationRequest::STATUS_PENDING
+            && $latestPayment
+            && ! $latestPayment->isPending()
+        ) {
+            return back()->withErrors([
+                'verification' => 'Tu pago ya fue confirmado y ahora solo falta la revisión manual de documentos.',
+            ]);
+        }
+
+        if (
+            $latestRequest?->status === VerificationRequest::STATUS_PENDING
+            && $latestPayment?->isPending()
+            && $latestPayment->plan_code !== $plan['code']
+        ) {
+            return back()->withErrors([
+                'plan_code' => 'Ya tienes un checkout Wompi pendiente con otro plan. Retómalo o espera a que termine antes de cambiarlo.',
+            ]);
+        }
+
         $idDocumentPath = $request->file('id_document')->store('verification-docs/id', 'public');
         $identityProofPath = $request->file('identity_proof')->store('verification-docs/proof', 'public');
 
-        DB::transaction(function () use ($profile, $validated, $plan, $proofPath, $idDocumentPath, $identityProofPath): void {
-            $payment = ProfileVerificationPayment::query()->create([
-                'mariachi_profile_id' => $profile->id,
-                'plan_code' => $plan['code'],
-                'duration_months' => $plan['duration_months'],
-                'amount_cop' => $plan['amount_cop'],
-                'method' => ProfileVerificationPayment::METHOD_NEQUI,
-                'proof_path' => $proofPath,
-                'status' => ProfileVerificationPayment::STATUS_PENDING,
-                'reference_text' => $validated['reference_text'] ?? null,
-            ]);
-
-            VerificationRequest::query()->create([
-                'mariachi_profile_id' => $profile->id,
-                'profile_verification_payment_id' => $payment->id,
-                'status' => VerificationRequest::STATUS_PENDING,
+        return redirect()->away(
+            $this->paymentFlows->beginVerificationCheckout($profile, $plan, [
+                'notes' => $validated['notes'] ?? null,
                 'id_document_path' => $idDocumentPath,
                 'identity_proof_path' => $identityProofPath,
-                'notes' => $validated['notes'] ?? null,
-                'submitted_at' => now(),
-            ]);
-
-            $profile->update([
-                'verification_status' => 'payment_pending',
-                'verification_notes' => null,
-            ]);
-        });
-
-        return back()->with('status', 'Pago y documentos enviados. El equipo validará el comprobante y la verificación manualmente.');
+            ])
+        );
     }
 
     public function updateHandle(Request $request): RedirectResponse

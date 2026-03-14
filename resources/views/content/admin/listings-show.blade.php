@@ -645,7 +645,7 @@
 
       <div class="card mb-6">
         <div class="card-header d-flex justify-content-between">
-          <h5 class="card-title m-0">Pago (Nequi)</h5>
+          <h5 class="card-title m-0">Pago (Wompi)</h5>
           <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
         </div>
         <div class="card-body">
@@ -666,18 +666,26 @@
               <div class="text-body-secondary">Metodo {{ strtoupper($latestPayment->method) }}</div>
             </div>
 
-            @if ($latestPayment->reference_text)
+            @if ($latestPayment->checkout_reference || $latestPayment->reference_text)
               <div class="mb-3">
-                <small class="text-body-secondary d-block mb-1">Referencia</small>
-                <div class="fw-medium">{{ $latestPayment->reference_text }}</div>
+                <small class="text-body-secondary d-block mb-1">Referencia checkout</small>
+                <div class="fw-medium">{{ $latestPayment->checkout_reference ?: $latestPayment->reference_text }}</div>
+              </div>
+            @endif
+
+            @if ($latestPayment->provider_transaction_id)
+              <div class="mb-3">
+                <small class="text-body-secondary d-block mb-1">Transaccion Wompi</small>
+                <div class="fw-medium">{{ $latestPayment->provider_transaction_id }}</div>
+                <div class="text-body-secondary">{{ $latestPayment->provider_transaction_status ?: 'Sin estado reportado' }}</div>
               </div>
             @endif
 
             @if ($latestPayment->proof_path)
               <div class="mb-3">
-                <small class="text-body-secondary d-block mb-2">Comprobante</small>
+                <small class="text-body-secondary d-block mb-2">Comprobante historico</small>
                 <a href="{{ asset('storage/'.$latestPayment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="d-block border rounded overflow-hidden">
-                  <img src="{{ asset('storage/'.$latestPayment->proof_path) }}" alt="Comprobante Nequi" class="admin-payment-proof" />
+                  <img src="{{ asset('storage/'.$latestPayment->proof_path) }}" alt="Comprobante historico" class="admin-payment-proof" />
                 </a>
                 <a href="{{ asset('storage/'.$latestPayment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-2">Abrir comprobante</a>
               </div>
@@ -723,7 +731,7 @@
               </div>
             @endif
           @else
-            <div class="text-body-secondary">Todavia no hay comprobante cargado para este anuncio.</div>
+            <div class="text-body-secondary">Todavia no hay transaccion registrada para este anuncio.</div>
           @endif
         </div>
       </div>

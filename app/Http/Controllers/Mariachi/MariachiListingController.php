@@ -19,9 +19,10 @@ use App\Models\ServiceType;
 use App\Services\EntitlementsService;
 use App\Services\GoogleMapsSettingsService;
 use App\Services\MediaProtectionService;
-use App\Services\NequiPaymentSettingsService;
 use App\Services\PlanAssignmentService;
 use App\Services\SubscriptionCapabilityService;
+use App\Services\WompiPaymentFlowService;
+use App\Services\WompiService;
 use App\Support\Entitlements\EntitlementKey;
 use App\Support\ListingDescriptionSanitizer;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +42,8 @@ class MariachiListingController extends Controller
         private readonly PlanAssignmentService $planAssignmentService,
         private readonly MediaProtectionService $mediaProtectionService,
         private readonly GoogleMapsSettingsService $googleMapsSettings,
-        private readonly NequiPaymentSettingsService $nequiSettings,
+        private readonly WompiPaymentFlowService $paymentFlows,
+        private readonly WompiService $wompi,
         private readonly ListingDescriptionSanitizer $listingDescriptionSanitizer
     ) {
     }
@@ -148,7 +150,7 @@ class MariachiListingController extends Controller
             'capabilities' => $this->capabilityService->resolveCapabilities($profile, $listing),
             'planSummary' => $this->entitlementsService->summary($profile),
             'plans' => $this->availablePlans(),
-            'nequi' => $this->nequiSettings->publicConfig(),
+            'wompi' => $this->wompi->publicConfig(),
         ]);
     }
 
@@ -215,10 +217,22 @@ class MariachiListingController extends Controller
         }
 
         if ($listing->isPaymentPending()) {
+            $samePendingSelection = $listing->selected_plan_code === $planCode
+                && (int) ($listing->plan_duration_months ?: 1) === (int) $selectedTerm['months'];
+
+            if ($samePendingSelection) {
+                return $this->planSelectionResponse(
+                    $request,
+                    true,
+                    'Ya existe un pago Wompi pendiente para este plan. Continúa con el checkout para finalizarlo.',
+                    route('mariachi.listings.edit', ['listing' => $listing->id])
+                );
+            }
+
             return $this->planSelectionResponse(
                 $request,
                 false,
-                'Ya enviaste un comprobante. Espera la validacion del admin antes de cambiar el plan.',
+                'Ya existe un pago Wompi pendiente para este anuncio. Espera a que termine o vuelve a abrir el mismo checkout.',
                 route('mariachi.listings.edit', ['listing' => $listing->id]),
                 409
             );
@@ -244,32 +258,26 @@ class MariachiListingController extends Controller
         return $this->planSelectionResponse(
             $request,
             true,
-            'Plan seleccionado ('.$selectedPlan['name'].' · '.$selectedTerm['label'].'). Ahora paga por Nequi y sube el comprobante.',
+            'Plan seleccionado ('.$selectedPlan['name'].' · '.$selectedTerm['label'].'). Ahora serás redirigido a Wompi para completar el pago.',
             route('mariachi.listings.edit', ['listing' => $listing->id])
         );
     }
 
-    public function storeNequiPayment(Request $request, MariachiListing $listing): RedirectResponse
+    public function startWompiCheckout(Request $request, MariachiListing $listing): RedirectResponse
     {
         $this->ensureOwned($listing);
         $this->refreshListingProgress($listing);
         $listing->refresh();
 
-        if (! $this->nequiSettings->publicConfig()['is_configured']) {
+        if (! $this->paymentFlows->isConfigured()) {
             return back()->withErrors([
-                'proof_image' => 'El pago por Nequi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.',
-            ]);
-        }
-
-        if ($listing->isPaymentPending()) {
-            return back()->withErrors([
-                'proof_image' => 'Ya enviaste un comprobante. Debes esperar la validacion del admin.',
+                'payment' => 'Wompi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.',
             ]);
         }
 
         if (! $listing->listing_completed) {
             return back()->withErrors([
-                'proof_image' => 'Completa primero la informacion del anuncio antes de enviar el pago.',
+                'payment' => 'Completa primero la informacion del anuncio antes de iniciar el pago.',
             ]);
         }
 
@@ -279,8 +287,6 @@ class MariachiListingController extends Controller
             'plan_code' => ['required', Rule::in(array_keys($plans))],
             'term_months' => ['nullable', 'integer', 'min:1', 'max:36'],
             'amount_cop' => ['required', 'integer', 'min:0'],
-            'proof_image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'reference_text' => ['nullable', 'string', 'max:120'],
         ]);
 
         if ((int) $validated['listing_id'] !== (int) $listing->id) {
@@ -315,37 +321,15 @@ class MariachiListingController extends Controller
             ]);
         }
 
-        $proofPath = $request->file('proof_image')->store('listing-payment-proofs', 'public');
-
-        $listing->payments()->create([
-            'mariachi_profile_id' => $profile->id,
-            'plan_code' => $planCode,
-            'duration_months' => (int) $selectedTerm['months'],
-            'amount_cop' => (int) $selectedTerm['total_price_cop'],
-            'method' => ListingPayment::METHOD_NEQUI,
-            'proof_path' => $proofPath,
-            'status' => ListingPayment::STATUS_PENDING,
-            'reference_text' => $validated['reference_text'] ?? null,
-        ]);
-
-        $listing->update([
-            'selected_plan_code' => $planCode,
-            'plan_duration_months' => (int) $selectedTerm['months'],
-            'plan_selected_at' => now(),
-            'payment_status' => MariachiListing::PAYMENT_PENDING,
-            'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
-            'is_active' => false,
-            'review_status' => MariachiListing::REVIEW_DRAFT,
-            'submitted_for_review_at' => null,
-            'reviewed_at' => null,
-            'reviewed_by_user_id' => null,
-            'rejection_reason' => null,
-            'deactivated_at' => now(),
-        ]);
-
-        return redirect()
-            ->route('mariachi.listings.edit', ['listing' => $listing->id])
-            ->with('status', 'Comprobante enviado. El equipo admin validara tu pago antes de publicar el anuncio.');
+        return redirect()->away(
+            $this->paymentFlows->beginListingCheckout(
+                $listing,
+                $profile,
+                $planCode,
+                (int) $selectedTerm['months'],
+                (int) $selectedTerm['total_price_cop']
+            )
+        );
     }
 
     public function edit(MariachiListing $listing): View|RedirectResponse
@@ -390,7 +374,7 @@ class MariachiListingController extends Controller
             'listingIssues' => $this->entitlementsService->listingAdjustmentIssues($listing),
             'maxCitiesAllowed' => $maxCitiesAllowed,
             'plans' => $this->availablePlans(),
-            'nequi' => $this->nequiSettings->publicConfig(),
+            'wompi' => $this->wompi->publicConfig(),
             'googleMaps' => $this->googleMapsSettings->publicConfig(),
             'editorDescription' => $this->listingDescriptionSanitizer->sanitize($listing->description),
             'eventTypes' => EventType::query()->active()->ordered()->get(['id', 'name', 'slug', 'icon']),

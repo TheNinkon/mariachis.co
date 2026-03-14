@@ -11,6 +11,7 @@ class ProfileVerificationPayment extends Model
 {
     use HasFactory;
 
+    public const METHOD_WOMPI = 'wompi';
     public const METHOD_NEQUI = 'nequi';
 
     public const STATUS_PENDING = 'pending';
@@ -23,6 +24,10 @@ class ProfileVerificationPayment extends Model
         'duration_months',
         'amount_cop',
         'method',
+        'checkout_reference',
+        'provider_transaction_id',
+        'provider_transaction_status',
+        'provider_payload',
         'proof_path',
         'status',
         'reference_text',
@@ -38,6 +43,7 @@ class ProfileVerificationPayment extends Model
         return [
             'duration_months' => 'integer',
             'amount_cop' => 'integer',
+            'provider_payload' => 'array',
             'reviewed_at' => 'datetime',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',

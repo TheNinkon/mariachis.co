@@ -98,6 +98,6 @@ class AccountActivationPaymentController extends Controller
             ]);
         });
 
-        return back()->with('status', 'Pago de activacion rechazado. El mariachi puede reenviar comprobante.');
+        return back()->with('status', 'Pago de activacion rechazado. El mariachi puede volver a intentar el cobro.');
     }
 }

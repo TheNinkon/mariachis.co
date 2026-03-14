@@ -15,21 +15,18 @@ $registerErrors = $errors->hasAny([
 ]);
 $activationErrors = $errors->hasAny([
   'activation',
-  'proof_image',
-  'reference_text',
 ]);
 $activationPlan ??= null;
 $activationPayment ??= null;
 $activationUser ??= null;
 $activationToken ??= null;
-$nequi ??= ['phone' => '', 'beneficiary_name' => '', 'qr_image_url' => null, 'is_configured' => false];
+$wompi ??= ['public_key' => '', 'is_configured' => false];
 $activationPaymentStatus = $activationPayment?->status;
 $canSubmitActivation = $isActivationStep
   && $activationUser
   && $activationUser->status !== \App\Models\User::STATUS_ACTIVE
   && $activationPlan
-  && $nequi['is_configured']
-  && $activationPaymentStatus !== \App\Models\AccountActivationPayment::STATUS_PENDING_REVIEW;
+  && $wompi['is_configured'];
 @endphp
 
 @extends('layouts/layoutMaster')
@@ -458,7 +455,7 @@ $canSubmitActivation = $isActivationStep
     const modalElement = document.getElementById('activationPaymentModal');
     if (modalElement && window.bootstrap && @json($isActivationStep)) {
       const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
-      if (@json($activationErrors || old('proof_image') || old('reference_text'))) {
+      if (@json($activationErrors)) {
         modal.show();
       }
     }
@@ -696,13 +693,13 @@ $canSubmitActivation = $isActivationStep
                   @elseif($activationPaymentStatus === \App\Models\AccountActivationPayment::STATUS_PENDING_REVIEW)
                     <div class="col-12">
                       <div class="alert alert-warning mb-0">
-                        Pago enviado. Tu comprobante esta en revision. En cuanto el admin lo apruebe, podras iniciar sesion.
+                        Ya existe un pago Wompi pendiente para esta activación. Puedes retomarlo y esperar la confirmación.
                       </div>
                     </div>
                   @elseif($activationPaymentStatus === \App\Models\AccountActivationPayment::STATUS_REJECTED)
                     <div class="col-12">
                       <div class="alert alert-danger mb-0">
-                        El ultimo comprobante fue rechazado. {{ $activationPayment->rejection_reason ?: 'Revisa la imagen y vuelve a enviarla.' }}
+                        El último intento de cobro fue rechazado. {{ $activationPayment->rejection_reason ?: 'Revisa el cobro y vuelve a intentarlo.' }}
                       </div>
                     </div>
                   @elseif(! $activationPlan)
@@ -711,10 +708,10 @@ $canSubmitActivation = $isActivationStep
                         No hay un paquete de activacion disponible en este momento. Intenta mas tarde.
                       </div>
                     </div>
-                  @elseif(! $nequi['is_configured'])
+                  @elseif(! $wompi['is_configured'])
                     <div class="col-12">
                       <div class="alert alert-danger mb-0">
-                        El pago por Nequi no esta configurado en este momento. Intenta mas tarde o contacta a soporte.
+                        Wompi no está configurado en este momento. Intenta más tarde o contacta a soporte.
                       </div>
                     </div>
                   @endif
@@ -722,7 +719,7 @@ $canSubmitActivation = $isActivationStep
                   @if($activationErrors)
                     <div class="col-12">
                       <div class="alert alert-danger mb-0">
-                        <strong>No pudimos recibir el comprobante.</strong>
+                        <strong>No pudimos iniciar el pago.</strong>
                         <ul class="mb-0 mt-2">
                           @foreach($errors->all() as $error)
                             <li>{{ $error }}</li>
@@ -751,7 +748,7 @@ $canSubmitActivation = $isActivationStep
                       <ul class="small text-muted ps-3 mb-4">
                         <li>Habilita tu acceso al panel partner</li>
                         <li>Te deja empezar con tus anuncios y tu perfil</li>
-                        <li>Se revisa antes del primer ingreso</li>
+                        <li>El cobro se confirma automáticamente con Wompi</li>
                       </ul>
 
                       <button
@@ -760,7 +757,7 @@ $canSubmitActivation = $isActivationStep
                         data-bs-toggle="modal"
                         data-bs-target="#activationPaymentModal"
                         @disabled(! $canSubmitActivation)>
-                        Continuar con la activacion
+                        {{ $activationPaymentStatus === \App\Models\AccountActivationPayment::STATUS_PENDING_REVIEW ? 'Continuar pago en Wompi' : 'Continuar con la activacion' }}
                       </button>
                     </div>
                   </div>
@@ -804,7 +801,7 @@ $canSubmitActivation = $isActivationStep
   <div class="modal fade" id="activationPaymentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content">
-        <form method="POST" action="{{ route('mariachi.activation.payments.nequi.store', ['user' => $activationUser->id, 'token' => $activationToken]) }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('mariachi.activation.payments.wompi.checkout', ['user' => $activationUser->id, 'token' => $activationToken]) }}">
           @csrf
 
           <div class="modal-header">
@@ -819,42 +816,14 @@ $canSubmitActivation = $isActivationStep
 
           <div class="modal-body">
             <div class="row g-4">
-              <div class="col-lg-5">
-                <div class="bg-lighter rounded p-4 h-100">
-                  <h6 class="mb-3">Datos de pago</h6>
-                  <div class="small text-muted mb-2">Numero</div>
-                  <div class="fw-semibold mb-3">{{ $nequi['phone'] ?: 'Sin configurar' }}</div>
-
-                  <div class="small text-muted mb-2">Titular</div>
-                  <div class="fw-semibold mb-4">{{ $nequi['beneficiary_name'] ?: 'Cuenta partner' }}</div>
-
-                  @if($nequi['qr_image_url'])
-                    <img src="{{ $nequi['qr_image_url'] }}" alt="QR Nequi" class="partner-signup-qr" />
-                  @else
-                    <div class="partner-signup-qr-placeholder d-flex align-items-center justify-content-center text-center p-4">
-                      El admin aun no ha cargado un QR. Puedes pagar usando el telefono mostrado.
-                    </div>
-                  @endif
-                </div>
-              </div>
-
-              <div class="col-lg-7">
-                <div class="row g-3">
-                  <div class="col-12">
-                    <label class="form-label">Comprobante de pago</label>
-                    <input type="file" name="proof_image" class="form-control" accept="image/png,image/jpeg,image/webp" required />
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Referencia opcional</label>
-                    <input type="text" name="reference_text" class="form-control" maxlength="120" placeholder="Ultimos digitos, hora o nota breve" value="{{ old('reference_text') }}" />
-                  </div>
-
-                  <div class="col-12">
-                    <div class="alert alert-info mb-0">
-                      Sube un comprobante claro y te avisaremos cuando tu acceso quede listo.
-                    </div>
-                  </div>
+              <div class="col-12">
+                <div class="bg-lighter rounded p-4">
+                  <h6 class="mb-3">Qué pasará ahora</h6>
+                  <ul class="small text-muted ps-3 mb-0">
+                    <li>Serás redirigido al checkout seguro de Wompi.</li>
+                    <li>El monto se enviará en COP y con referencia única para esta activación.</li>
+                    <li>Cuando Wompi confirme el pago, la cuenta quedará activa automáticamente.</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -862,7 +831,7 @@ $canSubmitActivation = $isActivationStep
 
           <div class="modal-footer">
             <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Enviar comprobante</button>
+            <button type="submit" class="btn btn-primary">Ir a Wompi</button>
           </div>
         </form>
       </div>

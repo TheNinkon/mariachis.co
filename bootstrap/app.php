@@ -23,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ConfigurePortalSession::class,
             LocaleMiddleware::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'pagos/wompi/webhook',
+        ]);
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'client' => EnsureClientAccess::class,

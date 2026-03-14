@@ -157,11 +157,11 @@ class AdminListingModerationController extends Controller
                 'point' => 'primary',
             ],
             [
-                'title' => 'Comprobante enviado',
-                'body' => 'El mariachi envio un comprobante manual por Nequi para este anuncio.',
+                'title' => 'Checkout iniciado',
+                'body' => 'El mariachi inicio o completo un checkout de Wompi para este anuncio.',
                 'meta' => $latestPayment
                     ? '$'.number_format((int) $latestPayment->amount_cop, 0, ',', '.').' COP · '.strtoupper($latestPayment->method)
-                    : 'Pago manual',
+                    : 'Checkout digital',
                 'at' => $latestPayment?->created_at,
                 'point' => 'warning',
             ],
@@ -243,10 +243,61 @@ class AdminListingModerationController extends Controller
         ];
 
         if ($validated['action'] === 'approve') {
-            $listing->update($payload + [
-                'review_status' => MariachiListing::REVIEW_APPROVED,
-                'rejection_reason' => null,
-            ]);
+            $approvedPayment = $listing->payments()
+                ->where('status', ListingPayment::STATUS_APPROVED)
+                ->latest('id')
+                ->first();
+
+            if ($listing->payment_status === MariachiListing::PAYMENT_APPROVED && $approvedPayment) {
+                $profile = $listing->mariachiProfile;
+                abort_unless($profile, 404);
+
+                $plan = Plan::query()
+                    ->where('code', $approvedPayment->plan_code ?: $listing->selected_plan_code)
+                    ->first();
+
+                if (! $plan) {
+                    return redirect()
+                        ->route('admin.listings.show', $listing)
+                        ->withErrors([
+                            'payment' => 'No encontramos el plan asociado al cobro aprobado. Revisa la configuracion del catalogo de planes.',
+                        ]);
+                }
+
+                DB::transaction(function () use ($listing, $approvedPayment, $plan, $profile, $payload, $request): void {
+                    $durationMonths = max(1, (int) ($approvedPayment->duration_months ?: $listing->plan_duration_months ?: 1));
+
+                    $this->planAssignmentService->assignToProfile(
+                        $profile,
+                        $plan,
+                        $listing,
+                        'wompi_checkout_review',
+                        [
+                            'listing_payment_id' => $approvedPayment->id,
+                            'reviewed_by_user_id' => $request->user()->id,
+                            'method' => $approvedPayment->method,
+                            'duration_months' => $durationMonths,
+                            'provider_transaction_id' => $approvedPayment->provider_transaction_id,
+                        ],
+                        true,
+                        $durationMonths,
+                        (int) ($approvedPayment->amount_cop ?: ($plan->price_cop * $durationMonths))
+                    );
+
+                    $listing->update($payload + [
+                        'review_status' => MariachiListing::REVIEW_APPROVED,
+                        'rejection_reason' => null,
+                        'status' => MariachiListing::STATUS_ACTIVE,
+                        'is_active' => true,
+                        'deactivated_at' => null,
+                    ]);
+                });
+            } else {
+                $listing->update($payload + [
+                    'review_status' => MariachiListing::REVIEW_APPROVED,
+                    'rejection_reason' => null,
+                ]);
+            }
 
             return redirect()
                 ->route('admin.listings.show', $listing)
@@ -295,7 +346,7 @@ class AdminListingModerationController extends Controller
                 $profile,
                 $plan,
                 $listing,
-                'nequi_manual_payment',
+                'wompi_checkout',
                 [
                     'listing_payment_id' => $payment->id,
                     'reviewed_by_user_id' => $reviewerId,

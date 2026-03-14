@@ -42,7 +42,16 @@ cp .env.local .env
 composer install
 npm install --legacy-peer-deps
 php artisan key:generate
-php artisan migrate:fresh --seed
+php artisan migrate --seed
+php artisan demo:listings:sync
+```
+
+Usa `php artisan migrate:fresh --seed` solo si quieres borrar toda la base local y reconstruirla desde cero.
+
+Para resincronizar los anuncios demo sin tocar el resto de tus datos:
+
+```bash
+php artisan demo:listings:sync
 ```
 
 Para levantar servidor local sin errores de recarga en este entorno:

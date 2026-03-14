@@ -87,8 +87,8 @@
               <div class="fw-semibold mb-2">Que controla este paquete</div>
               <ul class="small text-muted ps-3 mb-0">
                 <li>Desbloquea el primer acceso al panel partner</li>
-                <li>Se paga una sola vez por Nequi</li>
-                <li>Requiere revision manual del admin</li>
+                <li>Se paga una sola vez por Wompi</li>
+                <li>La confirmacion del cobro llega por webhook y retorno de Wompi</li>
               </ul>
             </div>
           </div>

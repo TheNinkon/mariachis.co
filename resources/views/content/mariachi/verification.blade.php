@@ -22,21 +22,6 @@
       font-weight: 700;
       line-height: 1;
     }
-
-    .verification-qr {
-      width: 100%;
-      max-width: 220px;
-      border-radius: 1rem;
-      border: 1px solid rgba(34, 41, 47, 0.08);
-      background: rgba(34, 41, 47, 0.03);
-    }
-
-    .verification-qr-placeholder {
-      min-height: 220px;
-      border: 1px dashed rgba(34, 41, 47, 0.16);
-      border-radius: 1rem;
-      color: var(--bs-secondary-color);
-    }
   </style>
 @endsection
 
@@ -106,20 +91,21 @@
       'verified' => $profile->hasActiveVerification()
         ? ['label' => 'Verificado', 'class' => 'success', 'description' => 'Tu insignia esta activa y ya puedes usar handle premium y foto de perfil.']
         : ['label' => 'Vencida', 'class' => 'warning', 'description' => 'Tu verificacion vencio. Compra una nueva vigencia para recuperar insignia, handle y foto.'],
-      'payment_pending' => ['label' => 'Pago en revision', 'class' => 'warning', 'description' => 'Tu comprobante ya fue enviado. El admin debe validar pago y documentos.'],
+      'payment_pending' => ['label' => 'En revision', 'class' => 'warning', 'description' => 'Tu pago y tus documentos estan en proceso. Si Wompi ya aprobo el cobro, ahora solo falta la revision manual del equipo.'],
       'rejected' => ['label' => 'Rechazada', 'class' => 'danger', 'description' => 'La ultima solicitud fue rechazada. Revisa el motivo y vuelve a intentarlo.'],
       default => ['label' => 'Sin verificacion', 'class' => 'secondary', 'description' => 'Activa la verificacion para obtener insignia, handle personalizado y foto de perfil.'],
     };
     $publicHandle = $profile->slug ?: 'm-xxxxxxx';
     $suggestedHandle = \Illuminate\Support\Str::slug((string) ($profile->business_name ?: auth()->user()?->display_name ?: 'tu-grupo')) ?: 'tu-grupo';
     $baseAmount = (int) (collect($verificationPlans)->min('amount_cop') ?? 0);
-    $purchaseLocked = ! $canSubmitVerification || ! $nequi['is_configured'];
+    $hasPendingVerificationRequest = $latestRequest?->status === \App\Models\VerificationRequest::STATUS_PENDING;
+    $hasPendingCheckout = $hasPendingVerificationRequest && $latestPayment?->isPending();
+    $hasApprovedPaymentAwaitingReview = $hasPendingVerificationRequest && $latestPayment?->status === \App\Models\ProfileVerificationPayment::STATUS_APPROVED;
+    $purchaseLocked = ! $canSubmitVerification || ! $wompi['is_configured'] || $hasApprovedPaymentAwaitingReview;
     $lastReviewedBy = $latestRequest?->reviewedBy?->display_name ?? $latestPayment?->reviewedBy?->display_name;
     $verificationErrors = $errors->hasAny([
       'verification',
       'plan_code',
-      'proof_image',
-      'reference_text',
       'id_document',
       'identity_proof',
       'notes',
@@ -185,7 +171,7 @@
             <div class="col-md-4">
               <div class="bg-lighter rounded p-4 h-100">
                 <div class="fw-semibold mb-1">Revision manual</div>
-                <div class="text-muted small">Subes comprobante, cedula y prueba visual del grupo. El admin valida todo.</div>
+                <div class="text-muted small">Subes cedula y prueba visual del grupo. Wompi confirma el cobro y luego el admin valida identidad y marca.</div>
               </div>
             </div>
           </div>
@@ -210,26 +196,26 @@
             <dt class="col-6 text-muted">Revisado por</dt>
             <dd class="col-6 text-end">{{ $lastReviewedBy ?: '-' }}</dd>
           </dl>
-
-          @if($latestPayment?->proof_path)
-            <a href="{{ asset('storage/'.$latestPayment->proof_path) }}" class="btn btn-outline-primary btn-sm mt-4" target="_blank" rel="noopener noreferrer">Ver ultimo comprobante</a>
-          @endif
         </div>
       </div>
     </div>
   </div>
 
-  @if(! $nequi['is_configured'])
+  @if(! $wompi['is_configured'])
     <div class="alert alert-danger">
-      El pago por Nequi no esta configurado en este momento. No podras enviar la solicitud hasta que el admin cargue telefono y QR.
+      Wompi no esta configurado en este momento. No podras continuar al checkout hasta completar las llaves del entorno.
     </div>
   @elseif($profile->hasActiveVerification())
     <div class="alert alert-success">
       Tu verificacion ya esta activa. La insignia, el handle premium y la foto de perfil seguiran disponibles hasta {{ $profile->verification_expires_at?->format('Y-m-d') ?: 'nuevo aviso' }}.
     </div>
-  @elseif($latestPayment?->isPending() || $latestRequest?->status === \App\Models\VerificationRequest::STATUS_PENDING)
+  @elseif($hasApprovedPaymentAwaitingReview)
     <div class="alert alert-warning">
-      Ya tienes una verificacion en proceso. Espera la revision del admin antes de enviar otra solicitud.
+      Wompi ya aprobo el cobro de tu verificacion. Ahora tu solicitud y tus documentos estan en revision manual.
+    </div>
+  @elseif($hasPendingCheckout)
+    <div class="alert alert-warning">
+      Ya existe un checkout Wompi pendiente para esta verificacion. Puedes retomarlo con el mismo plan o esperar a que termine antes de cambiarlo.
     </div>
   @elseif($latestRequest?->status === \App\Models\VerificationRequest::STATUS_REJECTED)
     <div class="alert alert-danger">
@@ -253,7 +239,7 @@
     <div class="card-header d-flex flex-wrap justify-content-between gap-3 align-items-center">
       <div>
         <h5 class="mb-1">Planes de verificacion</h5>
-        <div class="text-muted small">Elige duracion, paga con Nequi y sube comprobante + documentos en el modal.</div>
+        <div class="text-muted small">Elige duracion, carga tus documentos y continua con Wompi para completar el cobro.</div>
       </div>
       <span class="badge bg-label-info">Producto separado del plan del anuncio</span>
     </div>
@@ -283,6 +269,20 @@
                   <li>Revision manual de identidad y marca</li>
                 </ul>
 
+                @php
+                  $isCurrentPendingPlan = $hasPendingCheckout && $latestPayment?->plan_code === $plan['code'];
+                  $buttonLabel = 'Pagar con Wompi';
+
+                  if ($hasApprovedPaymentAwaitingReview) {
+                    $buttonLabel = 'Documentos en revision';
+                  } elseif ($hasPendingCheckout) {
+                    $buttonLabel = $isCurrentPendingPlan ? 'Continuar pago en Wompi' : 'Pago pendiente en otro plan';
+                  } elseif ($latestRequest?->status === \App\Models\VerificationRequest::STATUS_REJECTED || $latestPayment?->status === \App\Models\ProfileVerificationPayment::STATUS_REJECTED) {
+                    $buttonLabel = 'Reintentar con Wompi';
+                  }
+
+                  $isDisabled = $purchaseLocked || ($hasPendingCheckout && ! $isCurrentPendingPlan);
+                @endphp
                 <button
                   type="button"
                   class="btn btn-primary mt-auto"
@@ -291,9 +291,9 @@
                   data-plan-name="{{ $plan['name'] }}"
                   data-plan-amount="{{ $plan['amount_cop'] }}"
                   data-plan-duration="{{ $plan['duration_months'] }}"
-                  @disabled($purchaseLocked)
+                  @disabled($isDisabled)
                 >
-                  Pagar con Nequi
+                  {{ $buttonLabel }}
                 </button>
               </div>
             </div>
@@ -363,8 +363,11 @@
             <dt class="col-sm-5 text-muted">Monto</dt>
             <dd class="col-sm-7">{{ $latestPayment ? '$'.number_format((int) $latestPayment->amount_cop, 0, ',', '.').' COP' : '-' }}</dd>
 
-            <dt class="col-sm-5 text-muted">Referencia</dt>
-            <dd class="col-sm-7">{{ $latestPayment?->reference_text ?: '-' }}</dd>
+            <dt class="col-sm-5 text-muted">Checkout</dt>
+            <dd class="col-sm-7">{{ $latestPayment?->checkout_reference ?: '-' }}</dd>
+
+            <dt class="col-sm-5 text-muted">Transaccion</dt>
+            <dd class="col-sm-7">{{ $latestPayment?->provider_transaction_id ?: '-' }}</dd>
 
             <dt class="col-sm-5 text-muted">Observaciones</dt>
             <dd class="col-sm-7">{{ $latestRequest?->notes ?: '-' }}</dd>
@@ -386,7 +389,7 @@
 
           <div class="modal-header">
             <div>
-              <h5 class="modal-title mb-1">Pagar verificacion con Nequi</h5>
+              <h5 class="modal-title mb-1">Completar verificacion con Wompi</h5>
               <div class="text-muted small">
                 <span data-verification-plan-name></span>
                 · <span data-verification-plan-price></span>
@@ -400,33 +403,24 @@
             <div class="row g-4">
               <div class="col-lg-5">
                 <div class="bg-lighter rounded p-4 h-100">
-                  <h6 class="mb-3">Datos para transferir</h6>
-                  <div class="small text-muted mb-2">Telefono Nequi</div>
-                  <div class="fw-semibold mb-3">{{ $nequi['phone'] ?: 'Sin configurar' }}</div>
+                  <h6 class="mb-3">Que va a pasar</h6>
+                  <ol class="small text-muted ps-3 mb-4">
+                    <li>Subes tu cedula y la prueba visual del grupo.</li>
+                    <li>Te redirigimos a Wompi para completar el pago.</li>
+                    <li>Cuando Wompi confirme el cobro, tu solicitud pasa a revision manual.</li>
+                  </ol>
 
-                  <div class="small text-muted mb-2">Beneficiario</div>
-                  <div class="fw-semibold mb-4">{{ $nequi['beneficiary_name'] ?: 'Cuenta partner' }}</div>
-
-                  @if($nequi['qr_image_url'])
-                    <img src="{{ $nequi['qr_image_url'] }}" alt="QR Nequi" class="verification-qr" />
-                  @else
-                    <div class="verification-qr-placeholder d-flex align-items-center justify-content-center text-center p-4">
-                      Sube el comprobante manual despues de hacer el pago por Nequi.
-                    </div>
-                  @endif
+                  <div class="border rounded p-3 bg-white">
+                    <div class="small text-muted mb-1">Entorno actual</div>
+                    <div class="fw-semibold text-uppercase">{{ $wompi['environment'] }}</div>
+                    <div class="small text-muted mt-3 mb-1">Moneda</div>
+                    <div class="fw-semibold">{{ $wompi['currency'] }}</div>
+                  </div>
                 </div>
               </div>
 
               <div class="col-lg-7">
                 <div class="row g-3">
-                  <div class="col-12">
-                    <label class="form-label">Comprobante de pago</label>
-                    <input type="file" name="proof_image" class="form-control" accept="image/png,image/jpeg,image/webp" required />
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label">Referencia o ultimos digitos (opcional)</label>
-                    <input type="text" name="reference_text" class="form-control" maxlength="120" value="{{ old('reference_text') }}" placeholder="Ej. Nequi 5421" />
-                  </div>
                   <div class="col-md-6">
                     <label class="form-label">Foto de cedula</label>
                     <input type="file" name="id_document" class="form-control" accept="image/png,image/jpeg,image/webp" required />
@@ -446,7 +440,9 @@
 
           <div class="modal-footer">
             <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary" @disabled($purchaseLocked)>Enviar pago y documentos</button>
+            <button type="submit" class="btn btn-primary" @disabled($purchaseLocked)>
+              {{ $hasPendingCheckout ? 'Actualizar documentos y continuar a Wompi' : 'Guardar documentos e ir a Wompi' }}
+            </button>
           </div>
         </form>
       </div>

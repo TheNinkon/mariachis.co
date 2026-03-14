@@ -75,8 +75,12 @@
                   <a href="{{ asset('storage/'.$item->identity_proof_path) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">Ver prueba visual</a>
                 </div>
                 <div class="col-md-4">
-                  @if($payment?->proof_path)
-                    <a href="{{ asset('storage/'.$payment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">Ver comprobante Nequi</a>
+                  @if($payment?->provider_transaction_id)
+                    <div class="small text-muted">Transaccion Wompi</div>
+                    <div class="fw-semibold">{{ $payment->provider_transaction_id }}</div>
+                    <div class="small text-muted">{{ $payment->provider_transaction_status ?: 'Sin estado reportado' }}</div>
+                  @elseif($payment?->proof_path)
+                    <a href="{{ asset('storage/'.$payment->proof_path) }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">Ver comprobante historico</a>
                   @endif
                 </div>
               </div>
@@ -110,7 +114,7 @@
                 </div>
 
                 <p class="mb-2 small text-muted">
-                  Referencia: <strong>{{ $payment->reference_text ?: '-' }}</strong>
+                  Referencia checkout: <strong>{{ $payment->checkout_reference ?: $payment->reference_text ?: '-' }}</strong>
                   · Vigencia propuesta:
                   <strong>
                     @if($payment->starts_at || $payment->ends_at)
@@ -140,7 +144,7 @@
                     <input type="hidden" name="action" value="approve" />
                     <label class="form-label">Nota de aprobacion (opcional)</label>
                     <textarea class="form-control" name="note" rows="2" placeholder="Observaciones internas"></textarea>
-                    <button type="submit" class="btn btn-success btn-sm mt-2">Aprobar pago y perfil</button>
+                    <button type="submit" class="btn btn-success btn-sm mt-2">Aprobar verificacion</button>
                   </form>
                 </div>
                 <div class="col-md-6">
@@ -152,7 +156,7 @@
                     <textarea class="form-control" name="rejection_reason" rows="2" placeholder="Motivo para rechazar" required></textarea>
                     <label class="form-label mt-2">Nota adicional (opcional)</label>
                     <textarea class="form-control" name="note" rows="2" placeholder="Nota interna"></textarea>
-                    <button type="submit" class="btn btn-outline-danger btn-sm mt-2">Rechazar pago y perfil</button>
+                    <button type="submit" class="btn btn-outline-danger btn-sm mt-2">Rechazar verificacion</button>
                   </form>
                 </div>
               </div>

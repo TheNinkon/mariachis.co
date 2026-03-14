@@ -1006,7 +1006,7 @@
     ];
     $paymentMap = [
       \App\Models\MariachiListing::PAYMENT_NONE => ['label' => 'Sin pago', 'class' => 'secondary'],
-      \App\Models\MariachiListing::PAYMENT_PENDING => ['label' => 'Pago en revision', 'class' => 'warning'],
+      \App\Models\MariachiListing::PAYMENT_PENDING => ['label' => 'Pago pendiente', 'class' => 'warning'],
       \App\Models\MariachiListing::PAYMENT_APPROVED => ['label' => 'Pago aprobado', 'class' => 'success'],
       \App\Models\MariachiListing::PAYMENT_REJECTED => ['label' => 'Pago rechazado', 'class' => 'danger'],
     ];
@@ -1973,7 +1973,7 @@
               <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
                 <div>
                   <h5 class="mb-1">Planes disponibles</h5>
-                  <p class="listing-step-note mb-0">El anuncio se autoguarda. Aquí solo eliges plan, pagas por Nequi y subes el comprobante.</p>
+                  <p class="listing-step-note mb-0">El anuncio se autoguarda. Aquí eliges plan y continúas a Wompi para completar el cobro.</p>
                 </div>
                 <span class="badge bg-label-secondary">Completitud <span data-completion-text>{{ $listing->listing_completion }}%</span></span>
               </div>
@@ -1986,15 +1986,15 @@
                 </div>
               @endif
 
-              @if(! $nequi['is_configured'])
+              @if(! $wompi['is_configured'])
                 <div class="alert alert-danger mb-4">
-                  El pago por Nequi no está configurado en este momento. No podrás enviar comprobantes hasta que el admin cargue los datos.
+                  Wompi no está configurado en este momento. No podrás continuar al checkout hasta completar las llaves en el entorno.
                 </div>
               @endif
 
               @if($listing->isPaymentPending())
                 <div class="alert alert-warning mb-4">
-                  Ya enviaste un comprobante. Tu anuncio queda esperando validación admin antes de continuar.
+                  Ya existe un checkout Wompi pendiente para este anuncio. Puedes retomarlo con el plan seleccionado.
                 </div>
               @elseif($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED)
                 <div class="alert alert-success mb-4">
@@ -2002,7 +2002,7 @@
                 </div>
               @elseif($listing->isPaymentRejected())
                 <div class="alert alert-danger mb-4">
-                  Pago rechazado. {{ $latestPayment?->rejection_reason ?: 'Revisa el comprobante y vuelve a intentar.' }}
+                  Pago rechazado. {{ $latestPayment?->rejection_reason ?: 'Wompi no aprobó la transacción. Revisa el cobro y vuelve a intentar.' }}
                 </div>
               @endif
 
@@ -2036,20 +2036,20 @@
                       $activeTerm = $plan['terms'][$selectedTermMonths] ?? reset($plan['terms']);
                       $isCurrentSelection = $listing->selected_plan_code === $code
                         && (int) ($listing->plan_duration_months ?: 1) === (int) ($activeTerm['months'] ?? 1);
-                      $buttonLabel = 'Pagar con Nequi';
+                      $buttonLabel = 'Pagar con Wompi';
                       if ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection) {
                         $buttonLabel = 'Plan aprobado';
                       } elseif ($listing->isPaymentPending()) {
-                        $buttonLabel = 'Comprobante en revisión';
+                        $buttonLabel = $isCurrentSelection ? 'Continuar pago en Wompi' : 'Pago pendiente en otro plan';
                       } elseif ($listing->isPaymentRejected() && $isCurrentSelection) {
-                        $buttonLabel = 'Reintentar pago con Nequi';
+                        $buttonLabel = 'Reintentar con Wompi';
                       } elseif ($isCurrentSelection) {
                         $buttonLabel = 'Continuar con este plan';
                       }
 
                       $isDisabled = ! $listing->listing_completed
-                        || $listing->isPaymentPending()
-                        || ! $nequi['is_configured']
+                        || (! $isCurrentSelection && $listing->isPaymentPending())
+                        || ! $wompi['is_configured']
                         || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection);
                     @endphp
 
@@ -2147,101 +2147,13 @@
     </div>
   </div>
 
-  <div class="offcanvas offcanvas-bottom payment-sheet" tabindex="-1" id="nequiPaymentSheet" aria-labelledby="nequiPaymentSheetLabel">
-    <div class="offcanvas-header">
-      <div>
-        <h5 id="nequiPaymentSheetLabel" class="offcanvas-title">Pagar con Nequi</h5>
-        <small class="text-muted">Sube el comprobante para dejar este anuncio en revisión de pago.</small>
-      </div>
-      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-    </div>
-
-    <div class="offcanvas-body">
-      <form method="POST" action="{{ route('mariachi.listings.payments.nequi.store', ['listing' => $listing->id]) }}" enctype="multipart/form-data" class="row g-4">
-        @csrf
-        <input type="hidden" name="listing_id" value="{{ $listing->id }}" />
-        <input type="hidden" name="plan_code" value="{{ $defaultPlan['code'] ?? array_key_first($plans) }}" data-payment-plan-code />
-        <input type="hidden" name="term_months" value="{{ (int) ($defaultPlanTerm['months'] ?? 1) }}" data-payment-plan-term-months />
-        <input type="hidden" name="amount_cop" value="{{ (int) ($defaultPlanTerm['total_price_cop'] ?? 0) }}" data-payment-plan-price />
-
-        <div class="col-lg-7">
-          <div class="card border shadow-none h-100">
-            <div class="card-body">
-              <div class="mb-3">
-                <small class="text-body-secondary d-block mb-1">Plan seleccionado</small>
-                <div class="fw-semibold" data-payment-plan-name>{{ $defaultPlan['name'] ?? 'Plan' }}</div>
-              </div>
-
-              <div class="mb-3">
-                <small class="text-body-secondary d-block mb-1">Monto a pagar</small>
-                <div class="fw-semibold" data-payment-plan-amount>
-                  ${{ number_format((int) ($defaultPlanTerm['total_price_cop'] ?? 0), 0, ',', '.') }} COP
-                </div>
-              </div>
-
-              <div class="mb-3">
-                <small class="text-body-secondary d-block mb-1">Duración</small>
-                <div class="fw-semibold" data-payment-plan-duration>{{ $defaultPlanTerm['label'] ?? '1 mes' }}</div>
-              </div>
-
-              <div class="mb-3">
-                <small class="text-body-secondary d-block mb-1">Teléfono Nequi</small>
-                <div class="fw-semibold">{{ $nequi['phone'] ?: 'Pendiente de configurar' }}</div>
-                @if($nequi['beneficiary_name'])
-                  <div class="text-body-secondary">Beneficiario: {{ $nequi['beneficiary_name'] }}</div>
-                @endif
-              </div>
-
-              <div class="alert alert-info mb-0">
-                Paga por Nequi, toma una captura clara del comprobante y súbela aquí. Tu anuncio quedará en revisión hasta validación del admin.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-5">
-          <div class="card border shadow-none h-100">
-            <div class="card-body d-flex flex-column align-items-center justify-content-center">
-              @if($nequi['qr_image_url'])
-                <img src="{{ $nequi['qr_image_url'] }}" alt="QR de Nequi" class="payment-sheet-qr img-fluid" />
-              @else
-                <div class="payment-sheet-placeholder w-100 d-flex align-items-center justify-content-center text-center px-4">
-                  El admin aún no ha cargado un QR. Puedes pagar usando el teléfono Nequi mostrado.
-                </div>
-              @endif
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-6">
-          <label class="form-label" for="proof_image">Captura del comprobante</label>
-          <input
-            id="proof_image"
-            type="file"
-            name="proof_image"
-            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-            class="form-control"
-            required />
-        </div>
-
-        <div class="col-md-6">
-          <label class="form-label" for="reference_text">Referencia opcional</label>
-          <input
-            id="reference_text"
-            type="text"
-            name="reference_text"
-            class="form-control"
-            maxlength="120"
-            placeholder="Últimos dígitos, hora o nota breve" />
-        </div>
-
-        <div class="col-12 d-flex justify-content-end gap-2">
-          <button type="button" class="btn btn-label-secondary" data-bs-dismiss="offcanvas">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Ya pagué, enviar comprobante</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <form id="wompiCheckoutForm" method="POST" action="{{ route('mariachi.listings.payments.wompi.checkout', ['listing' => $listing->id]) }}" class="d-none">
+    @csrf
+    <input type="hidden" name="listing_id" value="{{ $listing->id }}" />
+    <input type="hidden" name="plan_code" value="{{ $defaultPlan['code'] ?? array_key_first($plans) }}" data-payment-plan-code />
+    <input type="hidden" name="term_months" value="{{ (int) ($defaultPlanTerm['months'] ?? 1) }}" data-payment-plan-term-months />
+    <input type="hidden" name="amount_cop" value="{{ (int) ($defaultPlanTerm['total_price_cop'] ?? 0) }}" data-payment-plan-price />
+  </form>
 
   <div class="modal fade" id="listing-map-picker-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-fullscreen-lg-down modal-dialog-centered modal-dialog-scrollable">
