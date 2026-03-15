@@ -135,6 +135,7 @@ class SeoLandingController extends Controller
         $this->applyFiltersToQuery($resultsQuery, $selectedFilters, $filterOptions);
         $this->applySortToQuery($resultsQuery, $selectedSort);
 
+        $faqProfiles = (clone $resultsQuery)->with('faqs')->get();
         $profiles = $resultsQuery
             ->paginate(12)
             ->withQueryString();
@@ -148,7 +149,7 @@ class SeoLandingController extends Controller
 
         $cityReviews = $this->cityReviews($cityName, $zoneName, $eventType, $countryName);
         $recentViews = $this->recentViews($request, $cityName, $zoneName, $eventType, $countryName);
-        $faqItems = $this->buildFaqItems($cityName, $zoneName, $eventType, $countryName);
+        $faqItems = $this->buildFaqItems($faqProfiles, $cityName, $zoneName, $eventType, $countryName);
 
         $countryCityStats = $mode === 'country'
             ? $this->cityStatsFromProfiles($contextProfiles)
@@ -259,6 +260,7 @@ class SeoLandingController extends Controller
                 'mariachiProfile.user:id,name,first_name,last_name,status,role',
                 'photos',
                 'serviceAreas',
+                'faqs',
                 'eventTypes:id,name',
                 'serviceTypes:id,name',
                 'groupSizeOptions:id,name,sort_order',
@@ -272,6 +274,7 @@ class SeoLandingController extends Controller
     /**
      * @return array{
      *   events:Collection<int,array{name:string,slug:string,count:int}>,
+     *   cities:Collection<int,array{name:string,slug:string,count:int}>,
      *   services:Collection<int,array{name:string,slug:string,count:int}>,
      *   groups:Collection<int,array{name:string,slug:string,count:int}>,
      *   budgets:Collection<int,array{name:string,slug:string,count:int}>,
@@ -282,6 +285,7 @@ class SeoLandingController extends Controller
     {
         return [
             'events' => $this->countOptionsByName($profiles->flatMap(fn (MariachiListing $profile): Collection => $profile->eventTypes->pluck('name'))),
+            'cities' => $this->countOptionsByName($profiles->pluck('city_name')),
             'services' => $this->countOptionsByName($profiles->flatMap(fn (MariachiListing $profile): Collection => $profile->serviceTypes->pluck('name'))),
             'groups' => $this->countOptionsByName($profiles->flatMap(fn (MariachiListing $profile): Collection => $profile->groupSizeOptions->pluck('name'))),
             'budgets' => $this->countOptionsByName($profiles->flatMap(fn (MariachiListing $profile): Collection => $profile->budgetRanges->pluck('name'))),
@@ -310,17 +314,19 @@ class SeoLandingController extends Controller
     /**
      * @param  array{
      *   events:Collection<int,array{name:string,slug:string,count:int}>,
+     *   cities:Collection<int,array{name:string,slug:string,count:int}>,
      *   services:Collection<int,array{name:string,slug:string,count:int}>,
      *   groups:Collection<int,array{name:string,slug:string,count:int}>,
      *   budgets:Collection<int,array{name:string,slug:string,count:int}>,
      *   zones:Collection<int,array{name:string,slug:string,count:int}>
      * }  $filterOptions
-     * @return array{event:?string,service:?string,group:?string,budget:?string,zone:?string}
+     * @return array{event:?string,city:?string,service:?string,group:?string,budget:?string,zone:?string}
      */
     private function resolveSelectedFilters(Request $request, array $filterOptions, ?string $zoneName): array
     {
         $selected = [
             'event' => $this->sanitizeSelectedSlug((string) $request->query('event', ''), $filterOptions['events']),
+            'city' => $this->sanitizeSelectedSlug((string) $request->query('city', ''), $filterOptions['cities']),
             'service' => $this->sanitizeSelectedSlug((string) $request->query('service', ''), $filterOptions['services']),
             'group' => $this->sanitizeSelectedSlug((string) $request->query('group', ''), $filterOptions['groups']),
             'budget' => $this->sanitizeSelectedSlug((string) $request->query('budget', ''), $filterOptions['budgets']),
@@ -355,9 +361,10 @@ class SeoLandingController extends Controller
     }
 
     /**
-     * @param  array{event:?string,service:?string,group:?string,budget:?string,zone:?string}  $selectedFilters
+     * @param  array{event:?string,city:?string,service:?string,group:?string,budget:?string,zone:?string}  $selectedFilters
      * @param  array{
      *   events:Collection<int,array{name:string,slug:string,count:int}>,
+     *   cities:Collection<int,array{name:string,slug:string,count:int}>,
      *   services:Collection<int,array{name:string,slug:string,count:int}>,
      *   groups:Collection<int,array{name:string,slug:string,count:int}>,
      *   budgets:Collection<int,array{name:string,slug:string,count:int}>,
@@ -370,6 +377,16 @@ class SeoLandingController extends Controller
         $this->applyRelationFilter($query, 'serviceTypes', $selectedFilters['service'], $filterOptions['services']);
         $this->applyRelationFilter($query, 'groupSizeOptions', $selectedFilters['group'], $filterOptions['groups']);
         $this->applyRelationFilter($query, 'budgetRanges', $selectedFilters['budget'], $filterOptions['budgets']);
+
+        if ($selectedFilters['city']) {
+            $cityName = $filterOptions['cities']
+                ->firstWhere('slug', $selectedFilters['city'])['name']
+                ?? null;
+
+            if ($cityName) {
+                $query->whereRaw('LOWER(city_name) = ?', [mb_strtolower($cityName)]);
+            }
+        }
 
         if ($selectedFilters['zone']) {
             $zoneName = $filterOptions['zones']
@@ -495,10 +512,57 @@ class SeoLandingController extends Controller
     }
 
     /**
+     * @param  Collection<int, MariachiListing>  $profiles
      * @return array<int, array{question:string,answer:string}>
      */
-    private function buildFaqItems(?string $cityName, ?string $zoneName, ?EventType $eventType, ?string $countryName = null): array
+    private function buildFaqItems(Collection $profiles, ?string $cityName, ?string $zoneName, ?EventType $eventType, ?string $countryName = null): array
     {
+        $listingFaqs = $profiles
+            ->flatMap(function (MariachiListing $profile): Collection {
+                $faqs = $profile->relationLoaded('faqs')
+                    ? $profile->faqs
+                    : $profile->faqs()->orderBy('sort_order')->get();
+
+                return $faqs
+                    ->where('is_visible', true)
+                    ->map(fn ($faq): array => [
+                        'question' => trim((string) $faq->question),
+                        'answer' => trim((string) $faq->answer),
+                    ])
+                    ->filter(fn (array $faq): bool => $faq['question'] !== '' && $faq['answer'] !== '');
+            })
+            ->groupBy(fn (array $faq): string => Str::of($faq['question'])->lower()->squish()->toString())
+            ->map(function (Collection $items): ?array {
+                $question = $items->first()['question'] ?? null;
+                $answer = $items
+                    ->groupBy(fn (array $faq): string => Str::of($faq['answer'])->lower()->squish()->toString())
+                    ->sortByDesc(fn (Collection $answers): int => $answers->count())
+                    ->first()?->first()['answer'] ?? null;
+
+                if (! $question || ! $answer) {
+                    return null;
+                }
+
+                return [
+                    'question' => $question,
+                    'answer' => $answer,
+                    'count' => $items->count(),
+                ];
+            })
+            ->filter()
+            ->sortByDesc('count')
+            ->take(4)
+            ->values()
+            ->map(fn (array $faq): array => [
+                'question' => $faq['question'],
+                'answer' => $faq['answer'],
+            ])
+            ->all();
+
+        if ($listingFaqs !== []) {
+            return $listingFaqs;
+        }
+
         $cityLabel = $cityName ?: ($countryName ?: 'tu ciudad');
         $zoneLabel = $zoneName ?: $cityLabel;
         $eventLabel = $eventType?->name ? mb_strtolower($eventType->name) : 'eventos privados y corporativos';

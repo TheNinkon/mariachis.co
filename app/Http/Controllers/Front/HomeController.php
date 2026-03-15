@@ -38,15 +38,27 @@ class HomeController extends Controller
 
     public function redirectToEventCategory(EventType $eventType): RedirectResponse
     {
-        if (! $eventType->is_active) {
-            abort(404);
-        }
+        return $this->trackCatalogClickAndRedirectToSeoLanding($eventType, null, $eventType->slug ?: Str::slug($eventType->name));
+    }
 
-        $eventType->increment('home_clicks_count');
+    public function redirectToServiceCategory(ServiceType $serviceType): RedirectResponse
+    {
+        return $this->trackCatalogClickAndRedirectToSeoLanding($serviceType, 'service', $serviceType->slug ?: Str::slug($serviceType->name));
+    }
 
-        return redirect()->route('seo.landing.slug', [
-            'slug' => $eventType->slug ?: Str::slug($eventType->name),
-        ]);
+    public function redirectToGroupSizeCategory(GroupSizeOption $groupSizeOption): RedirectResponse
+    {
+        return $this->trackCatalogClickAndRedirectToSeoLanding($groupSizeOption, 'group', $groupSizeOption->slug ?: Str::slug($groupSizeOption->name));
+    }
+
+    public function redirectToGroupCategory(GroupSizeOption $groupSizeOption): RedirectResponse
+    {
+        return $this->redirectToGroupSizeCategory($groupSizeOption);
+    }
+
+    public function redirectToBudgetCategory(BudgetRange $budgetRange): RedirectResponse
+    {
+        return $this->trackCatalogClickAndRedirectToSeoLanding($budgetRange, 'budget', $budgetRange->slug ?: Str::slug($budgetRange->name));
     }
 
     public function __invoke(
@@ -99,20 +111,31 @@ class HomeController extends Controller
                 $query->published();
             }])
             ->get(['id', 'name', 'slug', 'icon', 'home_priority', 'min_active_listings_required', 'home_clicks_count'])
-            ->filter(function (EventType $eventType): bool {
-                $minimum = (int) ($eventType->min_active_listings_required ?? 0);
+            ->pipe(fn (Collection $items): Collection => $this->curateHomeCatalogItems($items));
 
-                return (int) $eventType->active_home_listings_count >= $minimum;
-            })
-            ->sortBy(function (EventType $eventType): string {
-                $priority = str_pad((string) ((int) ($eventType->home_priority ?? 999)), 4, '0', STR_PAD_LEFT);
-                $listingSignal = str_pad((string) max(0, 999999 - (int) ($eventType->active_home_listings_count ?? 0)), 6, '0', STR_PAD_LEFT);
-                $clickSignal = str_pad((string) max(0, 999999 - (int) ($eventType->home_clicks_count ?? 0)), 6, '0', STR_PAD_LEFT);
+        $homeServiceTypes = ServiceType::query()
+            ->availableForHome()
+            ->withCount(['mariachiListings as active_home_listings_count' => function ($query): void {
+                $query->published();
+            }])
+            ->get(['id', 'name', 'slug', 'icon', 'home_priority', 'min_active_listings_required', 'home_clicks_count'])
+            ->pipe(fn (Collection $items): Collection => $this->curateHomeCatalogItems($items));
 
-                return $priority.'|'.$listingSignal.'|'.$clickSignal.'|'.mb_strtolower((string) $eventType->name);
-            })
-            ->take(6)
-            ->values();
+        $homeGroupSizeOptions = GroupSizeOption::query()
+            ->availableForHome()
+            ->withCount(['mariachiListings as active_home_listings_count' => function ($query): void {
+                $query->published();
+            }])
+            ->get(['id', 'name', 'slug', 'icon', 'home_priority', 'min_active_listings_required', 'home_clicks_count'])
+            ->pipe(fn (Collection $items): Collection => $this->curateHomeCatalogItems($items));
+
+        $homeBudgetRanges = BudgetRange::query()
+            ->availableForHome()
+            ->withCount(['mariachiListings as active_home_listings_count' => function ($query): void {
+                $query->published();
+            }])
+            ->get(['id', 'name', 'slug', 'icon', 'home_priority', 'min_active_listings_required', 'home_clicks_count'])
+            ->pipe(fn (Collection $items): Collection => $this->curateHomeCatalogItems($items));
 
         $popularEvents = EventType::query()
             ->where('is_active', true)
@@ -187,6 +210,9 @@ class HomeController extends Controller
             'featuredTags' => $featuredTags,
             'cityShowcase' => $cityShowcase,
             'homeEventTypes' => $homeEventTypes,
+            'homeServiceTypes' => $homeServiceTypes,
+            'homeGroupSizeOptions' => $homeGroupSizeOptions,
+            'homeBudgetRanges' => $homeBudgetRanges,
             'popularCities' => $popularCities,
             'popularEvents' => $popularEvents,
             'popularBudgetRanges' => $popularBudgetRanges,
@@ -196,6 +222,46 @@ class HomeController extends Controller
             'trustpilotReviews' => $trustpilotReviews,
             ...$searchFormPayload,
         ]);
+    }
+
+    private function curateHomeCatalogItems(Collection $items): Collection
+    {
+        return $items
+            ->filter(function ($item): bool {
+                $minimum = (int) ($item->min_active_listings_required ?? 0);
+
+                return (int) ($item->active_home_listings_count ?? 0) >= $minimum;
+            })
+            ->sortBy(function ($item): string {
+                $priority = str_pad((string) ((int) ($item->home_priority ?? 999)), 4, '0', STR_PAD_LEFT);
+                $listingSignal = str_pad((string) max(0, 999999 - (int) ($item->active_home_listings_count ?? 0)), 6, '0', STR_PAD_LEFT);
+                $clickSignal = str_pad((string) max(0, 999999 - (int) ($item->home_clicks_count ?? 0)), 6, '0', STR_PAD_LEFT);
+
+                return $priority.'|'.$listingSignal.'|'.$clickSignal.'|'.mb_strtolower((string) $item->name);
+            })
+            ->take(6)
+            ->values();
+    }
+
+    private function trackCatalogClickAndRedirectToSeoLanding(object $catalogItem, ?string $queryKey, string $targetSlug): RedirectResponse
+    {
+        if (! $catalogItem->is_active) {
+            abort(404);
+        }
+
+        $catalogItem->increment('home_clicks_count');
+
+        if ($queryKey === null) {
+            return redirect()->route('seo.landing.slug', [
+                'slug' => $targetSlug,
+            ]);
+        }
+
+        $baseUrl = route('seo.landing.slug', [
+            'slug' => Str::slug(config('seo.default_country_name', 'Colombia')),
+        ]);
+
+        return redirect()->to($baseUrl.'?'.http_build_query([$queryKey => $targetSlug]));
     }
 
     /**

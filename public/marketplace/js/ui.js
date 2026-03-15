@@ -870,10 +870,13 @@
   function getFooterState() {
     const fallback = {
       cities: [],
+      events: [],
       urls: {
         signup: "/partner/signup",
-        city: "/",
+        partnerLogin: "/partner/login",
         blog: "/blog",
+        help: "/ayuda",
+        sitemap: "/mapa-del-sitio",
       },
     };
     const raw = window.__MM_FOOTER__;
@@ -882,6 +885,7 @@
     }
 
     const cities = Array.isArray(raw.cities) ? raw.cities : [];
+    const events = Array.isArray(raw.events) ? raw.events : [];
     const urls = raw.urls && typeof raw.urls === "object" ? raw.urls : {};
     return {
       cities: cities.slice(0, 5).map((item) => ({
@@ -889,10 +893,17 @@
         slug: String(item.slug || ""),
         count: Number(item.count || 0),
       })),
+      events: events.slice(0, 5).map((item) => ({
+        name: String(item.name || ""),
+        slug: String(item.slug || ""),
+        count: Number(item.count || 0),
+      })),
       urls: {
         signup: String(urls.signup || fallback.urls.signup),
-        city: String(urls.city || fallback.urls.city),
+        partnerLogin: String(urls.partnerLogin || fallback.urls.partnerLogin),
         blog: String(urls.blog || fallback.urls.blog),
+        help: String(urls.help || fallback.urls.help),
+        sitemap: String(urls.sitemap || fallback.urls.sitemap),
       },
     };
   }
@@ -1043,10 +1054,15 @@
           .map((city) => `<li><a href="/mariachis/${escapeHtml(city.slug)}" class="hover:text-white">Mariachis en ${escapeHtml(city.name)}</a></li>`)
           .join("")
       : `<li><span class="text-slate-400">Sin ciudades activas todavía</span></li>`;
+    const eventItems = footerState.events.length
+      ? footerState.events
+          .map((event) => `<li><a href="/mariachis/${escapeHtml(event.slug)}" class="hover:text-white">Mariachis para ${escapeHtml(String(event.name).toLowerCase())}</a></li>`)
+          .join("")
+      : `<li><span class="text-slate-400">Próximamente más eventos destacados</span></li>`;
 
     return `
       <footer class="mt-20 border-t border-slate-200 bg-slate-950 text-slate-200">
-        <div class="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-3 md:px-8">
+        <div class="mx-auto grid w-full max-w-7xl gap-10 px-4 py-14 md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr] md:px-8">
           <div class="space-y-4">
             ${brandLogo("footer")}
             <p class="max-w-lg text-sm text-slate-300">Marketplace para contratar mariachis en Colombia con perfiles reales, contacto directo y búsqueda por ciudad.</p>
@@ -1058,11 +1074,25 @@
             </ul>
           </div>
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Marketplace</h3>
+            <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Eventos destacados</h3>
+            <ul class="mt-4 grid gap-2 text-sm text-slate-200">
+              ${eventItems}
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Recursos</h3>
+            <ul class="mt-4 grid gap-2 text-sm text-slate-200">
+              <li><a href="${escapeHtml(footerState.urls.blog)}" class="hover:text-white">Blog</a></li>
+              <li><a href="${escapeHtml(footerState.urls.help)}" class="hover:text-white">Ayuda</a></li>
+              <li><a href="${escapeHtml(footerState.urls.sitemap)}" class="hover:text-white">Mapa del sitio</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Para mariachis</h3>
             <ul class="mt-4 grid gap-2 text-sm text-slate-200">
               <li><a href="${escapeHtml(footerState.urls.signup)}" class="hover:text-white">Publica tu anuncio</a></li>
-              <li><a href="${escapeHtml(footerState.urls.city)}" class="hover:text-white">Anuncios en tu ciudad</a></li>
-              <li><a href="${escapeHtml(footerState.urls.blog)}" class="hover:text-white">Blog</a></li>
+              <li><a href="${escapeHtml(footerState.urls.partnerLogin)}" class="hover:text-white">Acceso partner</a></li>
+              <li><a href="${escapeHtml(footerState.urls.help)}" class="hover:text-white">Cómo funciona</a></li>
             </ul>
           </div>
         </div>
@@ -2205,6 +2235,40 @@
     });
     syncAnchorLayout();
     syncActiveSection();
+  }
+
+  function initCityStickyFilters() {
+    const stickyShell = document.querySelector("[data-city-sticky-filters]");
+    if (!stickyShell) {
+      return;
+    }
+
+    const stickySentinel = document.querySelector("[data-city-filters-sentinel]");
+
+    function syncStickyLayout() {
+      if (window.matchMedia("(max-width: 767px)").matches) {
+        stickyShell.classList.remove("is-docked");
+        return;
+      }
+
+      const dockTrigger = stickySentinel || stickyShell;
+      const docked = dockTrigger.getBoundingClientRect().top <= 0;
+      stickyShell.classList.toggle("is-docked", docked);
+    }
+
+    window.addEventListener(
+      "scroll",
+      function () {
+        syncStickyLayout();
+      },
+      { passive: true }
+    );
+
+    window.addEventListener("resize", function () {
+      syncStickyLayout();
+    });
+
+    syncStickyLayout();
   }
 
   function initBudgetInlineForm() {
@@ -3618,6 +3682,7 @@
     initQuoteBuilder();
     initReadMore();
     initListingAnchorNav();
+    initCityStickyFilters();
     initBudgetInlineForm();
     initBudgetModal();
     initAccordion();

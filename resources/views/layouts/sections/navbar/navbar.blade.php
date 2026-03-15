@@ -2,6 +2,7 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 $containerNav = $configData['contentLayout'] === 'compact' ? 'container-xxl' : 'container-fluid';
+$containerNav = !empty($configData['isPartnerPanel']) ? 'container-fluid px-2 px-lg-3' : $containerNav;
 $navbarDetached = $navbarDetached ?? '';
 @endphp
 

@@ -59,12 +59,12 @@ import Sortable from 'sortablejs';
   };
 
   const getStepKeyByIndex = index => {
-    const contents = Array.from(wizardElement?.querySelectorAll('.bs-stepper-content > .content') || []);
+    const contents = Array.from(wizardElement?.querySelectorAll('.bs-stepper-content .content') || []);
     return contents[index]?.dataset.stepKey || null;
   };
 
   const getCurrentStepKey = () => {
-    const activeContent = wizardElement?.querySelector('.bs-stepper-content > .content.active');
+    const activeContent = wizardElement?.querySelector('.bs-stepper-content .content.active');
     if (activeContent instanceof HTMLElement && activeContent.dataset.stepKey) {
       return normalizeStepKey(activeContent.dataset.stepKey);
     }

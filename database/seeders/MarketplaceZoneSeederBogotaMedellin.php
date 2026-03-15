@@ -18,6 +18,9 @@ class MarketplaceZoneSeederBogotaMedellin extends Seeder
 
         $bogota = $this->upsertCity('Bogotá', 'bogota', 1);
         $medellin = $this->upsertCity('Medellín', 'medellin', 2);
+        $cali = $this->upsertCity('Cali', 'cali', 3);
+        $barranquilla = $this->upsertCity('Barranquilla', 'barranquilla', 4);
+        $cartagena = $this->upsertCity('Cartagena', 'cartagena', 5);
 
         $this->seedZones($bogota, [
             'Usaquén',
@@ -59,6 +62,39 @@ class MarketplaceZoneSeederBogotaMedellin extends Seeder
             'El Poblado',
             'Guayabal',
             'Belén',
+        ]);
+
+        $this->seedZones($cali, [
+            'Granada',
+            'San Antonio',
+            'El Peñón',
+            'Ciudad Jardín',
+            'Tequendama',
+            'San Fernando',
+            'Normandía',
+            'Versalles',
+        ]);
+
+        $this->seedZones($barranquilla, [
+            'Alto Prado',
+            'El Prado',
+            'Riomar',
+            'Villa Santos',
+            'Boston',
+            'Bellavista',
+            'Ciudad Jardín',
+            'San Vicente',
+        ]);
+
+        $this->seedZones($cartagena, [
+            'Bocagrande',
+            'Centro Histórico',
+            'Getsemaní',
+            'Manga',
+            'Castillogrande',
+            'Crespo',
+            'El Laguito',
+            'La Boquilla',
         ]);
     }
 

@@ -112,15 +112,17 @@ class Helpers
 
     $currentRouteName = request()->route()?->getName() ?? '';
     $authUser = auth()->user();
+    $isBlankLayoutRequest = ($data['myLayout'] ?? 'vertical') === 'blank';
     $isMariachiPanel =
       $authUser?->isMariachi() &&
       Str::startsWith($currentRouteName, 'mariachi.') &&
-      !Str::startsWith($currentRouteName, 'mariachi.public.');
+      !Str::startsWith($currentRouteName, 'mariachi.public.') &&
+      !$isBlankLayoutRequest;
 
     if ($isMariachiPanel) {
-      $data['myLayout'] = 'horizontal';
+      $data['myLayout'] = 'vertical';
       $data['contentLayout'] = 'wide';
-      $data['menuCollapsed'] = false;
+      $data['menuCollapsed'] = true;
       $data['navbarType'] = 'sticky';
       $data['headerType'] = 'fixed';
     }
@@ -206,6 +208,7 @@ class Helpers
     //layout classes
     $layoutClasses = [
       'layout' => $data['myLayout'],
+      'isPartnerPanel' => $isMariachiPanel,
       'skins' => $data['mySkins'],
       'skinName' => $skinName,
       'semiDark' => $semiDarkEnabled,

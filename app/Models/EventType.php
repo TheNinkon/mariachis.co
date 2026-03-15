@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Carbon\CarbonInterface;
+use App\Models\Concerns\HasHomeEditorialVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
 class EventType extends Model
 {
     use HasFactory;
+    use HasHomeEditorialVisibility;
 
     protected $fillable = [
         'name',
@@ -60,55 +61,15 @@ class EventType extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeVisibleInHome(Builder $query): Builder
-    {
-        return $query->where('is_visible_in_home', true);
-    }
-
-    public function scopeAvailableForHome(Builder $query, CarbonInterface|string|null $moment = null): Builder
-    {
-        $currentMoment = $moment instanceof CarbonInterface
-            ? $moment
-            : now();
-
-        return $query
-            ->active()
-            ->visibleInHome()
-            ->where(function (Builder $builder) use ($currentMoment): void {
-                $builder->where(function (Builder $alwaysVisible): void {
-                    $alwaysVisible
-                        ->whereNull('seasonal_start_at')
-                        ->whereNull('seasonal_end_at');
-                })->orWhere(function (Builder $seasonal) use ($currentMoment): void {
-                    $seasonal
-                        ->where(function (Builder $startQuery) use ($currentMoment): void {
-                            $startQuery
-                                ->whereNull('seasonal_start_at')
-                                ->orWhere('seasonal_start_at', '<=', $currentMoment);
-                        })
-                        ->where(function (Builder $endQuery) use ($currentMoment): void {
-                            $endQuery
-                                ->whereNull('seasonal_end_at')
-                                ->orWhere('seasonal_end_at', '>=', $currentMoment);
-                        });
-                });
-            });
+        return $query->where($this->qualifyColumn('is_active'), true);
     }
 
     public function scopeOrdered(Builder $query): Builder
     {
         if (Schema::hasColumn($this->getTable(), 'sort_order')) {
-            $query->orderBy('sort_order');
+            $query->orderBy($this->qualifyColumn('sort_order'));
         }
 
-        return $query->orderBy('name');
-    }
-
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
+        return $query->orderBy($this->qualifyColumn('name'));
     }
 }

@@ -60,7 +60,7 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260311-brand-green-v2"></script>
+    <script src="js/ui.js?v=20260315-html-sitemap-v1"></script>
     @stack('scripts')
   </body>
 </html>

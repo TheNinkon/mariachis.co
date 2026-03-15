@@ -266,7 +266,7 @@ class CatalogOptionController extends Controller
                 'table' => 'service_types',
                 'default_icon' => 'settings',
                 'slug_fallback' => 'tipo-servicio',
-                'supports_home_editorial' => false,
+                'supports_home_editorial' => true,
             ],
             'group-sizes' => [
                 'title' => 'Tamaños de grupo',
@@ -276,7 +276,7 @@ class CatalogOptionController extends Controller
                 'table' => 'group_size_options',
                 'default_icon' => 'users',
                 'slug_fallback' => 'tamano-grupo',
-                'supports_home_editorial' => false,
+                'supports_home_editorial' => true,
             ],
             'budget-ranges' => [
                 'title' => 'Presupuestos',
@@ -286,7 +286,7 @@ class CatalogOptionController extends Controller
                 'table' => 'budget_ranges',
                 'default_icon' => 'coins',
                 'slug_fallback' => 'presupuesto',
-                'supports_home_editorial' => false,
+                'supports_home_editorial' => true,
             ],
         ];
 

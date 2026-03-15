@@ -15,6 +15,47 @@ $brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
   : url('/');
 @endphp
 
+<style>
+  .partner-brand-toggle {
+    border-radius: 0.85rem;
+    padding: 0.42rem;
+    color: #5a6678;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .partner-brand-toggle:hover {
+    background: rgba(0, 86, 59, 0.08);
+    color: #00563b;
+    box-shadow: 0 10px 18px -16px rgba(0, 86, 59, 0.45);
+  }
+
+  .partner-brand-toggle__icon {
+    font-size: 1.22rem;
+    line-height: 1;
+  }
+
+  .partner-brand-toggle__icon--collapsed {
+    display: none !important;
+  }
+
+  @media (min-width: 1200px) {
+    .layout-menu-collapsed:not(.layout-menu-hover) .partner-brand-toggle {
+      display: none !important;
+    }
+
+    .layout-menu-collapsed:not(.layout-menu-hover) .partner-brand-toggle__icon--expanded {
+      display: none !important;
+    }
+
+    .layout-menu-collapsed:not(.layout-menu-hover) .partner-brand-toggle__icon--collapsed {
+      display: inline-block !important;
+    }
+  }
+</style>
+
 <aside id="layout-menu" class="layout-menu menu-vertical menu" @foreach ($configData['menuAttributes'] as $attribute=>
   $value)
   {{ $attribute }}="{{ $value }}" @endforeach>
@@ -24,15 +65,29 @@ $brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
   <div class="app-brand demo">
     <a href="{{ $brandUrl }}" class="app-brand-link">
       @if ($showWordmarkBrand)
-      <img src="{{ asset('marketplace/assets/logo-wordmark.png') }}" alt="Mariachis.co" style="max-height: 34px; width: auto;" />
+      <img
+        src="{{ asset('marketplace/assets/logo-wordmark.png') }}"
+        alt="Mariachis.co"
+        class="app-brand-img"
+        style="max-height: 34px; width: auto;" />
+      <img
+        src="{{ asset('marketplace/logo.png') }}"
+        alt="Mariachis.co"
+        class="app-brand-img-collapsed"
+        style="height: 32px; width: 32px; object-fit: contain;" />
       @else
       <span class="app-brand-logo demo">@include('_partials.macros')</span>
       <span class="app-brand-text demo menu-text fw-bold ms-3">{{ config('variables.templateName') }}</span>
       @endif
     </a>
 
-    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto {{ $showWordmarkBrand ? 'partner-brand-toggle' : '' }}">
+      @if ($showWordmarkBrand)
+      <i class="icon-base ti tabler-layout-sidebar-left-collapse d-none d-xl-block partner-brand-toggle__icon partner-brand-toggle__icon--expanded"></i>
+      <i class="icon-base ti tabler-layout-sidebar-left-expand d-none d-xl-block partner-brand-toggle__icon partner-brand-toggle__icon--collapsed"></i>
+      @else
       <i class="icon-base ti menu-toggle-icon d-none d-xl-block"></i>
+      @endif
       <i class="icon-base ti tabler-x d-block d-xl-none"></i>
     </a>
   </div>

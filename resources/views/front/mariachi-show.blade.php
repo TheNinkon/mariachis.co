@@ -1079,7 +1079,7 @@
     <div data-component="site-footer"></div>
 
     @include('front.partials.auth-state-script')
-    <script src="js/ui.js?v=20260314-listing-v10"></script>
+    <script src="js/ui.js?v=20260315-html-sitemap-v1"></script>
     <script src="js/listing-gallery.js?v=20260314-listing-v6"></script>
     <script src="js/listing-lead-modal.js?v=20260311-listing-v1"></script>
     <script src="js/listing-favorites.js?v=20260313-listing-v2"></script>

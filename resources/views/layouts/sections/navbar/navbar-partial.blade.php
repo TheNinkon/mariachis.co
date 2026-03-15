@@ -16,6 +16,7 @@ $primaryAction = null;
 $secondaryAction = null;
 $quickAction = null;
 $roleLabel = 'Usuario';
+$isPartnerPanel = ($authUser?->isMariachi() ?? false) && request()->routeIs('mariachi.*');
 $showWordmarkBrand = ($authUser?->isMariachi() ?? false) || request()->routeIs('mariachi.*');
 $brandUrl = $showWordmarkBrand && Route::has('mariachi.metrics')
   ? route('mariachi.metrics')
@@ -62,6 +63,13 @@ if ($authUser?->isMariachi()) {
     'icon' => 'icon-base ti tabler-message-circle icon-md',
     'label' => 'Solicitudes',
   ];
+
+  if ($isPartnerPanel) {
+    $showImageAvatar = false;
+    $useIconAvatar = true;
+    $iconAvatarClass = 'icon-base ti tabler-user icon-md';
+    $iconAvatarTone = 'bg-label-secondary';
+  }
 } elseif ($authUser?->isAdmin()) {
   $useIconAvatar = true;
   $iconAvatarClass = 'icon-base ti tabler-shield-star icon-md';

@@ -29,14 +29,15 @@
       $resultsDisplay = $totalResults >= 600 ? '600+' : number_format($totalResults, 0, ',', '.');
       $activeFilterCount = collect([
         $selectedFilters['event'] ?? null,
+        $selectedFilters['city'] ?? null,
         $selectedFilters['service'] ?? null,
         $selectedFilters['budget'] ?? null,
       ])->filter()->count();
-      $hasClientAuth = auth()->user()?->role === \App\Models\User::ROLE_CLIENT;
+      $showCityFilter = ! $isCity && ! $isZone && $filterOptions['cities']->isNotEmpty();
     @endphp
 
     <main class="city-hero">
-      <section class="city-results-shell city-results-shell--viator pt-6 pb-10 md:pt-8">
+      <section class="city-results-shell city-results-shell--viator pt-4 pb-10 md:pt-5">
         <nav class="city-breadcrumbs" aria-label="Migas de pan" data-reveal>
           <a href="{{ route('home') }}">Inicio</a>
           <span class="city-breadcrumb-sep">/</span>
@@ -63,61 +64,93 @@
           </div>
         </div>
 
-        <form method="GET" action="{{ $currentPath }}" class="city-controls-form" data-reveal>
-          <div class="city-control">
-            <label for="city-filter-event">Categoria</label>
-            <select id="city-filter-event" name="event">
-              <option value="">Todas</option>
-              @foreach($filterOptions['events']->take(30) as $eventOption)
-                <option value="{{ $eventOption['slug'] }}" @selected($selectedFilters['event'] === $eventOption['slug'])>
-                  {{ $eventOption['name'] }} ({{ $eventOption['count'] }})
-                </option>
-              @endforeach
-            </select>
+        <div class="city-filters-sentinel" data-city-filters-sentinel aria-hidden="true"></div>
+        <div class="city-sticky-filters" data-reveal data-city-sticky-filters>
+          <form method="GET" action="{{ $currentPath }}" class="city-controls-form">
+            <div class="city-control">
+              <label for="city-filter-event">Categoria</label>
+              <select id="city-filter-event" name="event">
+                <option value="">Todas</option>
+                @foreach($filterOptions['events']->take(30) as $eventOption)
+                  <option value="{{ $eventOption['slug'] }}" @selected($selectedFilters['event'] === $eventOption['slug'])>
+                    {{ $eventOption['name'] }} ({{ $eventOption['count'] }})
+                  </option>
+                @endforeach
+              </select>
+            </div>
+
+            @if($showCityFilter)
+              <div class="city-control">
+                <label for="city-filter-city">Ciudad</label>
+                <select id="city-filter-city" name="city">
+                  <option value="">Todas</option>
+                  @foreach($filterOptions['cities']->take(30) as $cityOption)
+                    <option value="{{ $cityOption['slug'] }}" @selected($selectedFilters['city'] === $cityOption['slug'])>
+                      {{ $cityOption['name'] }} ({{ $cityOption['count'] }})
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+            @endif
+
+            <div class="city-control">
+              <label for="city-filter-service">Tipo</label>
+              <select id="city-filter-service" name="service">
+                <option value="">Todos</option>
+                @foreach($filterOptions['services']->take(30) as $serviceOption)
+                  <option value="{{ $serviceOption['slug'] }}" @selected($selectedFilters['service'] === $serviceOption['slug'])>
+                    {{ $serviceOption['name'] }} ({{ $serviceOption['count'] }})
+                  </option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="city-control">
+              <label for="city-filter-budget">Precio</label>
+              <select id="city-filter-budget" name="budget">
+                <option value="">Todos</option>
+                @foreach($filterOptions['budgets']->take(30) as $budgetOption)
+                  <option value="{{ $budgetOption['slug'] }}" @selected($selectedFilters['budget'] === $budgetOption['slug'])>
+                    {{ $budgetOption['name'] }} ({{ $budgetOption['count'] }})
+                  </option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="city-controls-actions">
+              <button type="submit" class="city-controls-submit">Aplicar</button>
+              <a href="{{ $currentPath }}" class="city-reset-link">Limpiar</a>
+            </div>
+          </form>
+        </div>
+
+        <div class="city-controls-footer" data-reveal>
+          <div class="city-controls-footer__meta">
+            <p class="city-results-count">{{ $resultsDisplay }} resultados</p>
+            <p class="city-results-note">Los ingresos pueden influir en este orden de clasificacion.</p>
           </div>
 
-          <div class="city-control">
-            <label for="city-filter-service">Tipo</label>
-            <select id="city-filter-service" name="service">
-              <option value="">Todos</option>
-              @foreach($filterOptions['services']->take(30) as $serviceOption)
-                <option value="{{ $serviceOption['slug'] }}" @selected($selectedFilters['service'] === $serviceOption['slug'])>
-                  {{ $serviceOption['name'] }} ({{ $serviceOption['count'] }})
-                </option>
-              @endforeach
-            </select>
-          </div>
+          <form method="GET" action="{{ $currentPath }}" class="city-sort-form">
+            @if($selectedFilters['event'])
+              <input type="hidden" name="event" value="{{ $selectedFilters['event'] }}">
+            @endif
+            @if($selectedFilters['city'])
+              <input type="hidden" name="city" value="{{ $selectedFilters['city'] }}">
+            @endif
+            @if($selectedFilters['service'])
+              <input type="hidden" name="service" value="{{ $selectedFilters['service'] }}">
+            @endif
+            @if($selectedFilters['budget'])
+              <input type="hidden" name="budget" value="{{ $selectedFilters['budget'] }}">
+            @endif
 
-          <div class="city-control">
-            <label for="city-filter-budget">Precio</label>
-            <select id="city-filter-budget" name="budget">
-              <option value="">Todos</option>
-              @foreach($filterOptions['budgets']->take(30) as $budgetOption)
-                <option value="{{ $budgetOption['slug'] }}" @selected($selectedFilters['budget'] === $budgetOption['slug'])>
-                  {{ $budgetOption['name'] }} ({{ $budgetOption['count'] }})
-                </option>
-              @endforeach
-            </select>
-          </div>
-
-          <div class="city-control">
-            <label for="city-sort">Ordenar por</label>
-            <select id="city-sort" name="sort">
+            <label for="city-sort">Ordenar por:</label>
+            <select id="city-sort" name="sort" onchange="this.form.submit()">
               @foreach($sortOptions as $sortValue => $sortLabel)
                 <option value="{{ $sortValue }}" @selected($selectedSort === $sortValue)>{{ $sortLabel }}</option>
               @endforeach
             </select>
-          </div>
-
-          <div class="city-controls-actions">
-            <button type="submit" class="city-controls-submit">Aplicar</button>
-            <a href="{{ $currentPath }}" class="city-reset-link">Limpiar</a>
-          </div>
-        </form>
-
-        <div class="city-controls-footer" data-reveal>
-          <p class="city-results-count">{{ $resultsDisplay }} resultados</p>
-          <p class="city-results-note">Los ingresos pueden influir en este orden de clasificacion.</p>
+          </form>
         </div>
 
         <div data-results-panel class="city-results-panel city-results-panel--viator" data-view-mode="gallery" data-reveal>
@@ -250,7 +283,7 @@
             @endif
           </div>
         </section>
-      @else
+      @elseif($nearbyZones->isNotEmpty() && $citySlugValue)
         <section class="layout-shell pb-10" data-reveal>
           <div class="surface rounded-2xl border border-slate-200 px-4 py-5 md:px-6">
             <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -263,17 +296,11 @@
               @endif
             </div>
 
-            @if($nearbyZones->isNotEmpty() && $citySlugValue)
-              <div class="artist-seo-chip-cloud">
-                @foreach($nearbyZones as $zone)
-                  <a href="{{ route('seo.landing.city-category', ['citySlug' => $citySlugValue, 'scopeSlug' => $zone['slug']]) }}" class="artist-seo-chip">{{ $zone['name'] }} ({{ $zone['count'] }})</a>
-                @endforeach
-              </div>
-            @else
-              <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                Todavia no tenemos suficientes zonas relacionadas para mostrar en este contexto.
-              </div>
-            @endif
+            <div class="artist-seo-chip-cloud">
+              @foreach($nearbyZones as $zone)
+                <a href="{{ route('seo.landing.city-category', ['citySlug' => $citySlugValue, 'scopeSlug' => $zone['slug']]) }}" class="artist-seo-chip">{{ $zone['name'] }} ({{ $zone['count'] }})</a>
+              @endforeach
+            </div>
           </div>
         </section>
       @endif
@@ -361,36 +388,83 @@
         </div>
       </section>
 
-      <section class="layout-shell pb-10" data-reveal>
+      <section class="layout-shell pb-10" data-reveal data-listing-recents-shell data-resolve-url="{{ route('public.listings.resolve') }}" data-current-listing-id="0" data-account-url="{{ route('public.collections.recents') }}" data-has-server-items="{{ $recentViews->isNotEmpty() ? 'true' : 'false' }}">
         <div class="surface rounded-2xl border border-slate-200 px-4 py-5 md:px-6">
-          <div class="mb-4">
-            <p class="text-xs font-bold uppercase tracking-[0.12em] text-brand-600">Personalizacion</p>
-            <h2 class="mt-1 text-2xl font-extrabold text-slate-900 md:text-3xl">Vistos recientemente</h2>
+          <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-[0.12em] text-brand-600">Personalizacion</p>
+              <h2 class="mt-1 text-2xl font-extrabold text-slate-900 md:text-3xl">Vistos recientemente</h2>
+            </div>
+            <a href="{{ route('public.collections.recents') }}" class="text-sm font-bold text-brand-600 hover:text-brand-700">Abrir historial</a>
           </div>
 
           @if($recentViews->isNotEmpty())
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="featured-carousel-shell mt-4" data-featured-carousel-shell data-recent-carousel-wrap>
+              <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar vistos recientemente a la izquierda">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar vistos recientemente a la derecha">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <div data-featured-carousel class="featured-carousel-track" data-recent-track>
               @foreach($recentViews as $recentView)
                 @php
-                  $recentProfile = $recentView->mariachiListing ?: $recentView->mariachiProfile?->resolveDefaultListing() ?: $recentView->mariachiProfile;
-                  $recentName = $recentProfile?->business_name ?: $recentProfile?->user?->display_name;
-                  $recentPhoto = $recentProfile?->photos?->firstWhere('is_featured', true) ?? $recentProfile?->photos?->first();
+                  $recentListing = $recentView->mariachiListing ?: $recentView->mariachiProfile?->resolveDefaultListing();
+                  $recentName = $recentListing?->business_name ?: $recentListing?->user?->display_name;
+                  $recentPhoto = $recentListing?->photos?->firstWhere('is_featured', true) ?? $recentListing?->photos?->first();
+                  $recentPhotoUrl = $recentPhoto ? asset('storage/'.$recentPhoto->path) : asset('marketplace/assets/logo-wordmark.png');
+                  $recentEvents = $recentListing?->eventTypes?->pluck('name')->take(2)->join(' · ');
                 @endphp
-                <article class="rounded-xl border border-slate-200 bg-white p-3">
-                  @if($recentPhoto)
-                    <img src="{{ asset('storage/'.$recentPhoto->path) }}" alt="{{ $recentName }}" class="h-32 w-full rounded-lg object-cover" />
+                @if($recentListing?->slug)
+                  <article class="featured-promo-card featured-promo-card--listing is-clickable-card">
+                    <a class="featured-promo-media" href="{{ route('mariachi.public.show', ['slug' => $recentListing->slug]) }}">
+                      <img src="{{ $recentPhotoUrl }}" alt="{{ $recentName }}" loading="lazy" />
+                      <span class="featured-promo-chip">{{ $recentListing->city_name }}</span>
+                      <span class="featured-promo-score">{{ $recentListing->profile_completion }}%</span>
+                    </a>
+                    <div class="featured-promo-body">
+                      <p class="featured-promo-kicker">{{ $recentEvents ?: 'Disponible para eventos' }}</p>
+                      <h3 class="featured-promo-title">{{ $recentListing->short_description ?: 'Perfil listo para cotizar y comparar.' }}</h3>
+                    </div>
+                    <div class="featured-promo-footer">
+                      <p class="featured-promo-artist">{{ $recentName }}</p>
+                      <div class="featured-promo-bottom">
+                        <strong>{{ $recentListing->base_price ? 'Desde $'.number_format((float) $recentListing->base_price, 0, ',', '.') : 'Cotizacion directa' }}</strong>
+                        <a href="{{ route('mariachi.public.show', ['slug' => $recentListing->slug]) }}">Ver anuncio</a>
+                      </div>
+                    </div>
+                  </article>
                   @endif
-                  <a href="{{ $recentProfile?->slug ? route('mariachi.public.show', ['slug' => $recentProfile->slug]) : '#' }}" class="mt-2 block text-sm font-extrabold text-slate-900 hover:underline">{{ $recentName }}</a>
-                  <p class="mt-1 text-xs text-slate-500">Ultima visita: {{ $recentView->last_viewed_at?->format('Y-m-d H:i') }}</p>
-                </article>
               @endforeach
+              </div>
             </div>
-          @elseif($hasClientAuth)
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">Aun no tienes vistas recientes para {{ $isCountry ? 'este pais' : 'esta ciudad/zona' }}.</div>
+            <article class="listing-opinion-empty mt-4 hidden" data-listing-recents-empty>
+              <p class="text-sm font-bold text-slate-900">Aun no hay historial reciente en este navegador</p>
+              <p class="mt-1 text-sm text-slate-600">Cuando visites otros anuncios activos, apareceran aqui automaticamente.</p>
+            </article>
           @else
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-              Inicia sesion como cliente para ver tu historial de anuncios consultados.
+            <div class="featured-carousel-shell mt-4 hidden" data-featured-carousel-shell data-recent-carousel-wrap>
+              <button type="button" class="featured-carousel-btn featured-carousel-btn--left" data-featured-scroll="left" aria-label="Desplazar vistos recientemente a la izquierda">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button type="button" class="featured-carousel-btn featured-carousel-btn--right" data-featured-scroll="right" aria-label="Desplazar vistos recientemente a la derecha">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <div data-featured-carousel class="featured-carousel-track" data-recent-track></div>
             </div>
+            <article class="listing-opinion-empty mt-4" data-listing-recents-empty>
+              <p class="text-sm font-bold text-slate-900">Aun no hay historial reciente en este navegador</p>
+              <p class="mt-1 text-sm text-slate-600">Cuando visites otros anuncios activos, apareceran aqui automaticamente.</p>
+            </article>
           @endif
         </div>
       </section>
@@ -515,4 +589,9 @@
         </div>
       </section>
     </main>
+
 @endsection
+
+@push('scripts')
+  <script src="js/public-listing-collections.js?v=20260311-listing-collections-v1"></script>
+@endpush

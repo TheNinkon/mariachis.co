@@ -237,16 +237,21 @@ class MariachiListing extends Model
 
     public function scopeActive(Builder $query): Builder
     {
+        $statusColumn = $this->qualifyColumn('status');
+        $isActiveColumn = $this->qualifyColumn('is_active');
+
         return $query
-            ->where('status', self::STATUS_ACTIVE)
-            ->where('is_active', true);
+            ->where($statusColumn, self::STATUS_ACTIVE)
+            ->where($isActiveColumn, true);
     }
 
     public function scopePublished(Builder $query): Builder
     {
+        $reviewStatusColumn = $this->qualifyColumn('review_status');
+
         return $query
             ->active()
-            ->where('review_status', self::REVIEW_APPROVED)
+            ->where($reviewStatusColumn, self::REVIEW_APPROVED)
             ->whereHas('mariachiProfile.user', function (Builder $builder): void {
                 $builder->where('role', User::ROLE_MARIACHI)
                     ->where('status', User::STATUS_ACTIVE);

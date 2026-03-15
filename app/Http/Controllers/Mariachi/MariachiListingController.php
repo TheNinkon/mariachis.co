@@ -90,7 +90,7 @@ class MariachiListingController extends Controller
         ]);
     }
 
-    public function create(): RedirectResponse
+    public function create(Request $request): RedirectResponse
     {
         $profile = $this->providerProfile();
         $openDraftLimit = $this->entitlementsService->openDraftLimit($profile);
@@ -107,7 +107,7 @@ class MariachiListingController extends Controller
         $listing = $this->createDraft($profile);
 
         return redirect()
-            ->route('mariachi.listings.edit', ['listing' => $listing->id])
+            ->route('mariachi.listings.edit', ['listing' => $listing->id] + $this->editorQueryParameters($request))
             ->with('status', 'Borrador listo. Cambia el titulo, la descripcion corta y el precio base para continuar.')
             ->with('force_listing_step', 'basic');
     }
@@ -139,7 +139,7 @@ class MariachiListingController extends Controller
         ]);
 
         return redirect()
-            ->route('mariachi.listings.edit', ['listing' => $listing->id])
+            ->route('mariachi.listings.edit', ['listing' => $listing->id] + $this->editorQueryParameters($request))
             ->with('status', 'Borrador creado. Completa el anuncio, elige plan y luego envíalo a revisión.')
             ->with('force_listing_step', 'basic');
     }
@@ -331,6 +331,7 @@ class MariachiListingController extends Controller
     public function edit(MariachiListing $listing): View|RedirectResponse
     {
         $this->ensureOwned($listing);
+        $editorMode = request()->query('editor') === 'fullscreen';
 
         if ($listing->isPendingReview()) {
             return redirect()
@@ -364,6 +365,8 @@ class MariachiListingController extends Controller
 
         return view('content.mariachi.listings-edit', [
             'listing' => $listing,
+            'editorMode' => $editorMode,
+            'pageConfigs' => $editorMode ? ['myLayout' => 'blank'] : null,
             'capabilities' => $capabilities,
             'planSummary' => $profile ? $this->entitlementsService->summary($profile) : null,
             'planIssues' => $profile ? $this->entitlementsService->profileAdjustmentIssues($profile) : [],
@@ -386,6 +389,13 @@ class MariachiListingController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'marketplace_city_id', 'name']),
         ]);
+    }
+
+    private function editorQueryParameters(Request $request): array
+    {
+        return $request->query('editor') === 'fullscreen'
+            ? ['editor' => 'fullscreen']
+            : [];
     }
 
     public function update(Request $request, MariachiListing $listing): RedirectResponse

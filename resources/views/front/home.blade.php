@@ -448,8 +448,8 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="servicio">
             <div class="categories-chip-cloud">
-              @forelse($serviceTypes->take(6) as $item)
-                <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?service={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
+              @forelse($homeServiceTypes as $item)
+                <a href="{{ route('home.service-category.redirect', ['serviceType' => $item->slug ?: \Illuminate\Support\Str::slug($item->name)]) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
               @endforelse
@@ -458,8 +458,8 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="grupo">
             <div class="categories-chip-cloud">
-              @forelse($groupSizeOptions->take(6) as $item)
-                <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?group={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
+              @forelse($homeGroupSizeOptions as $item)
+                <a href="{{ route('home.group-size-category.redirect', ['groupSizeOption' => $item->slug ?: \Illuminate\Support\Str::slug($item->name)]) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
               @endforelse
@@ -468,8 +468,8 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="presupuesto">
             <div class="categories-chip-cloud">
-              @forelse($budgetRanges->take(6) as $item)
-                <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?budget={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
+              @forelse($homeBudgetRanges as $item)
+                <a href="{{ route('home.budget-category.redirect', ['budgetRange' => $item->slug ?: \Illuminate\Support\Str::slug($item->name)]) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
               @endforelse

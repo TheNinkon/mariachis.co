@@ -1,3 +1,10 @@
+@php
+  $editorMode = $editorMode ?? request()->query('editor') === 'fullscreen';
+  if ($editorMode) {
+    $pageConfigs = ['myLayout' => 'blank'];
+  }
+@endphp
+
 @extends('layouts/layoutMaster')
 
 @section('title', 'Editar anuncio')
@@ -8,6 +15,395 @@
 
 @section('page-style')
   <style>
+    @if($editorMode)
+    body {
+      background: #eef2f6;
+    }
+
+    .listing-editor-fullscreen {
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(244, 247, 250, 0.98) 0%, rgba(238, 242, 246, 1) 100%);
+    }
+
+    .listing-editor-fullscreen__toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      block-size: 4.25rem;
+      min-block-size: 4.25rem;
+      max-block-size: 4.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0 1rem;
+      border-bottom: 1px solid rgba(75, 70, 92, 0.08);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
+    }
+
+    .listing-editor-fullscreen__toolbar-group {
+      display: flex;
+      align-items: center;
+      block-size: 100%;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+
+    .listing-editor-fullscreen__toolbar-group--actions {
+      justify-content: flex-end;
+      flex-wrap: nowrap;
+    }
+
+    .listing-editor-fullscreen__title {
+      min-width: 0;
+      display: grid;
+      align-content: center;
+      gap: 0.15rem;
+      line-height: 1.1;
+    }
+
+    .listing-editor-fullscreen__title .small {
+      line-height: 1;
+      margin: 0;
+    }
+
+    .listing-editor-fullscreen__title strong {
+      line-height: 1.1;
+    }
+
+    .listing-editor-fullscreen__title strong,
+    .listing-editor-fullscreen__title span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .listing-editor-fullscreen__viewport {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .listing-editor-fullscreen .card.mb-6 {
+      margin-bottom: 0.85rem !important;
+    }
+
+    .listing-editor-fullscreen #listing-wizard {
+      margin-bottom: 0 !important;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .listing-editor-fullscreen .bs-stepper.vertical {
+      height: 100%;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+      overflow: visible;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .listing-editor-fullscreen .bs-stepper-header {
+      position: relative;
+      display: block;
+      grid-column: 1;
+      min-height: 100%;
+      max-height: none;
+      min-inline-size: 18rem !important;
+      inline-size: 18rem;
+      overflow: auto;
+      padding: 0.7rem 0.65rem;
+      background: #fff;
+      border-right: 1px solid rgba(75, 70, 92, 0.08);
+    }
+
+    .listing-editor-fullscreen .bs-stepper-header .step {
+      display: block;
+      width: 100%;
+      margin-bottom: 0.25rem;
+    }
+
+    .listing-editor-fullscreen .bs-stepper-header .line {
+      display: none;
+    }
+
+    .listing-editor-fullscreen .bs-stepper-content {
+      grid-column: 2;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      background: linear-gradient(180deg, #f6f8fb 0%, #edf2f7 100%);
+      overflow: hidden;
+    }
+
+    .listing-editor-fullscreen .listing-editor-form-shell {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .listing-editor-fullscreen .listing-editor-form-shell__body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .listing-editor-fullscreen .listing-editor-form-shell__body > .content {
+      flex: 1 1 auto;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .listing-editor-fullscreen .listing-editor-step-layout {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .listing-editor-fullscreen .listing-editor-step-scroll {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 1.25rem 1.5rem 0.75rem;
+      scrollbar-gutter: stable;
+    }
+
+    .listing-editor-fullscreen .listing-editor-step-frame {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      gap: 1.25rem;
+      width: 100%;
+      min-height: 100%;
+      padding: 1.25rem;
+      border: 1px solid rgba(75, 70, 92, 0.08);
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 1rem 2rem -1.7rem rgba(15, 23, 42, 0.18);
+    }
+
+    .listing-editor-fullscreen .listing-editor-step-frame > .row {
+      --bs-gutter-x: 1.5rem;
+      --bs-gutter-y: 1.5rem;
+      width: 100%;
+      margin-bottom: 0;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .listing-editor-fullscreen .listing-editor-step-frame > .row > [class*='col-'] {
+      padding-left: calc(var(--bs-gutter-x) * 0.5);
+      padding-right: calc(var(--bs-gutter-x) * 0.5);
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger {
+      display: grid;
+      grid-template-columns: 3rem minmax(0, 1fr);
+      align-items: center;
+      justify-content: flex-start;
+      column-gap: 1rem;
+      width: 100%;
+      min-height: 4rem;
+      border-radius: 1.1rem;
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger:hover {
+      background: linear-gradient(90deg, rgba(0, 86, 59, 0.04) 0%, rgba(0, 86, 59, 0.02) 100%);
+      border-color: rgba(0, 86, 59, 0.07);
+      transform: translateX(2px);
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step.active .step-trigger {
+      background: linear-gradient(90deg, rgba(233, 245, 239, 0.95) 0%, rgba(246, 251, 248, 0.98) 100%);
+      border-color: rgba(0, 86, 59, 0.1);
+      box-shadow: 0 12px 28px -22px rgba(0, 86, 59, 0.22);
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-circle {
+      display: grid;
+      place-items: center;
+      inline-size: 2.55rem;
+      block-size: 2.55rem;
+      flex: 0 0 auto;
+      margin: 0;
+      border-radius: 0.9rem;
+      background: #f6f8f9;
+      color: #6d6b77;
+      box-shadow: inset 0 0 0 1px rgba(75, 70, 92, 0.06);
+      transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger:hover .bs-stepper-circle {
+      background: #edf6f1;
+      color: #00563b;
+      box-shadow:
+        inset 0 0 0 1px rgba(0, 86, 59, 0.08),
+        0 8px 18px -16px rgba(0, 86, 59, 0.35);
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step.active .step-trigger .bs-stepper-circle {
+      background: linear-gradient(180deg, #0b6a4a 0%, #00563b 100%);
+      color: #00563b;
+      box-shadow:
+        0 14px 26px -18px rgba(0, 86, 59, 0.55),
+        0 0 0 4px rgba(255, 255, 255, 0.7);
+      color: #fff;
+      transform: translateX(0);
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-label {
+      min-width: 0;
+      display: grid;
+      align-content: center;
+      gap: 0.12rem;
+      flex: 1 1 auto;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-title,
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-subtitle {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-title {
+      font-weight: 700;
+      color: #444050;
+      line-height: 1.15;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step-trigger .bs-stepper-subtitle {
+      font-size: 0.9rem;
+      line-height: 1.15;
+      color: #8a8d93;
+    }
+
+    .listing-editor-fullscreen .bs-stepper .step.active .bs-stepper-title {
+      color: #2f2b3d;
+    }
+
+    .listing-editor-fullscreen .listing-step-actions {
+      display: none !important;
+    }
+
+    .listing-editor-fullscreen .listing-editor-global-footer {
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid rgba(75, 70, 92, 0.08);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 -18px 40px -34px rgba(15, 23, 42, 0.45);
+      flex: 0 0 auto;
+    }
+
+    .listing-editor-fullscreen .listing-editor-global-footer__actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    .listing-editor-fullscreen .listing-editor-global-footer .btn {
+      min-width: 10rem;
+    }
+
+    .listing-editor-fullscreen .alert {
+      border-radius: 1rem;
+    }
+
+    .listing-editor-fullscreen.is-nav-collapsed .bs-stepper.vertical {
+      display: grid;
+    }
+
+    .listing-editor-fullscreen.is-nav-collapsed #listing-wizard {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .listing-editor-fullscreen.is-nav-collapsed .bs-stepper-header {
+      display: none;
+    }
+
+    @media (max-width: 991.98px) {
+      .listing-editor-fullscreen .bs-stepper.vertical {
+        height: auto;
+      }
+
+      .listing-editor-fullscreen #listing-wizard {
+        grid-template-columns: 1fr;
+      }
+
+      .listing-editor-fullscreen .bs-stepper-header,
+      .listing-editor-fullscreen .bs-stepper-content {
+        min-height: 0;
+        max-height: none;
+      }
+
+      .listing-editor-fullscreen .bs-stepper-header {
+        border-right: 0;
+        border-bottom: 1px solid rgba(75, 70, 92, 0.08);
+      }
+
+      .listing-editor-fullscreen.is-nav-collapsed .bs-stepper.vertical {
+        display: block;
+      }
+
+      .listing-editor-fullscreen .listing-editor-fullscreen__toolbar {
+        height: auto;
+        min-height: 4.25rem;
+        align-items: flex-start;
+        flex-direction: column;
+        padding-block: 0.85rem;
+      }
+
+      .listing-editor-fullscreen__viewport {
+        padding: 0;
+      }
+
+      .listing-editor-fullscreen .listing-editor-step-scroll {
+        padding-inline: 1rem;
+        padding-top: 1rem;
+      }
+
+      .listing-editor-fullscreen .listing-editor-global-footer {
+        padding-inline: 1rem;
+      }
+    }
+    @endif
+
     .listing-zone-shell,
     .listing-media-shell {
       border: 1px solid rgba(75, 70, 92, 0.12);
@@ -465,12 +861,18 @@
     }
 
     .listing-filter-card,
-    .listing-final-card,
     .payment-plan-card {
       border: 1px solid rgba(75, 70, 92, 0.12);
       border-radius: 1rem;
       background: #fff;
       height: 100%;
+    }
+
+    .listing-final-card {
+      border: 1px solid rgba(75, 70, 92, 0.12);
+      border-radius: 1rem;
+      background: #fff;
+      height: auto;
     }
 
     .listing-filter-card {
@@ -892,7 +1294,8 @@
         flex-direction: column-reverse;
       }
 
-      .listing-step-actions .btn {
+      .listing-step-actions .btn,
+      .listing-editor-fullscreen .listing-step-actions .btn {
         width: 100%;
       }
 
@@ -934,6 +1337,9 @@
 
 @section('page-script')
   @vite(['resources/assets/js/mariachi-listing-wizard.js'])
+  @if($editorMode)
+    @vite(['resources/assets/js/mariachi-listing-editor-shell.js'])
+  @endif
 @endsection
 
 @section('content')
@@ -1045,105 +1451,139 @@
       : ($listing->isPaymentPending() ? 'final' : '');
   @endphp
 
-  @if(session('status'))
-    <div class="alert alert-success">{{ session('status') }}</div>
-  @endif
-
-  @if($errors->any())
-    <div class="alert alert-danger">
-      <strong>Hay errores de validación.</strong>
-      <ul class="mb-0 mt-2">
-        @foreach($errors->all() as $error)
-          <li>{{ $error }}</li>
-        @endforeach
-      </ul>
-    </div>
-  @endif
-
-  @if($listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED && $listing->rejection_reason)
-    <div class="alert alert-danger">
-      <strong>El anuncio fue rechazado.</strong> Corrige lo siguiente y luego vuelve a enviarlo a revisión.
-      <div class="mt-2">{{ $listing->rejection_reason }}</div>
-    </div>
-  @elseif($listing->isPaymentPending())
-    <div class="alert alert-warning">
-      <strong>Pago enviado.</strong> El anuncio está bloqueado mientras el equipo valida tu comprobante.
-    </div>
-  @elseif($listing->isPaymentRejected())
-    <div class="alert alert-danger">
-      <strong>Pago rechazado.</strong>
-      {{ $listing->latestPayment?->rejection_reason ?: 'Revisa el comprobante y vuelve a intentar.' }}
-    </div>
-  @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED)
-    <div class="alert alert-info">
-      <strong>Este anuncio ya fue aprobado.</strong> Si cambias contenido, fotos, videos o filtros, saldrá de publicación y volverá a borrador de revisión.
-    </div>
-  @endif
-
-  @if($planIssues !== [])
-    <div class="alert alert-warning">
-      <strong>Tu plan actual requiere ajuste.</strong>
-      <ul class="mb-0 mt-2">
-        @foreach($planIssues as $issue)
-          <li>{{ $issue }}</li>
-        @endforeach
-      </ul>
-    </div>
-  @endif
-
-  @if($listingIssues !== [])
-    <div class="alert alert-warning">
-      <strong>Este anuncio requiere ajuste para volver a publicarse.</strong>
-      <ul class="mb-0 mt-2">
-        @foreach($listingIssues as $issue)
-          <li>{{ $issue }}</li>
-        @endforeach
-      </ul>
-    </div>
-  @endif
-
-  <div class="card mb-6">
-    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
-      <div>
-        <h5 class="mb-1">{{ $listing->title }}</h5>
-        <p class="mb-1">
-          Estado:
-          <span class="badge bg-label-{{ $listing->is_active ? 'success' : 'warning' }}">{{ $listing->status }}</span>
-          · Revisión:
-          <span class="badge bg-label-{{ $reviewMeta['class'] }}">{{ $reviewMeta['label'] }}</span>
-          · Pago:
-          <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
-          · Plan activo: <strong>{{ $planSummary['name'] ?? ($listing->effectivePlanCode() ?: 'sin plan') }}</strong>
-          @if(! empty($planSummary['badge_text']))
-            <span class="badge bg-label-primary ms-1">{{ $planSummary['badge_text'] }}</span>
+  @if($editorMode)
+    <div class="listing-editor-fullscreen" data-listing-editor-shell data-editor-index-url="{{ route('mariachi.listings.index') }}">
+      <div class="listing-editor-fullscreen__toolbar">
+        <div class="listing-editor-fullscreen__toolbar-group">
+          <button type="button" class="btn btn-icon btn-text-secondary" data-editor-close aria-label="Cerrar editor">
+            <i class="icon-base ti tabler-x"></i>
+          </button>
+          <button type="button" class="btn btn-icon btn-text-secondary" data-editor-nav-toggle aria-label="Mostrar u ocultar estructura del anuncio">
+            <i class="icon-base ti tabler-layout-sidebar-left-collapse"></i>
+          </button>
+          <div class="listing-editor-fullscreen__title">
+            <span class="small text-muted">Editor de anuncio</span>
+            <strong>{{ $listing->title }}</strong>
+          </div>
+        </div>
+        <div class="listing-editor-fullscreen__toolbar-group listing-editor-fullscreen__toolbar-group--actions">
+          <span class="badge bg-label-secondary" data-autosave-status>Autoguardado listo</span>
+          <small class="text-muted" data-autosave-time></small>
+          @if($listing->isApprovedForMarketplace() && $listing->slug)
+            <a href="{{ route('mariachi.public.show', ['slug' => $listing->slug]) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+              <i class="icon-base ti tabler-external-link me-1"></i>Ver público
+            </a>
           @endif
-        </p>
-        <small class="text-muted">Completitud: <strong data-completion-text>{{ $listing->listing_completion }}%</strong> · Fotos {{ $capabilities['max_photos_per_listing'] }} · Videos {{ $capabilities['max_videos_per_listing'] }} · Localidades {{ $capabilities['max_zones_covered'] ?? 0 }}.</small>
-        @if($listing->submitted_for_review_at)
-          <div class="small text-muted mt-1">Último envío a revisión: {{ $listing->submitted_for_review_at->format('Y-m-d H:i') }}</div>
-        @endif
+          <span class="badge bg-label-{{ $reviewMeta['class'] }}">{{ $reviewMeta['label'] }}</span>
+          <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
+        </div>
       </div>
-      <div class="listing-owner-actions">
-        <span class="badge bg-label-secondary" data-autosave-status>Autoguardado listo</span>
-        <small class="text-muted" data-autosave-time></small>
-        @if($canPauseListing)
-          <form method="POST" action="{{ route('mariachi.listings.pause', ['listing' => $listing->id]) }}" class="m-0">
-            @csrf
-            <button type="submit" class="btn btn-outline-warning">Pausar anuncio</button>
-          </form>
-        @elseif($canResumeListing)
-          <form method="POST" action="{{ route('mariachi.listings.resume', ['listing' => $listing->id]) }}" class="m-0">
-            @csrf
-            <button type="submit" class="btn btn-outline-success">Reanudar anuncio</button>
-          </form>
-        @endif
-        <a href="{{ route('mariachi.listings.index') }}" class="btn btn-outline-secondary">Volver</a>
-        @if($canPauseListing || $canResumeListing)
-          <span class="listing-inline-note">Pausar solo oculta el anuncio; el tiempo del plan sigue corriendo.</span>
-        @endif
+      <div class="listing-editor-fullscreen__viewport">
+  @endif
+
+  @unless($editorMode)
+    @if(session('status'))
+      <div class="alert alert-success">{{ session('status') }}</div>
+    @endif
+
+    @if($errors->any())
+      <div class="alert alert-danger">
+        <strong>Hay errores de validación.</strong>
+        <ul class="mb-0 mt-2">
+          @foreach($errors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
+    @if($listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED && $listing->rejection_reason)
+      <div class="alert alert-danger">
+        <strong>El anuncio fue rechazado.</strong> Corrige lo siguiente y luego vuelve a enviarlo a revisión.
+        <div class="mt-2">{{ $listing->rejection_reason }}</div>
+      </div>
+    @elseif($listing->isPaymentPending())
+      <div class="alert alert-warning">
+        <strong>Pago enviado.</strong> El anuncio está bloqueado mientras el equipo valida tu comprobante.
+      </div>
+    @elseif($listing->isPaymentRejected())
+      <div class="alert alert-danger">
+        <strong>Pago rechazado.</strong>
+        {{ $listing->latestPayment?->rejection_reason ?: 'Revisa el comprobante y vuelve a intentar.' }}
+      </div>
+    @elseif($listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED)
+      <div class="alert alert-info">
+        <strong>Este anuncio ya fue aprobado.</strong> Si cambias contenido, fotos, videos o filtros, saldrá de publicación y volverá a borrador de revisión.
+      </div>
+    @endif
+
+    @if($planIssues !== [])
+      <div class="alert alert-warning">
+        <strong>Tu plan actual requiere ajuste.</strong>
+        <ul class="mb-0 mt-2">
+          @foreach($planIssues as $issue)
+            <li>{{ $issue }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
+    @if($listingIssues !== [])
+      <div class="alert alert-warning">
+        <strong>Este anuncio requiere ajuste para volver a publicarse.</strong>
+        <ul class="mb-0 mt-2">
+          @foreach($listingIssues as $issue)
+            <li>{{ $issue }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+  @endunless
+
+  @unless($editorMode)
+    <div class="card mb-6">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+          <h5 class="mb-1">{{ $listing->title }}</h5>
+          <p class="mb-1">
+            Estado:
+            <span class="badge bg-label-{{ $listing->is_active ? 'success' : 'warning' }}">{{ $listing->status }}</span>
+            · Revisión:
+            <span class="badge bg-label-{{ $reviewMeta['class'] }}">{{ $reviewMeta['label'] }}</span>
+            · Pago:
+            <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
+            · Plan activo: <strong>{{ $planSummary['name'] ?? ($listing->effectivePlanCode() ?: 'sin plan') }}</strong>
+            @if(! empty($planSummary['badge_text']))
+              <span class="badge bg-label-primary ms-1">{{ $planSummary['badge_text'] }}</span>
+            @endif
+          </p>
+          <small class="text-muted">Completitud: <strong data-completion-text>{{ $listing->listing_completion }}%</strong> · Fotos {{ $capabilities['max_photos_per_listing'] }} · Videos {{ $capabilities['max_videos_per_listing'] }} · Localidades {{ $capabilities['max_zones_covered'] ?? 0 }}.</small>
+          @if($listing->submitted_for_review_at)
+            <div class="small text-muted mt-1">Último envío a revisión: {{ $listing->submitted_for_review_at->format('Y-m-d H:i') }}</div>
+          @endif
+        </div>
+        <div class="listing-owner-actions">
+          <span class="badge bg-label-secondary" data-autosave-status>Autoguardado listo</span>
+          <small class="text-muted" data-autosave-time></small>
+          @if($canPauseListing)
+            <form method="POST" action="{{ route('mariachi.listings.pause', ['listing' => $listing->id]) }}" class="m-0">
+              @csrf
+              <button type="submit" class="btn btn-outline-warning">Pausar anuncio</button>
+            </form>
+          @elseif($canResumeListing)
+            <form method="POST" action="{{ route('mariachi.listings.resume', ['listing' => $listing->id]) }}" class="m-0">
+              @csrf
+              <button type="submit" class="btn btn-outline-success">Reanudar anuncio</button>
+            </form>
+          @endif
+          <a href="{{ route('mariachi.listings.index') }}" class="btn btn-outline-secondary">Volver</a>
+          @if($canPauseListing || $canResumeListing)
+            <span class="listing-inline-note">Pausar solo oculta el anuncio; el tiempo del plan sigue corriendo.</span>
+          @endif
+        </div>
       </div>
     </div>
-  </div>
+  @endunless
 
   <div id="listing-wizard" class="bs-stepper vertical mb-6" data-listing-wizard data-listing-id="{{ $listing->id }}" data-initial-step="{{ $initialWizardStep }}">
     <div class="bs-stepper-header border-end">
@@ -1221,6 +1661,7 @@
     <div class="bs-stepper-content">
       <form
         id="listing-main-form"
+        class="{{ $editorMode ? 'listing-editor-form-shell' : '' }}"
         method="POST"
         action="{{ route('mariachi.listings.update', ['listing' => $listing->id]) }}"
         data-autosave="true"
@@ -1244,6 +1685,10 @@
         <input type="hidden" name="postal_code" id="listing-postal-code-input" value="{{ old('postal_code', $listing->postal_code) }}" />
         <input type="hidden" name="google_place_id" id="listing-place-id-input" value="{{ old('google_place_id', $listing->google_place_id) }}" />
         <input type="hidden" name="google_location_payload" id="listing-google-payload-input" value="{{ $googlePayload }}" />
+
+        @if($editorMode)
+          <div class="listing-editor-form-shell__body">
+        @endif
 
         <div id="step-basic" class="content" data-step-key="basic">
           <div class="row g-4">
@@ -1347,7 +1792,7 @@
               </div>
             </div>
 
-            <div class="col-12 d-flex justify-content-between">
+            <div class="col-12 listing-step-actions">
               <button type="button" class="btn btn-label-secondary" disabled>
                 <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
               </button>
@@ -1520,7 +1965,7 @@
               <div class="text-danger small mt-2" data-zone-feedback></div>
             </div>
 
-            <div class="col-12 d-flex justify-content-between">
+            <div class="col-12 listing-step-actions">
               <button type="button" class="btn btn-label-secondary" data-step-prev>
                 <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
               </button>
@@ -1641,7 +2086,7 @@
               </div>
             </div>
 
-            <div class="col-12 d-flex justify-content-between">
+            <div class="col-12 listing-step-actions">
               <button type="button" class="btn btn-label-secondary" data-step-prev>
                 <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
               </button>
@@ -1732,7 +2177,7 @@
               </div>
             </div>
 
-            <div class="col-12 d-flex justify-content-between">
+            <div class="col-12 listing-step-actions">
               <button type="button" class="btn btn-label-secondary" data-step-prev>
                 <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
               </button>
@@ -2143,13 +2588,30 @@
             </div>
           </div>
 
-          <div class="col-12 d-flex justify-content-start">
+          <div class="col-12 listing-step-actions listing-step-actions--single">
             <button type="button" class="btn btn-label-secondary" data-step-prev>
               <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
             </button>
           </div>
         </div>
       </div>
+
+      @if($editorMode)
+          </div>
+      @endif
+
+      @if($editorMode)
+        <div class="listing-editor-global-footer" data-editor-global-footer>
+          <div class="listing-editor-global-footer__actions">
+            <button type="button" class="btn btn-label-secondary" data-editor-footer-prev hidden>
+              <i class="icon-base ti tabler-arrow-left icon-xs me-1"></i>Anterior
+            </button>
+            <button type="button" class="btn btn-primary" data-editor-footer-next hidden>
+              Siguiente <i class="icon-base ti tabler-arrow-right icon-xs ms-1"></i>
+            </button>
+          </div>
+        </div>
+      @endif
     </div>
   </div>
 
@@ -2200,4 +2662,9 @@
       </div>
     </div>
   </div>
+
+  @if($editorMode)
+      </div>
+    </div>
+  @endif
 @endsection

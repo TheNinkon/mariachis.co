@@ -29,6 +29,10 @@ class SeoUtilityController extends Controller
                 'loc' => route('home'),
                 'lastmod' => now()->toDateString(),
             ])
+            ->push([
+                'loc' => route('seo.html-sitemap'),
+                'lastmod' => now()->toDateString(),
+            ])
             ->merge($this->staticPageEntries())
             ->merge($this->blogEntries())
             ->merge($this->landingEntries())

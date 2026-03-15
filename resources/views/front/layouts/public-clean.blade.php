@@ -44,12 +44,11 @@
 
       $footerCities = collect();
       $footerEvents = collect();
-      $footerZones = collect();
       $footerResources = collect();
+      $footerPartnerLinks = collect();
       $footerSocialLinks = collect();
       $footerDescription = '';
       $footerSiteName = 'Mariachis.co';
-      $footerPrimaryCityUrl = route('home');
       if (! $isClientAuthFlow) {
           $seoSettings = app(\App\Services\Seo\SeoSettingsService::class);
           $footerSiteName = $seoSettings->siteName();
@@ -63,11 +62,6 @@
               ->orderByDesc('total')
               ->limit(5)
               ->get();
-
-          $footerPrimaryCity = $footerCities->first();
-          if ($footerPrimaryCity && filled($footerPrimaryCity->city_name)) {
-              $footerPrimaryCityUrl = route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($footerPrimaryCity->city_name)]);
-          }
 
           $preferredEventSlugs = ['bodas', 'cumpleanos', 'aniversarios', 'serenatas', 'corporativos'];
           $footerEvents = \App\Models\EventType::query()
@@ -90,32 +84,17 @@
               ->take(5)
               ->values();
 
-          $preferredZoneSlugs = ['chapinero', 'usaquen', 'suba', 'kennedy'];
-          $footerZones = \App\Models\MarketplaceZone::query()
-              ->with('city:id,name,slug')
-              ->searchVisible()
-              ->select(['id', 'marketplace_city_id', 'name', 'slug', 'sort_order'])
-              ->withCount([
-                  'serviceAreas as published_listings_count' => fn ($query) => $query->whereHas('listing', fn ($listingQuery) => $listingQuery->published()),
-              ])
-              ->get()
-              ->filter(fn (\App\Models\MarketplaceZone $zone): bool => (int) $zone->published_listings_count > 0 && filled($zone->city?->slug))
-              ->sortBy(function (\App\Models\MarketplaceZone $zone) use ($preferredZoneSlugs): string {
-                  $slug = (string) ($zone->slug ?: \Illuminate\Support\Str::slug($zone->name));
-                  $priority = array_search($slug, $preferredZoneSlugs, true);
-                  $priority = $priority === false ? 99 : $priority;
-
-                  return str_pad((string) $priority, 2, '0', STR_PAD_LEFT)
-                      .'|'.str_pad((string) max(0, 9999 - (int) $zone->published_listings_count), 4, '0', STR_PAD_LEFT)
-                      .'|'.mb_strtolower((string) $zone->name);
-              })
-              ->take(5)
-              ->values();
-
           $footerResources = collect([
-              ['label' => 'Publica tu anuncio', 'url' => route('mariachi.register')],
-              ['label' => 'Anuncios en tu ciudad', 'url' => $footerPrimaryCityUrl],
               ['label' => 'Blog', 'url' => route('blog.index')],
+              ['label' => 'Ayuda', 'url' => route('static.help')],
+              ['label' => 'Mapa del sitio', 'url' => route('seo.html-sitemap')],
+              ['label' => 'Términos', 'url' => route('static.terms')],
+          ]);
+
+          $footerPartnerLinks = collect([
+              ['label' => 'Publica tu anuncio', 'url' => route('mariachi.register')],
+              ['label' => 'Acceso partner', 'url' => \App\Support\PortalHosts::absoluteUrl(\App\Support\PortalHosts::partner(), '/login')],
+              ['label' => 'Cómo funciona', 'url' => route('static.help')],
           ]);
 
           $footerSocialLinks = collect([
@@ -305,21 +284,19 @@
             </section>
 
             <section class="public-clean-footer-column">
-              <h3>Zonas destacadas</h3>
-              <ul>
-                @forelse($footerZones as $zone)
-                  <li><a href="{{ route('seo.landing.city-category', ['citySlug' => $zone->city->slug, 'scopeSlug' => $zone->slug]) }}">{{ $zone->name }}, {{ $zone->city->name }}</a></li>
-                @empty
-                  <li><span>Próximamente más zonas destacadas</span></li>
-                @endforelse
-              </ul>
-            </section>
-
-            <section class="public-clean-footer-column">
               <h3>Recursos</h3>
               <ul>
                 @foreach($footerResources as $resource)
                   <li><a href="{{ $resource['url'] }}">{{ $resource['label'] }}</a></li>
+                @endforeach
+              </ul>
+            </section>
+
+            <section class="public-clean-footer-column">
+              <h3>Para mariachis</h3>
+              <ul>
+                @foreach($footerPartnerLinks as $link)
+                  <li><a href="{{ $link['url'] }}">{{ $link['label'] }}</a></li>
                 @endforeach
               </ul>
             </section>

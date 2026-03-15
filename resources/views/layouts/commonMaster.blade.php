@@ -24,6 +24,7 @@
 
   // Get semiDark value from configData - only applies to admin layouts
   $semiDarkEnabled = $isAdminLayout && filter_var($configData['semiDark'] ?? false, FILTER_VALIDATE_BOOLEAN);
+  $portalLayoutClass = !empty($configData['isPartnerPanel']) ? 'partner-portal-layout' : '';
 
   // Generate primary color CSS if color is set
   $primaryColorCSS = '';
@@ -34,7 +35,7 @@
 @endphp
 
 <html lang="{{ session()->get('locale') ?? app()->getLocale() }}"
-  class="{{ $navbarType ?? '' }} {{ $contentLayout ?? '' }} {{ $menuFixed ?? '' }} {{ $menuCollapsed ?? '' }} {{ $footerFixed ?? '' }} {{ $customizerHidden ?? '' }}"
+  class="{{ $navbarType ?? '' }} {{ $contentLayout ?? '' }} {{ $menuFixed ?? '' }} {{ $menuCollapsed ?? '' }} {{ $footerFixed ?? '' }} {{ $customizerHidden ?? '' }} {{ $portalLayoutClass }}"
   dir="{{ $configData['textDirection'] }}" data-skin="{{ $skinName }}" data-assets-path="{{ asset('/assets') . '/' }}"
   data-base-url="{{ url('/') }}" data-framework="laravel" data-template="{{ $configData['layout'] }}-menu-template"
   data-bs-theme="{{ $configData['theme'] }}" @if ($isAdminLayout && $semiDarkEnabled) data-semidark-menu="true" @endif>
@@ -90,9 +91,44 @@
   <!-- Include Scripts for customizer, helper, analytics, config -->
   <!-- $isFront is used to append the front layout scriptsIncludes only on the front layout otherwise the variable will be blank -->
   @include('layouts/sections/scriptsIncludes' . $isFront)
+
+  @if (!empty($configData['isPartnerPanel']))
+    <style>
+      html.partner-portal-layout .layout-content-navbar .layout-navbar {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+
+      html.partner-portal-layout .layout-content-navbar .content-wrapper {
+        padding-bottom: 0 !important;
+      }
+
+      html.partner-portal-layout .partner-layout-fluid {
+        max-width: none !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0 !important;
+        padding-inline: 0.5rem !important;
+      }
+
+      html.partner-portal-layout .partner-layout-fluid > .card:first-child,
+      html.partner-portal-layout .partner-layout-fluid > .alert:first-child,
+      html.partner-portal-layout .partner-layout-fluid > [class*='row']:first-child {
+        margin-top: 0 !important;
+      }
+
+      @media (min-width: 992px) {
+        html.partner-portal-layout .partner-layout-fluid {
+          padding-top: 0.5rem !important;
+          padding-inline: 0.75rem !important;
+        }
+      }
+    </style>
+  @endif
 </head>
 
-<body>
+<body class="{{ $portalLayoutClass }}">
   <!-- Layout Content -->
   @yield('layoutContent')
   <!--/ Layout Content -->

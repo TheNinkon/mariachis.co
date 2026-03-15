@@ -34,7 +34,9 @@ class DemoMarketplaceListingsSeeder extends Seeder
         }
 
         $plans = Plan::query()->get()->keyBy('code');
-        $cityMap = MarketplaceCity::query()->get()->keyBy(fn (MarketplaceCity $city): string => mb_strtolower((string) $city->name));
+        $cityMap = MarketplaceCity::query()
+            ->get()
+            ->keyBy(fn (MarketplaceCity $city): string => $this->cityLookupKey((string) $city->name));
         $zonesByCity = MarketplaceZone::query()
             ->active()
             ->orderBy('sort_order')
@@ -69,7 +71,7 @@ class DemoMarketplaceListingsSeeder extends Seeder
             $expiresAt = $activatedAt->addMonthsNoOverflow($durationMonths);
             $listingSlug = $this->listingSlug($profile);
             $cityName = (string) ($profile->city_name ?: 'Bogota');
-            $city = $cityMap->get(mb_strtolower($cityName));
+            $city = $cityMap->get($this->cityLookupKey($cityName));
             $cityZones = collect($zonesByCity->get($city?->id, []));
             $travelToOtherCities = $profilePlanCode !== 'basic' && $index % 2 === 0;
 
@@ -269,9 +271,7 @@ class DemoMarketplaceListingsSeeder extends Seeder
             $this->call(MarketplaceLocationSeeder::class);
         }
 
-        if (MarketplaceZone::query()->count() === 0) {
-            $this->call(MarketplaceZoneSeederBogotaMedellin::class);
-        }
+        $this->call(MarketplaceZoneSeederBogotaMedellin::class);
     }
 
     /**
@@ -630,12 +630,8 @@ class DemoMarketplaceListingsSeeder extends Seeder
     ): void {
         $listing->serviceAreas()->delete();
 
-        if (! $travelsToOtherCities) {
-            return;
-        }
-
         $rows = $cityZones
-            ->take(3)
+            ->take($travelsToOtherCities ? 3 : 1)
             ->map(fn (MarketplaceZone $zone): array => [
                 'marketplace_zone_id' => $zone->id,
                 'city_name' => $zone->name,
@@ -653,6 +649,11 @@ class DemoMarketplaceListingsSeeder extends Seeder
         foreach ($rows as $row) {
             $listing->serviceAreas()->create($row);
         }
+    }
+
+    private function cityLookupKey(string $value): string
+    {
+        return mb_strtolower(trim((string) Str::ascii($value)));
     }
 
     private function syncVerificationPayment(

@@ -15,9 +15,10 @@
   $isFlex = $isFlex ?? false;
   $isFooter = $isFooter ?? true;
   $customizerHidden = $customizerHidden ?? '';
+  $isPartnerPanel = !empty($configData['isPartnerPanel']);
 
   /* HTML Classes */
-  $navbarDetached = 'navbar-detached';
+  $navbarDetached = $isPartnerPanel ? '' : 'navbar-detached';
   $menuFixed = isset($configData['menuFixed']) ? $configData['menuFixed'] : '';
   if (isset($navbarType)) {
       $configData['navbarType'] = $navbarType;
@@ -61,7 +62,7 @@
           @if ($isFlex)
             <div class="{{ $container }} d-flex align-items-stretch flex-grow-1 p-0">
             @else
-              <div class="{{ $container }} flex-grow-1 container-p-y">
+              <div class="{{ $container }} flex-grow-1 {{ $isPartnerPanel ? 'partner-layout-fluid' : 'container-p-y' }}">
           @endif
 
           @yield('content')

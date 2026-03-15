@@ -31,10 +31,22 @@
           'count' => (int) $row->total,
       ])
       ->values();
-  $footerPrimaryCity = $footerCities->first();
-  $footerPrimaryCityUrl = $footerPrimaryCity
-      ? route('seo.landing.slug', ['slug' => $footerPrimaryCity['slug']])
-      : route('home');
+  $footerEvents = \App\Models\EventType::query()
+      ->active()
+      ->select(['id', 'name', 'slug'])
+      ->withCount([
+          'mariachiListings as published_listings_count' => fn ($query) => $query->published(),
+      ])
+      ->get()
+      ->filter(fn ($eventType) => (int) $eventType->published_listings_count > 0)
+      ->sortByDesc('published_listings_count')
+      ->take(5)
+      ->map(fn ($eventType) => [
+          'name' => $eventType->name,
+          'slug' => $eventType->slug ?: \Illuminate\Support\Str::slug($eventType->name),
+          'count' => (int) $eventType->published_listings_count,
+      ])
+      ->values();
 @endphp
 <script>
   window.__MM_AUTH__ = {
@@ -47,10 +59,13 @@
   };
   window.__MM_FOOTER__ = {
     cities: @json($footerCities),
+    events: @json($footerEvents),
     urls: {
-      signup: @json(route('mariachi.register')),
-      city: @json($footerPrimaryCityUrl),
-      blog: @json(route('blog.index')),
+      signup: @json(route('mariachi.register'), JSON_UNESCAPED_SLASHES),
+      partnerLogin: @json(\App\Support\PortalHosts::absoluteUrl(\App\Support\PortalHosts::partner(), '/login'), JSON_UNESCAPED_SLASHES),
+      blog: @json(route('blog.index'), JSON_UNESCAPED_SLASHES),
+      help: @json(route('static.help'), JSON_UNESCAPED_SLASHES),
+      sitemap: @json(route('seo.html-sitemap'), JSON_UNESCAPED_SLASHES),
     },
   };
 </script>
