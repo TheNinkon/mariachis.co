@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Seo\GeminiSeoGenerator;
 use App\Services\Seo\SeoSettingsService;
 use App\Services\SystemSettingService;
+use App\Support\Admin\AdminAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ class SeoAiController extends Controller
     public function __construct(
         private readonly SeoSettingsService $seoSettings,
         private readonly SystemSettingService $settings,
-        private readonly GeminiSeoGenerator $generator
+        private readonly GeminiSeoGenerator $generator,
+        private readonly AdminAuditLogger $auditLogger
     ) {
     }
 
@@ -46,6 +48,11 @@ class SeoAiController extends Controller
         } elseif (filled($validated['seo_gemini_api_key'] ?? null)) {
             $this->settings->putString(SeoSettingsService::KEY_GEMINI_API_KEY, $validated['seo_gemini_api_key'], true);
         }
+
+        $this->auditLogger->log($request, 'seo.ai.updated', [
+            'model' => $validated['seo_gemini_model'],
+            'gemini_key_rotated' => $request->boolean('clear_seo_gemini_api_key') || filled($validated['seo_gemini_api_key'] ?? null),
+        ]);
 
         return back()->with('status', 'Configuración de IA SEO actualizada.');
     }

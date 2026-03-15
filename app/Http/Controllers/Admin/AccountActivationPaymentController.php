@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AccountActivationPayment;
 use App\Models\User;
+use App\Support\Admin\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,11 @@ use Illuminate\View\View;
 
 class AccountActivationPaymentController extends Controller
 {
+    public function __construct(
+        private readonly AdminAuditLogger $auditLogger
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $status = (string) $request->query('status', 'all');
@@ -79,6 +85,12 @@ class AccountActivationPaymentController extends Controller
                 ]);
             });
 
+            $this->auditLogger->log($request, 'account_activation_payment.approved', [
+                'account_activation_payment_id' => $payment->id,
+                'target_user_id' => $user->id,
+                'checkout_reference' => $payment->checkout_reference,
+            ]);
+
             return back()->with('status', 'Pago de activacion aprobado. La cuenta ya puede iniciar sesion.');
         }
 
@@ -97,6 +109,13 @@ class AccountActivationPaymentController extends Controller
                 'activation_paid_at' => null,
             ]);
         });
+
+        $this->auditLogger->log($request, 'account_activation_payment.rejected', [
+            'account_activation_payment_id' => $payment->id,
+            'target_user_id' => $user->id,
+            'checkout_reference' => $payment->checkout_reference,
+            'rejection_reason' => $reason,
+        ]);
 
         return back()->with('status', 'Pago de activacion rechazado. El mariachi puede volver a intentar el cobro.');
     }

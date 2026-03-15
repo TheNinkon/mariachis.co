@@ -3,7 +3,9 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\ConfigurePortalSession;
+use App\Http\Middleware\EnsureTrustedOrigin;
 use App\Http\Middleware\EnsureClientAccess;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\LocaleMiddleware;
@@ -22,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(prepend: [
             ConfigurePortalSession::class,
             LocaleMiddleware::class,
+            EnsureTrustedOrigin::class,
+            AddSecurityHeaders::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'pagos/wompi/webhook',

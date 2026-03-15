@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Services\MailSettingsService;
 use App\Services\SocialLoginSettingsService;
 use App\Support\PortalHosts;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Vite;
@@ -31,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
         SocialLoginSettingsService $socialLoginSettings
     ): void
     {
+        $this->registerRateLimiters();
+
         Paginator::useBootstrapFive();
 
         Authenticate::redirectUsing(static function (Request $request): string {
@@ -79,5 +83,38 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function registerRateLimiters(): void
+    {
+        RateLimiter::for('auth-login', static function (Request $request) {
+            $email = mb_strtolower((string) $request->input('email', ''));
+
+            return Limit::perMinute(5)->by(sha1('auth-login|'.$request->ip().'|'.$email));
+        });
+
+        RateLimiter::for('password-reset', static function (Request $request) {
+            $email = mb_strtolower((string) $request->input('email', ''));
+
+            return Limit::perMinutes(15, 3)->by(sha1('password-reset|'.$request->ip().'|'.$email));
+        });
+
+        RateLimiter::for('magic-links', static function (Request $request) {
+            $email = mb_strtolower((string) $request->input('email', ''));
+
+            return Limit::perMinutes(10, 5)->by(sha1('magic-link|'.$request->ip().'|'.$email));
+        });
+
+        RateLimiter::for('public-interactions', static function (Request $request) {
+            $actor = $request->user()?->id ? 'user:'.$request->user()->id : 'ip:'.$request->ip();
+
+            return Limit::perMinute(20)->by(sha1('public-interactions|'.$actor));
+        });
+
+        RateLimiter::for('listing-info-requests', static function (Request $request) {
+            return Limit::perMinutes(10, 6)->by(
+                sha1('listing-info|'.$request->ip().'|'.(string) $request->route('slug'))
+            );
+        });
     }
 }

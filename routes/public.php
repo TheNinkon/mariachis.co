@@ -35,7 +35,7 @@ $seoLandingSlugPattern = $seoReservedPattern !== ''
     ? '^(?!(?:'.$seoReservedPattern.')$)[a-z0-9-]+$'
     : '^[a-z0-9-]+$';
 
-$legacyAdminRedirect = static function (?string $path = null, Request $request = null) {
+$legacyAdminRedirect = static function (?string $path = null, ?Request $request = null) {
     $target = PortalHosts::absoluteUrl(PortalHosts::admin(), $path ?: '/login');
 
     if ($request?->getQueryString()) {
@@ -45,7 +45,7 @@ $legacyAdminRedirect = static function (?string $path = null, Request $request =
     return redirect()->away($target, 302);
 };
 
-$legacyPartnerRedirect = static function (?string $path = null, Request $request = null) {
+$legacyPartnerRedirect = static function (?string $path = null, ?Request $request = null) {
     $target = PortalHosts::absoluteUrl(PortalHosts::partner(), $path ?: '/login');
 
     if ($request?->getQueryString()) {
@@ -114,15 +114,21 @@ Route::domain($publicHost)->group(function () use (
         Route::post('/login/email', [ClientLoginController::class, 'captureEmail'])->name('client.login.email.capture');
         Route::get('/login/email/opciones', [ClientLoginController::class, 'showEmailOptions'])->name('client.login.email.options');
         Route::get('/login/email/password', [ClientLoginController::class, 'showPasswordForm'])->name('client.login.password');
-        Route::post('/login/email/enlace', [ClientLoginController::class, 'sendMagicLink'])->name('client.login.magic.send');
+        Route::post('/login/email/enlace', [ClientLoginController::class, 'sendMagicLink'])
+            ->middleware('throttle:magic-links')
+            ->name('client.login.magic.send');
         Route::get('/login/magic/{token}', [ClientLoginController::class, 'consumeMagicLink'])->name('client.login.magic');
-        Route::post('/login', [ClientLoginController::class, 'store'])->name('client.login.attempt');
+        Route::post('/login', [ClientLoginController::class, 'store'])
+            ->middleware('throttle:auth-login')
+            ->name('client.login.attempt');
 
         Route::get('/registro', [ClientRegistrationController::class, 'create'])->name('client.register');
         Route::post('/registro', [ClientRegistrationController::class, 'store'])->name('client.register.store');
 
         Route::get('/recuperar-contrasena', [ClientForgotPasswordController::class, 'create'])->name('client.password.request');
-        Route::post('/recuperar-contrasena', [ClientForgotPasswordController::class, 'store'])->name('client.password.email');
+        Route::post('/recuperar-contrasena', [ClientForgotPasswordController::class, 'store'])
+            ->middleware('throttle:password-reset')
+            ->name('client.password.email');
 
         Route::get('/restablecer-contrasena/{token}', [ClientResetPasswordController::class, 'create'])->name('client.password.reset');
         Route::post('/restablecer-contrasena', [ClientResetPasswordController::class, 'store'])->name('client.password.update');
@@ -147,8 +153,12 @@ Route::domain($publicHost)->group(function () use (
         Route::patch('/seguridad', [ClientDashboardController::class, 'updateSecurity'])->name('client.security.update');
         Route::patch('/privacidad', [ClientDashboardController::class, 'updatePrivacy'])->name('client.privacy.update');
         Route::delete('/desactivar', [ClientDashboardController::class, 'deactivate'])->name('client.deactivate');
-        Route::post('/favoritos/{slug}', [ClientFavoriteController::class, 'store'])->name('client.favorites.store');
-        Route::delete('/favoritos/{slug}', [ClientFavoriteController::class, 'destroy'])->name('client.favorites.destroy');
+        Route::post('/favoritos/{slug}', [ClientFavoriteController::class, 'store'])
+            ->middleware('throttle:public-interactions')
+            ->name('client.favorites.store');
+        Route::delete('/favoritos/{slug}', [ClientFavoriteController::class, 'destroy'])
+            ->middleware('throttle:public-interactions')
+            ->name('client.favorites.destroy');
         Route::post('/solicitudes/{conversation}/responder', [ClientQuoteConversationController::class, 'reply'])->name('client.quotes.reply');
         Route::post('/solicitudes/{conversation}/opiniones', [ClientReviewController::class, 'store'])->name('client.reviews.store');
     });
@@ -186,8 +196,12 @@ Route::domain($publicHost)->group(function () use (
     Route::get('/mariachi/{slug}', [PublicMariachiController::class, 'show'])
         ->where('slug', '^(?!login$|panel$|dashboard$|profile$|solicitudes$)[a-z0-9-]+$')
         ->name('mariachi.public.show');
-    Route::post('/mariachi/{slug}/solicitar-presupuesto', [QuoteRequestController::class, 'store'])->name('quote.request.store');
-    Route::post('/solicitudes-info/{slug}', [ListingInfoRequestController::class, 'store'])->name('listing.info-requests.store');
+    Route::post('/mariachi/{slug}/solicitar-presupuesto', [QuoteRequestController::class, 'store'])
+        ->middleware('throttle:public-interactions')
+        ->name('quote.request.store');
+    Route::post('/solicitudes-info/{slug}', [ListingInfoRequestController::class, 'store'])
+        ->middleware('throttle:listing-info-requests')
+        ->name('listing.info-requests.store');
 
     Route::get('/lang/{locale}', [LanguageController::class, 'swap']);
 

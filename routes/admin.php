@@ -49,13 +49,22 @@ Route::domain(config('domains.admin'))->group(function (): void {
 
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [LoginController::class, 'create'])->defaults('portal', 'admin')->name('login');
-        Route::post('/login', [LoginController::class, 'store'])->defaults('portal', 'admin')->name('login.attempt');
+        Route::post('/login', [LoginController::class, 'store'])
+            ->middleware('throttle:auth-login')
+            ->defaults('portal', 'admin')
+            ->name('login.attempt');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->defaults('portal', 'admin')->name('password.request');
-        Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->defaults('portal', 'admin')->name('password.email');
+        Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])
+            ->middleware('throttle:password-reset')
+            ->defaults('portal', 'admin')
+            ->name('password.email');
 
         Route::get('/reset-password/{token}', [ResetPasswordController::class, 'create'])->defaults('portal', 'admin')->name('password.reset');
-        Route::post('/reset-password', [ResetPasswordController::class, 'store'])->defaults('portal', 'admin')->name('password.update');
+        Route::post('/reset-password', [ResetPasswordController::class, 'store'])
+            ->middleware('throttle:password-reset')
+            ->defaults('portal', 'admin')
+            ->name('password.update');
     });
 
     Route::middleware('auth')->group(function (): void {

@@ -3,32 +3,21 @@
 namespace App\Http\Controllers\Front;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreListingInfoRequest;
 use App\Models\ListingInfoRequest;
 use App\Models\MariachiListing;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class ListingInfoRequestController extends Controller
 {
-    /**
-     * @throws ValidationException
-     */
-    public function store(Request $request, string $slug): JsonResponse
+    public function store(StoreListingInfoRequest $request, string $slug): JsonResponse
     {
         $listing = MariachiListing::query()
             ->published()
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190'],
-            'phone' => ['required', 'string', 'max:40'],
-            'event_date' => ['required', 'date'],
-            'event_city' => ['nullable', 'string', 'max:120'],
-            'message' => ['required', 'string', 'max:4000'],
-        ]);
+        $validated = $request->validated();
 
         ListingInfoRequest::query()->create([
             'mariachi_profile_id' => $listing->mariachi_profile_id,

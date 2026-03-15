@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ListingPayment;
 use App\Models\MariachiListing;
+use App\Support\Admin\AdminAuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,11 @@ use Illuminate\View\View;
 
 class AdminListingModerationController extends Controller
 {
+    public function __construct(
+        private readonly AdminAuditLogger $auditLogger
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $reviewStatus = (string) $request->query('review_status', 'all');
@@ -253,6 +259,12 @@ class AdminListingModerationController extends Controller
                 'deactivated_at' => null,
             ]);
 
+            $this->auditLogger->log($request, 'listing.approved', [
+                'listing_id' => $listing->id,
+                'listing_slug' => $listing->slug,
+                'payment_status' => $listing->payment_status,
+            ]);
+
             return redirect()
                 ->route('admin.listings.show', $listing)
                 ->with('status', 'Anuncio aprobado para publicación.');
@@ -260,6 +272,12 @@ class AdminListingModerationController extends Controller
 
         $listing->update($payload + [
             'review_status' => MariachiListing::REVIEW_REJECTED,
+            'rejection_reason' => $validated['rejection_reason'],
+        ]);
+
+        $this->auditLogger->log($request, 'listing.rejected', [
+            'listing_id' => $listing->id,
+            'listing_slug' => $listing->slug,
             'rejection_reason' => $validated['rejection_reason'],
         ]);
 

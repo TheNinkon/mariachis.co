@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountActivationPayment;
 use App\Models\ListingPayment;
 use App\Services\ListingPaymentService;
+use App\Support\Admin\AdminAuditLogger;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\View\View;
 class AdminListingPaymentController extends Controller
 {
     public function __construct(
-        private readonly ListingPaymentService $listingPaymentService
+        private readonly ListingPaymentService $listingPaymentService,
+        private readonly AdminAuditLogger $auditLogger
     ) {
     }
 
@@ -395,6 +397,14 @@ class AdminListingPaymentController extends Controller
                 'payment' => $exception->getMessage(),
             ]);
         }
+
+        $this->auditLogger->log($request, 'listing_payment.moderated', [
+            'listing_payment_id' => $listingPayment->id,
+            'listing_id' => $listingPayment->mariachi_listing_id,
+            'requested_action' => $validated['action'],
+            'status_after' => $listingPayment->fresh()?->status,
+            'provider_transaction_id' => $listingPayment->provider_transaction_id,
+        ]);
 
         return back()->with('status', $validated['action'] === 'approve'
             ? 'Pago actualizado como aprobado.'

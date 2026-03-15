@@ -29,7 +29,10 @@ Route::domain(config('domains.partner'))->group(function (): void {
 
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [LoginController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.login');
-        Route::post('/login', [LoginController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.login.attempt');
+        Route::post('/login', [LoginController::class, 'store'])
+            ->middleware('throttle:auth-login')
+            ->defaults('portal', 'mariachi')
+            ->name('mariachi.login.attempt');
 
         Route::get('/signup', [MariachiRegistrationController::class, 'create'])->name('mariachi.register');
         Route::post('/signup', [MariachiRegistrationController::class, 'store'])->name('mariachi.register.store');
@@ -41,10 +44,16 @@ Route::domain(config('domains.partner'))->group(function (): void {
         Route::post('/pagos/wompi/webhook', [WompiPaymentController::class, 'webhook'])->name('mariachi.wompi.webhook');
 
         Route::get('/forgot-password', [ForgotPasswordController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.password.request');
-        Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.password.email');
+        Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])
+            ->middleware('throttle:password-reset')
+            ->defaults('portal', 'mariachi')
+            ->name('mariachi.password.email');
 
         Route::get('/reset-password/{token}', [ResetPasswordController::class, 'create'])->defaults('portal', 'mariachi')->name('mariachi.password.reset');
-        Route::post('/reset-password', [ResetPasswordController::class, 'store'])->defaults('portal', 'mariachi')->name('mariachi.password.update');
+        Route::post('/reset-password', [ResetPasswordController::class, 'store'])
+            ->middleware('throttle:password-reset')
+            ->defaults('portal', 'mariachi')
+            ->name('mariachi.password.update');
 
         Route::get('/verificar-correo/{user}/{hash}', [MariachiRegistrationController::class, 'verifyEmail'])
             ->middleware('signed')
