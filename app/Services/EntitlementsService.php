@@ -82,6 +82,8 @@ class EntitlementsService
      *   badge_text:?string,
      *   is_public:bool,
      *   price_cop:int,
+     *   max_open_drafts:int,
+     *   max_published_listings:int,
      *   listing_limit:int,
      *   included_cities:int,
      *   max_photos_per_listing:int,
@@ -116,7 +118,9 @@ class EntitlementsService
             'badge_text' => $plan?->badge_text,
             'is_public' => (bool) ($plan?->is_public ?? true),
             'price_cop' => (int) ($plan?->price_cop ?? 0),
-            'listing_limit' => (int) $entitlements[EntitlementKey::MAX_LISTINGS_TOTAL],
+            'max_open_drafts' => (int) $entitlements[EntitlementKey::MAX_OPEN_DRAFTS],
+            'max_published_listings' => (int) $entitlements[EntitlementKey::MAX_PUBLISHED_LISTINGS],
+            'listing_limit' => (int) $entitlements[EntitlementKey::MAX_PUBLISHED_LISTINGS],
             'included_cities' => (int) $entitlements[EntitlementKey::MAX_CITIES_COVERED],
             'max_photos_per_listing' => (int) $entitlements[EntitlementKey::MAX_PHOTOS_PER_LISTING],
             'max_videos_per_listing' => (int) $entitlements[EntitlementKey::MAX_VIDEOS_PER_LISTING],
@@ -129,7 +133,7 @@ class EntitlementsService
             'show_whatsapp' => (bool) $entitlements[EntitlementKey::CAN_SHOW_WHATSAPP],
             'show_phone' => (bool) $entitlements[EntitlementKey::CAN_SHOW_PHONE],
             'priority_level' => (int) $entitlements[EntitlementKey::PRIORITY_LEVEL],
-            'allows_verification' => (bool) $entitlements[EntitlementKey::CAN_REQUEST_VERIFICATION],
+            'allows_verification' => false,
             'allows_featured_city' => (bool) $entitlements[EntitlementKey::CAN_FEATURED_CITY],
             'allows_featured_home' => (bool) $entitlements[EntitlementKey::CAN_FEATURED_HOME],
             'has_premium_badge' => (bool) $entitlements[EntitlementKey::HAS_PREMIUM_BADGE],
@@ -139,7 +143,17 @@ class EntitlementsService
 
     public function listingLimit(MariachiProfile $profile): int
     {
-        return (int) $this->resolve($profile)[EntitlementKey::MAX_LISTINGS_TOTAL];
+        return $this->publishedListingsLimit($profile);
+    }
+
+    public function publishedListingsLimit(MariachiProfile $profile): int
+    {
+        return max(0, (int) $this->resolve($profile)[EntitlementKey::MAX_PUBLISHED_LISTINGS]);
+    }
+
+    public function openDraftLimit(MariachiProfile $profile): int
+    {
+        return max(0, (int) $this->resolve($profile)[EntitlementKey::MAX_OPEN_DRAFTS]);
     }
 
     public function includedCities(MariachiProfile $profile): int
@@ -339,7 +353,18 @@ class EntitlementsService
     private function mapPlanColumnsToEntitlements(Plan $plan): array
     {
         return [
-            EntitlementKey::MAX_LISTINGS_TOTAL => (int) $plan->listing_limit,
+            EntitlementKey::MAX_LISTINGS_TOTAL => (int) $plan->entitlementValue(
+                EntitlementKey::MAX_LISTINGS_TOTAL,
+                $plan->entitlementValue(EntitlementKey::MAX_PUBLISHED_LISTINGS, $plan->listing_limit)
+            ),
+            EntitlementKey::MAX_PUBLISHED_LISTINGS => (int) $plan->entitlementValue(
+                EntitlementKey::MAX_PUBLISHED_LISTINGS,
+                $plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL, $plan->listing_limit)
+            ),
+            EntitlementKey::MAX_OPEN_DRAFTS => (int) $plan->entitlementValue(
+                EntitlementKey::MAX_OPEN_DRAFTS,
+                EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)
+            ),
             EntitlementKey::MAX_PHOTOS_PER_LISTING => (int) $plan->max_photos_per_listing,
             EntitlementKey::CAN_ADD_VIDEO => (int) $plan->max_videos_per_listing > 0,
             EntitlementKey::MAX_VIDEOS_PER_LISTING => (int) $plan->max_videos_per_listing,
@@ -354,7 +379,7 @@ class EntitlementsService
             EntitlementKey::PRIORITY_LEVEL => (int) $plan->priority_level,
             EntitlementKey::CAN_FEATURED_CITY => (bool) $plan->allows_featured_city,
             EntitlementKey::CAN_FEATURED_HOME => (bool) $plan->allows_featured_home,
-            EntitlementKey::CAN_REQUEST_VERIFICATION => (bool) $plan->allows_verification,
+            EntitlementKey::CAN_REQUEST_VERIFICATION => false,
             EntitlementKey::HAS_PREMIUM_BADGE => (bool) $plan->has_premium_badge,
             EntitlementKey::HAS_ADVANCED_STATS => (bool) $plan->has_advanced_stats,
         ];
@@ -368,9 +393,16 @@ class EntitlementsService
     {
         $includedCities = max(1, (int) ($plan['included_cities'] ?? 1));
         $maxVideos = max(0, (int) ($plan['max_videos_per_listing'] ?? 0));
+        $publishedListings = max(0, (int) (($plan['entitlements'][EntitlementKey::MAX_PUBLISHED_LISTINGS] ?? null)
+            ?? (($plan['entitlements'][EntitlementKey::MAX_LISTINGS_TOTAL] ?? null)
+                ?? ($plan['listing_limit'] ?? 0))));
+        $openDrafts = max(0, (int) (($plan['entitlements'][EntitlementKey::MAX_OPEN_DRAFTS] ?? null)
+            ?? EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)));
 
         return [
-            EntitlementKey::MAX_LISTINGS_TOTAL => max(1, (int) ($plan['listing_limit'] ?? 1)),
+            EntitlementKey::MAX_LISTINGS_TOTAL => $publishedListings,
+            EntitlementKey::MAX_PUBLISHED_LISTINGS => $publishedListings,
+            EntitlementKey::MAX_OPEN_DRAFTS => $openDrafts,
             EntitlementKey::MAX_PHOTOS_PER_LISTING => max(0, (int) ($plan['max_photos_per_listing'] ?? 5)),
             EntitlementKey::CAN_ADD_VIDEO => $maxVideos > 0,
             EntitlementKey::MAX_VIDEOS_PER_LISTING => $maxVideos,
@@ -385,7 +417,7 @@ class EntitlementsService
             EntitlementKey::PRIORITY_LEVEL => max(0, (int) ($plan['priority_level'] ?? 0)),
             EntitlementKey::CAN_FEATURED_CITY => (bool) ($plan['allows_featured_city'] ?? false),
             EntitlementKey::CAN_FEATURED_HOME => (bool) ($plan['allows_featured_home'] ?? false),
-            EntitlementKey::CAN_REQUEST_VERIFICATION => (bool) ($plan['allows_verification'] ?? false),
+            EntitlementKey::CAN_REQUEST_VERIFICATION => false,
             EntitlementKey::HAS_PREMIUM_BADGE => (bool) ($plan['has_premium_badge'] ?? false),
             EntitlementKey::HAS_ADVANCED_STATS => (bool) ($plan['has_advanced_stats'] ?? false),
         ];

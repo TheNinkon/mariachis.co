@@ -142,6 +142,10 @@ class CatalogSuggestionController extends Controller
             'sort_order' => ((int) EventType::query()->max('sort_order')) + 1,
             'is_featured' => false,
             'is_active' => true,
+            'is_visible_in_home' => false,
+            'home_priority' => 999,
+            'min_active_listings_required' => null,
+            'home_clicks_count' => 0,
         ]);
 
         return ['model' => EventType::class, 'id' => (int) $eventType->id];

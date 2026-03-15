@@ -23,7 +23,7 @@
         <h5 class="mb-1">Nuevo anuncio / servicio</h5>
         <p class="mb-1">
           Plan de referencia del perfil: <strong>{{ $planSummary['name'] }}</strong>.
-          Borradores abiertos: {{ $openDraftsCount }} de {{ $openDraftLimit }}.
+          Borradores abiertos: {{ $openDraftLimit === 0 ? $openDraftsCount.' (sin tope)' : $openDraftsCount.' de '.$openDraftLimit }}.
         </p>
         <small class="text-muted">
           Los límites de fotos, videos, ciudades y zonas se aplican luego según el plan que elijas para este anuncio.
@@ -80,7 +80,7 @@
         <div class="card-body">
           @if(!$canCreate)
             <div class="alert alert-warning mb-0">
-              Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.
+              Has alcanzado el maximo de {{ $openDraftLimit }} borradores abiertos. Publica o elimina uno para crear otro.
             </div>
           @else
             <form method="POST" action="{{ route('mariachi.listings.store') }}">

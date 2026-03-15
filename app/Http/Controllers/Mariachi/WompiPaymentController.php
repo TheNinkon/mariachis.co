@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Mariachi;
 use App\Http\Controllers\Controller;
 use App\Services\WompiPaymentFlowService;
 use App\Services\WompiService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,7 +19,7 @@ class WompiPaymentController extends Controller
     ) {
     }
 
-    public function redirect(Request $request, string $type, string $reference): View
+    public function redirect(Request $request, string $type, string $reference): View|RedirectResponse
     {
         $payment = $this->paymentFlows->findPayment($type, $reference);
         abort_unless($payment, Response::HTTP_NOT_FOUND);
@@ -31,6 +32,15 @@ class WompiPaymentController extends Controller
                 $this->paymentFlows->syncPaymentFromTransaction($type, $payment, $transaction);
                 $payment->refresh();
             }
+        }
+
+        if ($type === WompiPaymentFlowService::TYPE_ACTIVATION && $payment->status === 'approved') {
+            return redirect()
+                ->route('mariachi.login')
+                ->with('status', 'Pago confirmado. Tu cuenta ya quedó activa; inicia sesión para entrar al panel mariachi.')
+                ->withInput([
+                    'email' => (string) ($payment->user?->email ?? ''),
+                ]);
         }
 
         [$title, $message, $contextClass, $returnUrl, $returnLabel] = match ($type) {

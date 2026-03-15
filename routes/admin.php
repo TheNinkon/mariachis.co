@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminListingModerationController;
+use App\Http\Controllers\Admin\AdminListingPaymentController;
 use App\Http\Controllers\Admin\AdminPlanController;
 use App\Http\Controllers\Admin\AccountActivationPaymentController;
 use App\Http\Controllers\Admin\AccountActivationPlanController;
@@ -71,6 +72,8 @@ Route::domain(config('domains.admin'))->group(function (): void {
             Route::get('/anuncios', [AdminListingModerationController::class, 'index'])->name('admin.listings.index');
             Route::get('/anuncios/{listing}', [AdminListingModerationController::class, 'show'])->name('admin.listings.show');
             Route::patch('/anuncios/{listing}/moderar', [AdminListingModerationController::class, 'moderate'])->name('admin.listings.moderate');
+            Route::get('/pagos', [AdminListingPaymentController::class, 'index'])->name('admin.payments.index');
+            Route::patch('/pagos/{listingPayment}', [AdminListingPaymentController::class, 'update'])->name('admin.payments.update');
             Route::get('/paquetes', [AdminPlanController::class, 'index'])->name('admin.plans.index');
             Route::get('/paquetes/crear', [AdminPlanController::class, 'create'])->name('admin.plans.create');
             Route::post('/paquetes', [AdminPlanController::class, 'store'])->name('admin.plans.store');

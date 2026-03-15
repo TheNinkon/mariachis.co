@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountActivationPayment;
 use App\Models\MariachiProfile;
 use App\Models\Plan;
+use App\Models\ProfileVerificationPayment;
 use App\Models\User;
 use App\Services\EntitlementsService;
 use App\Services\PlanAssignmentService;
@@ -80,6 +82,23 @@ class MariachiController extends Controller
                     ->latest('last_message_at')
                     ->limit(10),
             ]);
+        $activationPayments = $user->activationPayments()
+            ->with([
+                'plan:id,code,name',
+                'reviewedBy:id,name,first_name,last_name',
+            ])
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
+        $verificationPayments = $profile->verificationPayments()
+            ->with([
+                'verificationRequest.reviewedBy:id,name,first_name,last_name',
+                'reviewedBy:id,name,first_name,last_name',
+            ])
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
+        $profilePayments = $this->buildProfilePayments($user, $profile, $activationPayments, $verificationPayments);
 
         $recentActivity = $this->buildRecentActivity($profile);
 
@@ -89,6 +108,13 @@ class MariachiController extends Controller
             'recentActivity' => $recentActivity,
             'planSummary' => $this->entitlementsService->summary($profile),
             'planIssues' => $this->entitlementsService->profileAdjustmentIssues($profile),
+            'profilePayments' => $profilePayments,
+            'profilePaymentSummary' => [
+                'total' => $profilePayments->count(),
+                'activation_count' => $profilePayments->where('source_type', 'activation')->count(),
+                'verification_count' => $profilePayments->where('source_type', 'verification')->count(),
+                'pending_count' => $profilePayments->where('is_pending', true)->count(),
+            ],
         ]);
     }
 
@@ -295,5 +321,116 @@ class MariachiController extends Controller
             ->sortByDesc('at')
             ->values()
             ->take(8);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Models\AccountActivationPayment>  $activationPayments
+     * @param  \Illuminate\Support\Collection<int, \App\Models\ProfileVerificationPayment>  $verificationPayments
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function buildProfilePayments(
+        User $user,
+        MariachiProfile $profile,
+        Collection $activationPayments,
+        Collection $verificationPayments
+    ): Collection {
+        $activationRows = $activationPayments->map(function (AccountActivationPayment $payment) use ($profile, $user): object {
+            return (object) [
+                'source_type' => 'activation',
+                'source_label' => 'Activacion',
+                'source_badge_class' => 'primary',
+                'id' => $payment->id,
+                'created_at' => $payment->created_at,
+                'sort_key' => sprintf('%010d-%010d-activation', $payment->created_at?->timestamp ?? 0, $payment->id),
+                'operation_label' => 'Activacion de cuenta',
+                'operation_detail' => $payment->plan?->name ?: 'Plan de activacion',
+                'subject_meta' => trim(($user->email ?: 'Sin email').' · '.($profile->city_name ?: 'Sin ciudad')),
+                'amount_cop' => (int) $payment->amount_cop,
+                'checkout_reference' => $payment->checkout_reference ?: $payment->reference_text ?: '-',
+                'provider_transaction_id' => $payment->provider_transaction_id ?: 'Sin transacción',
+                'provider_transaction_status' => $payment->provider_transaction_status,
+                'status_label' => $payment->statusLabel(),
+                'status_class' => match ($payment->status) {
+                    AccountActivationPayment::STATUS_APPROVED => 'success',
+                    AccountActivationPayment::STATUS_REJECTED => 'danger',
+                    default => 'warning',
+                },
+                'reviewed_at' => $payment->reviewed_at,
+                'reviewed_by_name' => $payment->reviewedBy?->display_name ?: 'Sin revisor',
+                'review_meta' => 'Cuenta '.$user->statusLabel(),
+                'rejection_reason' => $payment->rejection_reason,
+                'period_label' => null,
+                'is_pending' => $payment->isPending(),
+                'approve_url' => $payment->isPending() ? route('admin.account-activation-payments.update', $payment) : null,
+                'reject_url' => $payment->isPending() ? route('admin.account-activation-payments.update', $payment) : null,
+                'empty_state' => 'Sin acciones pendientes',
+            ];
+        });
+
+        $verificationRows = $verificationPayments->map(function (ProfileVerificationPayment $payment) use ($profile): object {
+            $request = $payment->verificationRequest;
+            $requestStatusLabel = match ($request?->status) {
+                'approved' => 'Solicitud aprobada',
+                'rejected' => 'Solicitud rechazada',
+                'pending' => 'Solicitud pendiente',
+                default => 'Sin solicitud vinculada',
+            };
+            $isPending = $request
+                ? $request->status === 'pending'
+                : $payment->isPending();
+            $approveUrl = $request && $request->status === 'pending'
+                ? route('admin.profile-verifications.update', $request)
+                : null;
+            $rejectUrl = $approveUrl;
+            $periodLabel = null;
+
+            if ($payment->starts_at || $payment->ends_at) {
+                $periodLabel = trim(sprintf(
+                    'Vigencia %s %s',
+                    $payment->starts_at?->format('d/m/Y') ?: '-',
+                    $payment->ends_at ? 'a '.$payment->ends_at->format('d/m/Y') : ''
+                ));
+            }
+
+            return (object) [
+                'source_type' => 'verification',
+                'source_label' => 'Verificacion',
+                'source_badge_class' => 'info',
+                'id' => $payment->id,
+                'created_at' => $payment->created_at,
+                'sort_key' => sprintf('%010d-%010d-verification', $payment->created_at?->timestamp ?? 0, $payment->id),
+                'operation_label' => 'Verificacion de perfil',
+                'operation_detail' => sprintf(
+                    '%s · %d mes(es)',
+                    \Illuminate\Support\Str::headline((string) $payment->plan_code),
+                    max(1, (int) $payment->duration_months)
+                ),
+                'subject_meta' => trim(($profile->city_name ?: 'Sin ciudad').' · '.$requestStatusLabel),
+                'amount_cop' => (int) $payment->amount_cop,
+                'checkout_reference' => $payment->checkout_reference ?: $payment->reference_text ?: '-',
+                'provider_transaction_id' => $payment->provider_transaction_id ?: 'Sin transacción',
+                'provider_transaction_status' => $payment->provider_transaction_status,
+                'status_label' => $payment->statusLabel(),
+                'status_class' => match ($payment->status) {
+                    ProfileVerificationPayment::STATUS_APPROVED => 'success',
+                    ProfileVerificationPayment::STATUS_REJECTED => 'danger',
+                    default => 'warning',
+                },
+                'reviewed_at' => $request?->reviewed_at ?: $payment->reviewed_at,
+                'reviewed_by_name' => $request?->reviewedBy?->display_name ?: $payment->reviewedBy?->display_name ?: 'Sin revisor',
+                'review_meta' => $requestStatusLabel,
+                'rejection_reason' => $request?->rejection_reason ?: $payment->rejection_reason,
+                'period_label' => $periodLabel,
+                'is_pending' => $isPending,
+                'approve_url' => $approveUrl,
+                'reject_url' => $rejectUrl,
+                'empty_state' => $request ? 'Revisado desde verificacion' : 'Sin solicitud vinculada',
+            ];
+        });
+
+        return $activationRows
+            ->concat($verificationRows)
+            ->sortByDesc('sort_key')
+            ->values();
     }
 }

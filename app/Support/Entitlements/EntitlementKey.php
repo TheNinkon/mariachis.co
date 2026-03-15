@@ -5,6 +5,8 @@ namespace App\Support\Entitlements;
 class EntitlementKey
 {
     public const MAX_LISTINGS_TOTAL = 'max_listings_total';
+    public const MAX_PUBLISHED_LISTINGS = 'max_published_listings';
+    public const MAX_OPEN_DRAFTS = 'max_open_drafts';
     public const LISTING_TERM_PRIMARY_MONTHS = 'listing_term_primary_months';
     public const LISTING_TERM_PRIMARY_DISCOUNT_PERCENT = 'listing_term_primary_discount_percent';
     public const LISTING_TERM_SECONDARY_MONTHS = 'listing_term_secondary_months';
@@ -30,7 +32,7 @@ class EntitlementKey
     public const HAS_ADVANCED_STATS = 'has_advanced_stats';
 
     /**
-     * @return array<string, array{type:string,category:string,label:string,description:string,default:mixed}>
+     * @return array<string, array{type:string,category:string,label:string,description:string,default:mixed,editor_visible?:bool}>
      */
     public static function definitions(): array
     {
@@ -38,9 +40,24 @@ class EntitlementKey
             self::MAX_LISTINGS_TOTAL => [
                 'type' => 'integer',
                 'category' => 'listings',
-                'label' => 'Maximo de anuncios',
-                'description' => 'Cantidad total de anuncios que el mariachi puede tener activos o en gestion.',
-                'default' => 1,
+                'label' => 'Anuncios totales (legado)',
+                'description' => 'Campo de compatibilidad para datos antiguos. El editor ya usa borradores y publicaciones por separado.',
+                'default' => 0,
+                'editor_visible' => false,
+            ],
+            self::MAX_PUBLISHED_LISTINGS => [
+                'type' => 'integer',
+                'category' => 'listings',
+                'label' => 'Anuncios publicados permitidos',
+                'description' => 'Cantidad de anuncios que este paquete puede mantener publicados al mismo tiempo. Usa 0 si quieres dejarlo ilimitado.',
+                'default' => 0,
+            ],
+            self::MAX_OPEN_DRAFTS => [
+                'type' => 'integer',
+                'category' => 'listings',
+                'label' => 'Borradores maximos',
+                'description' => 'Cantidad de borradores abiertos que el mariachi puede tener al mismo tiempo. Usa 0 si quieres dejarlo sin tope.',
+                'default' => 5,
             ],
             self::LISTING_TERM_PRIMARY_MONTHS => [
                 'type' => 'integer',
@@ -88,35 +105,35 @@ class EntitlementKey
                 'type' => 'integer',
                 'category' => 'media',
                 'label' => 'Fotos por anuncio',
-                'description' => 'Tope de fotos permitidas por anuncio.',
+                'description' => 'Cantidad maxima de fotos visibles en cada anuncio.',
                 'default' => 5,
             ],
             self::CAN_ADD_VIDEO => [
                 'type' => 'boolean',
                 'category' => 'media',
                 'label' => 'Permite videos',
-                'description' => 'Habilita la carga de videos en el anuncio.',
+                'description' => 'Activa la carga de videos dentro del anuncio.',
                 'default' => false,
             ],
             self::MAX_VIDEOS_PER_LISTING => [
                 'type' => 'integer',
                 'category' => 'media',
                 'label' => 'Videos por anuncio',
-                'description' => 'Cantidad maxima de videos admitidos por anuncio.',
+                'description' => 'Cantidad maxima de videos visibles por anuncio.',
                 'default' => 0,
             ],
             self::CAN_SHOW_WHATSAPP => [
                 'type' => 'boolean',
                 'category' => 'contact',
                 'label' => 'Mostrar WhatsApp',
-                'description' => 'Permite exponer el boton o numero de WhatsApp en el perfil publico.',
+                'description' => 'Muestra el acceso a WhatsApp en la ficha publica del anuncio.',
                 'default' => false,
             ],
             self::CAN_SHOW_PHONE => [
                 'type' => 'boolean',
                 'category' => 'contact',
                 'label' => 'Mostrar telefono',
-                'description' => 'Permite exponer el telefono o boton de llamada en el perfil publico.',
+                'description' => 'Muestra telefono o boton de llamada en la ficha publica del anuncio.',
                 'default' => false,
             ],
             self::MAX_CITIES_COVERED => [
@@ -164,43 +181,44 @@ class EntitlementKey
             self::PRIORITY_LEVEL => [
                 'type' => 'integer',
                 'category' => 'visibility',
-                'label' => 'Nivel de prioridad',
-                'description' => 'Peso relativo para ranking interno y ordenamientos futuros.',
+                'label' => 'Prioridad comercial',
+                'description' => 'Peso interno para ranking y orden de aparicion frente a otros anuncios.',
                 'default' => 0,
             ],
             self::CAN_FEATURED_CITY => [
                 'type' => 'boolean',
                 'category' => 'visibility',
                 'label' => 'Destacado en ciudad',
-                'description' => 'Permite activar promociones o posiciones destacadas por ciudad.',
+                'description' => 'Permite usar posiciones o promociones destacadas dentro de una ciudad.',
                 'default' => false,
             ],
             self::CAN_FEATURED_HOME => [
                 'type' => 'boolean',
                 'category' => 'visibility',
                 'label' => 'Destacado en home',
-                'description' => 'Permite activar promociones o posiciones destacadas en home.',
+                'description' => 'Permite usar posiciones o promociones destacadas en la portada.',
                 'default' => false,
             ],
             self::CAN_REQUEST_VERIFICATION => [
                 'type' => 'boolean',
                 'category' => 'extras',
-                'label' => 'Permite verificacion',
-                'description' => 'Habilita el flujo premium de verificacion del perfil.',
+                'label' => 'Verificacion de perfil (legado)',
+                'description' => 'Campo de compatibilidad. La verificacion ahora se vende como producto aparte.',
                 'default' => false,
+                'editor_visible' => false,
             ],
             self::HAS_PREMIUM_BADGE => [
                 'type' => 'boolean',
                 'category' => 'extras',
-                'label' => 'Badge premium',
-                'description' => 'Muestra distintivos premium en el marketplace.',
+                'label' => 'Insignia comercial del plan',
+                'description' => 'Muestra la insignia comercial del paquete en cards y listados. No marca el perfil como verificado.',
                 'default' => false,
             ],
             self::HAS_ADVANCED_STATS => [
                 'type' => 'boolean',
                 'category' => 'extras',
                 'label' => 'Estadisticas avanzadas',
-                'description' => 'Habilita modulos de metricas avanzadas.',
+                'description' => 'Activa reportes mas completos para el panel del mariachi.',
                 'default' => false,
             ],
         ];
@@ -213,13 +231,13 @@ class EntitlementKey
     {
         return [
             'pricing' => 'Precio y vigencia',
-            'listings' => 'Listados',
+            'listings' => 'Borradores y publicaciones',
             'media' => 'Media',
             'contact' => 'Contacto',
             'coverage' => 'Cobertura',
             'filters' => 'Filtros',
             'visibility' => 'Visibilidad y ranking',
-            'extras' => 'Extras',
+            'extras' => 'Señales comerciales y extras',
         ];
     }
 
@@ -236,6 +254,7 @@ class EntitlementKey
             $grouped[$category] = array_filter(
                 $definitions,
                 static fn (array $definition): bool => $definition['category'] === $category
+                    && ($definition['editor_visible'] ?? true)
             );
         }
 

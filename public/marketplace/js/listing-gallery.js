@@ -85,8 +85,13 @@
       return;
     }
 
+    const heroCount = Math.max(
+      1,
+      Number(root.querySelector("[data-gallery-hero-count]")?.getAttribute("data-gallery-hero-count") || root.getAttribute("data-gallery-hero-count") || "4")
+    );
+
     const itemButtons = Array.from(root.querySelectorAll("[data-gallery-item]"));
-    const heroSlides = slides.slice(0, Math.min(slides.length, 3)).map((slide, heroIndex) => ({
+    const heroSlides = slides.slice(0, Math.min(slides.length, heroCount)).map((slide, heroIndex) => ({
       ...slide,
       heroIndex,
       button:
@@ -96,10 +101,11 @@
     }));
 
     const inlineStage = root.querySelector("[data-gallery-inline-stage]");
+    const inlineMedia = root.querySelector("[data-gallery-inline-media]");
     const inlineCounter = root.querySelector("[data-gallery-inline-counter]");
     const inlinePrev = root.querySelector("[data-gallery-inline-prev]");
     const inlineNext = root.querySelector("[data-gallery-inline-next]");
-    const inlineMoreButton = root.querySelector("[data-gallery-inline-more]");
+    const inlineMoreButtons = Array.from(root.querySelectorAll("[data-gallery-inline-more]"));
     const openModalButtons = Array.from(root.querySelectorAll("[data-open-gallery-modal]"));
     const openOverflowButtons = Array.from(root.querySelectorAll("[data-open-gallery-overflow]"));
     const overlayControls = Array.from(
@@ -107,7 +113,7 @@
     );
     const modal = document.querySelector("[data-listing-gallery-modal]");
 
-    if (!inlineStage || !inlineCounter || !inlinePrev || !inlineNext || !modal || !heroSlides.length) {
+    if (!inlineStage || !inlineMedia || !inlineCounter || !inlinePrev || !inlineNext || !modal || !heroSlides.length) {
       return;
     }
 
@@ -174,17 +180,18 @@
       }
 
       currentHeroIndex = slide.heroIndex;
-      inlineStage.innerHTML = "";
-      inlineStage.appendChild(createInlineStageNode(slide));
+      inlineMedia.innerHTML = "";
+      inlineMedia.appendChild(createInlineStageNode(slide));
       inlineCounter.textContent = `${slide.heroIndex + 1} / ${heroSlides.length}`;
       inlinePrev.disabled = slide.heroIndex <= 0;
-      inlineNext.disabled = slide.heroIndex >= heroSlides.length - 1;
+      inlineNext.disabled = !hasOverflowSlides && slide.heroIndex >= heroSlides.length - 1;
 
-      if (inlineMoreButton) {
-        const showMore = hasOverflowSlides && slide.heroIndex === heroSlides.length - 1;
-        inlineMoreButton.classList.toggle("hidden", !showMore);
-        inlineMoreButton.setAttribute("aria-hidden", showMore ? "false" : "true");
-      }
+      const showMore = hasOverflowSlides && slide.heroIndex === heroSlides.length - 1;
+      inlineStage.classList.toggle("is-overflow-ready", showMore);
+      inlineMoreButtons.forEach((button) => {
+        button.classList.toggle("hidden", !showMore);
+        button.setAttribute("aria-hidden", showMore ? "false" : "true");
+      });
 
       syncInlineThumbs();
     }
@@ -333,6 +340,16 @@
 
     inlineNext.addEventListener("click", function (event) {
       event.stopPropagation();
+
+      if (hasOverflowSlides && currentHeroIndex >= heroSlides.length - 1) {
+        const targetSlide = slides[heroSlides.length] || slides[slides.length - 1];
+        if (targetSlide) {
+          openModal(targetSlide.index, targetSlide.type === "video" ? "video" : "all");
+        }
+
+        return;
+      }
+
       renderInline(currentHeroIndex + 1);
     });
 
@@ -360,8 +377,8 @@
       });
     });
 
-    if (inlineMoreButton) {
-      inlineMoreButton.addEventListener("click", function (event) {
+    inlineMoreButtons.forEach((button) => {
+      button.addEventListener("click", function (event) {
         event.stopPropagation();
         const targetSlide = slides[heroSlides.length] || slides[slides.length - 1];
         if (!targetSlide) {
@@ -370,7 +387,7 @@
 
         openModal(targetSlide.index, targetSlide.type === "video" ? "video" : "all");
       });
-    }
+    });
 
     inlineStage.addEventListener("click", function () {
       const slide = getHeroSlide(currentHeroIndex);

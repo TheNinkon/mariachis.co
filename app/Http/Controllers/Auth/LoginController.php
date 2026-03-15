@@ -39,9 +39,27 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        if ($request->user()?->status !== User::STATUS_ACTIVE) {
-            $message = $request->user()?->accessStatusMessage() ?? 'Tu cuenta no esta disponible en este momento.';
+        $user = $request->user();
+        $portal = $this->portal($request);
+
+        if ($user?->requiresActivation() && $portal === 'mariachi' && filled($user->activation_token)) {
             Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('mariachi.activation.show', [
+                    'user' => $user->id,
+                    'token' => $user->activation_token,
+                ])
+                ->with('status', 'Tu cuenta todavía está pendiente de activación. Retoma el pago para habilitar el acceso al panel partner.');
+        }
+
+        if ($user?->status !== User::STATUS_ACTIVE) {
+            $message = $user?->accessStatusMessage() ?? 'Tu cuenta no esta disponible en este momento.';
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
             throw ValidationException::withMessages([
                 'email' => $message,
@@ -49,7 +67,6 @@ class LoginController extends Controller
         }
 
         $userRole = (string) $request->user()?->role;
-        $portal = $this->portal($request);
 
         if ($userRole === User::ROLE_CLIENT) {
             Auth::logout();

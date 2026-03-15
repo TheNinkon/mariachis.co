@@ -82,6 +82,7 @@
       \App\Models\MariachiListing::STATUS_PAUSED => ['label' => 'Pausado', 'class' => 'danger'],
     ];
     $draftUsagePercent = $openDraftLimit > 0 ? min(100, (int) round(($openDraftsCount / $openDraftLimit) * 100)) : 0;
+    $openDraftLimitLabel = $openDraftLimit === 0 ? 'Ilimitados' : $openDraftLimit;
     $attentionCount = $listings->filter(fn (\App\Models\MariachiListing $listing): bool => $listing->review_status === \App\Models\MariachiListing::REVIEW_REJECTED || $listing->payment_status === \App\Models\MariachiListing::PAYMENT_REJECTED)->count();
   @endphp
 
@@ -100,11 +101,15 @@
           <div class="col-sm-6 col-lg-3">
             <div class="d-flex justify-content-between align-items-start card-widget-1 border-end pb-4 pb-sm-0">
               <div>
-                <h4 class="mb-1">{{ $openDraftsCount }} / {{ $openDraftLimit }}</h4>
+                <h4 class="mb-1">{{ $openDraftLimit === 0 ? $openDraftsCount : $openDraftsCount.' / '.$openDraftLimit }}</h4>
                 <p class="mb-2">Borradores abiertos</p>
-                <div class="progress" style="height: 6px; width: 112px;">
-                  <div class="progress-bar" role="progressbar" style="width: {{ $draftUsagePercent }}%;"></div>
-                </div>
+                @if($openDraftLimit > 0)
+                  <div class="progress" style="height: 6px; width: 112px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ $draftUsagePercent }}%;"></div>
+                  </div>
+                @else
+                  <small class="text-muted">Sin tope en este paquete</small>
+                @endif
               </div>
               <span class="avatar me-sm-6">
                 <span class="avatar-initial bg-label-secondary rounded text-heading">

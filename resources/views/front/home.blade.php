@@ -4,6 +4,385 @@
 @section('meta_description', 'Encuentra mariachis por ciudad, compara perfiles y contacta por WhatsApp o llamada.')
 @section('body_page', 'home')
 
+@push('styles')
+  <style>
+    .home-featured-card {
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 1.7rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 250, 248, 0.98) 100%);
+      box-shadow: 0 28px 56px -40px rgba(15, 23, 42, 0.3);
+      overflow: hidden;
+    }
+
+    .home-featured-card .featured-promo-media {
+      height: 18.9rem;
+      overflow: hidden;
+      border-radius: 0;
+      box-shadow: none;
+      cursor: pointer;
+    }
+
+    .home-featured-card .featured-promo-media::after {
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.02) 0%, rgba(15, 23, 42, 0.1) 34%, rgba(15, 23, 42, 0.46) 100%);
+    }
+
+    .home-featured-card__gallery {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .home-featured-card__slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transform: scale(1.02);
+      transition:
+        opacity 0.35s ease,
+        transform 0.45s ease;
+    }
+
+    .home-featured-card__slide.is-active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .home-featured-card__slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .home-featured-card__nav {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    .home-featured-card__arrow {
+      position: absolute;
+      top: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.35rem;
+      height: 2.35rem;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      color: #0f172a;
+      box-shadow: 0 18px 28px -22px rgba(15, 23, 42, 0.68);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%) scale(0.9);
+      transition:
+        opacity 0.22s ease,
+        transform 0.22s ease;
+    }
+
+    .home-featured-card__arrow--prev {
+      left: 0.8rem;
+    }
+
+    .home-featured-card__arrow--next {
+      right: 0.8rem;
+    }
+
+    .home-featured-card:hover .home-featured-card__arrow,
+    .home-featured-card:focus-within .home-featured-card__arrow {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(-50%) scale(1);
+    }
+
+    .home-featured-card__arrow:hover {
+      background: #ffffff;
+    }
+
+    .home-featured-card__arrow svg {
+      width: 1rem;
+      height: 1rem;
+      stroke: currentColor;
+      stroke-width: 2.35;
+      fill: none;
+    }
+
+    .home-featured-card .featured-promo-chip {
+      top: auto;
+      bottom: 0.9rem;
+      left: 0.9rem;
+      padding: 0.45rem 0.82rem;
+      letter-spacing: 0.09em;
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 24px -18px rgba(15, 23, 42, 0.5);
+    }
+
+    .home-featured-card .featured-favorite-btn {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 999px;
+      box-shadow: 0 14px 22px -18px rgba(15, 23, 42, 0.46);
+    }
+
+    .home-featured-card__body {
+      padding: 1.15rem 1.2rem 1.45rem;
+    }
+
+    .home-featured-card__provider {
+      margin: 0;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #0b5d43;
+    }
+
+    .home-featured-card .featured-promo-title {
+      margin-top: 0.2rem;
+      -webkit-line-clamp: 2;
+      font-size: 1.36rem;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .home-featured-card__title-link {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .home-featured-card__rating {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      margin-top: 0.55rem;
+      color: #475569;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .home-featured-card__rating-star {
+      color: #d97706;
+      font-size: 1rem;
+      line-height: 1;
+      text-shadow: 0 8px 18px rgba(217, 119, 6, 0.18);
+    }
+
+    .home-featured-card__rating-score {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .home-featured-card__rating-count {
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .home-featured-card__location {
+      margin-top: 0.55rem;
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    .home-featured-card__signals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.7rem;
+    }
+
+    .home-featured-card__signal {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.35rem 0.72rem;
+      border: 1px solid rgba(0, 104, 71, 0.08);
+      background: #eff6f3;
+      color: #0b5d43;
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .home-featured-card__price-row {
+      display: flex;
+      align-items: center;
+      margin-top: 0.72rem;
+      padding-top: 0.78rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .home-featured-card__price-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.52rem;
+      color: #0f172a;
+      text-decoration: none;
+    }
+
+    .home-featured-card__price-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.9rem;
+      height: 1.9rem;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #eff6f3 0%, #e2efe9 100%);
+      color: #0b5d43;
+      box-shadow: inset 0 0 0 1px rgba(11, 93, 67, 0.08);
+    }
+
+    .home-featured-card__price-icon svg {
+      width: 1rem;
+      height: 1rem;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+    }
+
+    .home-featured-card__price-copy {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.32rem;
+      flex-wrap: wrap;
+    }
+
+    .home-featured-card__price-prefix {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .home-featured-card__price-amount {
+      font-size: 1.34rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #0f172a;
+    }
+
+    @media (max-width: 768px) {
+      .home-featured-card .featured-promo-media {
+        height: 16.2rem;
+      }
+
+      .home-featured-card .featured-promo-title {
+        font-size: 1.18rem;
+      }
+
+      .home-featured-card__price-row {
+        align-items: center;
+      }
+
+      .home-featured-card__arrow {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(-50%) scale(1);
+      }
+    }
+  </style>
+@endpush
+
+@push('scripts')
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('[data-card-gallery]').forEach(function (gallery) {
+        const slides = Array.from(gallery.querySelectorAll('[data-card-gallery-slide]'));
+        const prevButton = gallery.querySelector('[data-card-gallery-prev]');
+        const nextButton = gallery.querySelector('[data-card-gallery-next]');
+
+        if (slides.length < 2) {
+          prevButton?.remove();
+          nextButton?.remove();
+          return;
+        }
+
+        let activeIndex = 0;
+        let autoplay = null;
+        const detailUrl = gallery.closest('[data-card-url]')?.getAttribute('data-card-url') || '';
+
+        const render = function () {
+          slides.forEach(function (slide, index) {
+            const isActive = index === activeIndex;
+            slide.classList.toggle('is-active', isActive);
+            slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+          });
+        };
+
+        const stopAutoplay = function () {
+          if (autoplay) {
+            window.clearInterval(autoplay);
+            autoplay = null;
+          }
+        };
+
+        const startAutoplay = function () {
+          stopAutoplay();
+          autoplay = window.setInterval(function () {
+            activeIndex = (activeIndex + 1) % slides.length;
+            render();
+          }, 1500);
+        };
+
+        const openListing = function () {
+          if (!detailUrl) {
+            return;
+          }
+
+          window.location.href = detailUrl;
+        };
+
+        const goNext = function () {
+          activeIndex = (activeIndex + 1) % slides.length;
+          render();
+        };
+
+        const goPrev = function () {
+          activeIndex = (activeIndex - 1 + slides.length) % slides.length;
+          render();
+        };
+
+        gallery.addEventListener('mouseenter', function () {
+          goNext();
+          startAutoplay();
+        });
+
+        gallery.addEventListener('mouseleave', function () {
+          stopAutoplay();
+          activeIndex = 0;
+          render();
+        });
+
+        prevButton?.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          stopAutoplay();
+          goPrev();
+        });
+
+        nextButton?.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (activeIndex >= slides.length - 1) {
+            openListing();
+            return;
+          }
+
+          stopAutoplay();
+          goNext();
+        });
+
+        render();
+      });
+    });
+  </script>
+@endpush
+
 @section('content')
     <main>
       <section class="hero-split-shell hero-split-shell--flush hero-split-shell--home">
@@ -59,8 +438,8 @@
 
           <div class="categories-explorer-panel" data-tab-panel="evento">
             <div class="categories-chip-cloud">
-              @forelse($eventTypes as $item)
-                <a href="{{ route('seo.landing.slug', ['slug' => $item->slug ?: \Illuminate\Support\Str::slug($item->name)]) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
+              @forelse($homeEventTypes as $item)
+                <a href="{{ route('home.event-category.redirect', ['eventType' => $item->slug ?: \Illuminate\Support\Str::slug($item->name)]) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
               @endforelse
@@ -69,7 +448,7 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="servicio">
             <div class="categories-chip-cloud">
-              @forelse($serviceTypes as $item)
+              @forelse($serviceTypes->take(6) as $item)
                 <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?service={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
@@ -79,7 +458,7 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="grupo">
             <div class="categories-chip-cloud">
-              @forelse($groupSizeOptions as $item)
+              @forelse($groupSizeOptions->take(6) as $item)
                 <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?group={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
@@ -89,7 +468,7 @@
 
           <div class="categories-explorer-panel hidden" data-tab-panel="presupuesto">
             <div class="categories-chip-cloud">
-              @forelse($budgetRanges as $item)
+              @forelse($budgetRanges->take(6) as $item)
                 <a href="{{ route('seo.landing.slug', ['slug' => $countryLandingSlug]) }}?budget={{ urlencode($item->slug ?: \Illuminate\Support\Str::slug($item->name)) }}" class="category-cloud-link"><span><x-catalog-icon :name="$item->icon" class="h-4 w-4" /></span><span>{{ $item->name }}</span></a>
               @empty
                 <span class="category-cloud-link opacity-70"><span>⏳</span><span>Próximamente</span></span>
@@ -134,6 +513,26 @@
                 $city = $profile->city_name ?: 'Ciudad no definida';
                 $detailUrl = $profile->slug ? route('mariachi.public.show', ['slug' => $profile->slug]) : route('seo.landing.slug', ['slug' => \Illuminate\Support\Str::slug($city)]);
                 $isVip = $profile->hasPremiumMarketplaceBadge();
+                $title = $profile->title ?: ($profile->short_description ?: 'Mariachi disponible para tu evento en '.$city.'.');
+                $showProviderLine = ! \Illuminate\Support\Str::contains(mb_strtolower($title), mb_strtolower((string) $name));
+                $previewPhotos = $profile->photos
+                  ->sortByDesc(fn ($photo) => $photo->is_featured ? 1 : 0)
+                  ->take(3)
+                  ->map(fn ($photo) => asset('storage/'.$photo->path))
+                  ->values();
+
+                if ($previewPhotos->isEmpty()) {
+                  $previewPhotos = collect([asset('marketplace/assets/logo-wordmark.png')]);
+                }
+                $signals = collect()
+                  ->merge($profile->eventTypes->pluck('name'))
+                  ->merge($profile->serviceTypes->pluck('name'))
+                  ->filter()
+                  ->unique()
+                  ->take(2);
+                $reviewsCount = (int) ($profile->public_reviews_count ?? 0);
+                $ratingValue = $reviewsCount > 0 ? (float) ($profile->public_rating_avg ?? 0) : 0;
+                $ratingLabel = number_format($ratingValue, 1);
               @endphp
 
               <article
@@ -143,29 +542,71 @@
                 data-card-url="{{ $detailUrl }}"
                 role="link"
                 tabindex="0"
-                aria-label="Abrir anuncio de {{ $name }}"
-                class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
+                aria-label="Abrir anuncio de {{ $title }}"
+                class="featured-promo-card featured-promo-card--listing home-featured-card is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
               >
-                <a href="{{ $detailUrl }}" class="featured-promo-media">
-                  <img src="{{ $photoUrl }}" alt="{{ $name }}" />
+                <div class="featured-promo-media" data-card-gallery>
+                  <div class="home-featured-card__gallery">
+                    @foreach ($previewPhotos as $index => $previewPhoto)
+                      <div class="home-featured-card__slide {{ $index === 0 ? 'is-active' : '' }}" data-card-gallery-slide aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                        <img src="{{ $previewPhoto }}" alt="{{ $name }}" />
+                      </div>
+                    @endforeach
+                  </div>
                   @if($isVip)
                     <span class="featured-promo-ribbon">{{ $profile->marketplaceBadgeLabel() }}</span>
                   @endif
-                  <span class="featured-promo-chip">Perfil completo</span>
-                  <span class="featured-promo-score">{{ $profile->profile_completion }}%</span>
-                </a>
+                  <span class="featured-promo-chip">{{ $city }}</span>
+                  @if ($previewPhotos->count() > 1)
+                    <div class="home-featured-card__nav" aria-hidden="true">
+                      <button type="button" class="home-featured-card__arrow home-featured-card__arrow--prev" data-card-gallery-prev aria-label="Ver foto anterior">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                      </button>
+                      <button type="button" class="home-featured-card__arrow home-featured-card__arrow--next" data-card-gallery-next aria-label="Ver foto siguiente">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  @endif
+                </div>
                 <button data-favorite="listing-{{ $profile->id }}" class="favorite-btn featured-favorite-btn" aria-label="Guardar en favoritos" aria-pressed="false">
                   <svg data-fav-icon xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
                 </button>
-                <div class="featured-promo-body">
-                  <p class="featured-promo-kicker">{{ $city }}</p>
-                  <h3 class="featured-promo-title">{{ $profile->short_description ?: 'Perfil de mariachi disponible para eventos en tu ciudad.' }}</h3>
-                </div>
-                <div class="featured-promo-footer">
-                  <p class="featured-promo-artist">{{ $name }}</p>
-                  <p class="featured-promo-meta">{{ $profile->state ?: $profile->country ?: 'Colombia' }}</p>
-                  <div class="featured-promo-bottom">
-                    <strong>{{ $profile->base_price ? 'Desde $'.number_format((float) $profile->base_price, 0, ',', '.') : 'Precio por cotizar' }}</strong>
+                <div class="featured-promo-body home-featured-card__body">
+                  @if ($showProviderLine)
+                    <p class="home-featured-card__provider">{{ $name }}</p>
+                  @endif
+                  <h3 class="featured-promo-title">
+                    <a href="{{ $detailUrl }}" class="home-featured-card__title-link">{{ $title }}</a>
+                  </h3>
+                  <div class="home-featured-card__rating" aria-label="{{ $ratingLabel }} de 5 con {{ $reviewsCount }} opiniones">
+                    <span class="home-featured-card__rating-star" aria-hidden="true">★</span>
+                    <span class="home-featured-card__rating-score">{{ $ratingLabel }}</span>
+                    <span class="home-featured-card__rating-count">({{ $reviewsCount }})</span>
+                  </div>
+                  @if ($signals->isNotEmpty())
+                    <div class="home-featured-card__signals">
+                      @foreach ($signals as $signal)
+                        <span class="home-featured-card__signal">{{ $signal }}</span>
+                      @endforeach
+                    </div>
+                  @endif
+                  <div class="home-featured-card__price-row">
+                    <span class="home-featured-card__price-inline">
+                      <span class="home-featured-card__price-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M7 7.5h9.5a2.5 2.5 0 0 1 0 5H8.5a2.5 2.5 0 0 0 0 5H18"></path>
+                          <path d="M12 5v14"></path>
+                        </svg>
+                      </span>
+                      <span class="home-featured-card__price-copy">
+                        <span class="home-featured-card__price-prefix">Desde</span>
+                        <span class="home-featured-card__price-amount">{{ $profile->base_price ? '$'.number_format((float) $profile->base_price, 0, ',', '.') : 'Cotizar' }}</span>
+                      </span>
+                    </span>
                   </div>
                 </div>
               </article>
@@ -173,10 +614,10 @@
               <article class="featured-promo-card">
                 <div class="featured-promo-body">
                   <p class="featured-promo-kicker">Sin anuncios aún</p>
-                  <h3 class="featured-promo-title">Aún no hay perfiles completos para mostrar en destacados.</h3>
+                  <h3 class="featured-promo-title">Aún no hay anuncios destacados para mostrar.</h3>
                 </div>
                 <div class="featured-promo-footer">
-                  <p class="featured-promo-meta">Cuando el primer mariachi complete su anuncio, aparecerá automáticamente aquí.</p>
+                  <p class="featured-promo-meta">Cuando el primer mariachi publique un anuncio activo, aparecerá automáticamente aquí.</p>
                 </div>
               </article>
             @endforelse
@@ -258,30 +699,93 @@
                         $name = $profile->business_name ?: $profile->user?->display_name;
                         $detailUrl = $profile->slug ? route('mariachi.public.show', ['slug' => $profile->slug]) : route('seo.landing.slug', ['slug' => $city['slug']]);
                         $isVip = $profile->hasPremiumMarketplaceBadge();
+                        $title = $profile->title ?: ($profile->short_description ?: 'Mariachi disponible para cotización en '.$city['city'].'.');
+                        $showProviderLine = ! \Illuminate\Support\Str::contains(mb_strtolower($title), mb_strtolower((string) $name));
+                        $previewPhotos = $profile->photos
+                          ->sortByDesc(fn ($photo) => $photo->is_featured ? 1 : 0)
+                          ->take(3)
+                          ->map(fn ($photo) => asset('storage/'.$photo->path))
+                          ->values();
+
+                        if ($previewPhotos->isEmpty()) {
+                          $previewPhotos = collect([asset('marketplace/assets/logo-wordmark.png')]);
+                        }
+                        $signals = collect()
+                          ->merge($profile->eventTypes->pluck('name'))
+                          ->merge($profile->serviceTypes->pluck('name'))
+                          ->filter()
+                          ->unique()
+                          ->take(2);
+                        $reviewsCount = (int) ($profile->public_reviews_count ?? 0);
+                        $ratingValue = $reviewsCount > 0 ? (float) ($profile->public_rating_avg ?? 0) : 0;
+                        $ratingLabel = number_format($ratingValue, 1);
                       @endphp
                       <article
                         data-card-url="{{ $detailUrl }}"
                         role="link"
                         tabindex="0"
-                        aria-label="Abrir anuncio de {{ $name }}"
-                        class="featured-promo-card featured-promo-card--listing is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
+                        aria-label="Abrir anuncio de {{ $title }}"
+                        class="featured-promo-card featured-promo-card--listing home-featured-card is-clickable-card {{ $isVip ? 'featured-promo-card--vip' : '' }}"
                       >
-                        <a href="{{ $detailUrl }}" class="featured-promo-media">
-                          <img src="{{ $photoUrl }}" alt="{{ $name }}" />
+                        <div class="featured-promo-media" data-card-gallery>
+                          <div class="home-featured-card__gallery">
+                            @foreach ($previewPhotos as $index => $previewPhoto)
+                              <div class="home-featured-card__slide {{ $index === 0 ? 'is-active' : '' }}" data-card-gallery-slide aria-hidden="{{ $index === 0 ? 'false' : 'true' }}">
+                                <img src="{{ $previewPhoto }}" alt="{{ $name }}" />
+                              </div>
+                            @endforeach
+                          </div>
                           @if($isVip)
                             <span class="featured-promo-ribbon">{{ $profile->marketplaceBadgeLabel() }}</span>
                           @endif
                           <span class="featured-promo-chip">{{ $city['city'] }}</span>
-                          <span class="featured-promo-score">{{ $profile->profile_completion }}%</span>
-                        </a>
-                        <div class="featured-promo-body">
-                          <p class="featured-promo-kicker">{{ $profile->state ?: 'Colombia' }}</p>
-                          <h3 class="featured-promo-title">{{ $profile->short_description ?: 'Perfil disponible para cotización.' }}</h3>
+                          @if ($previewPhotos->count() > 1)
+                            <div class="home-featured-card__nav" aria-hidden="true">
+                              <button type="button" class="home-featured-card__arrow home-featured-card__arrow--prev" data-card-gallery-prev aria-label="Ver foto anterior">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                              </button>
+                              <button type="button" class="home-featured-card__arrow home-featured-card__arrow--next" data-card-gallery-next aria-label="Ver foto siguiente">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                              </button>
+                            </div>
+                          @endif
                         </div>
-                        <div class="featured-promo-footer">
-                          <p class="featured-promo-artist">{{ $name }}</p>
-                          <div class="featured-promo-bottom">
-                            <strong>{{ $profile->base_price ? 'Desde $'.number_format((float) $profile->base_price, 0, ',', '.') : 'Precio por cotizar' }}</strong>
+                        <div class="featured-promo-body home-featured-card__body">
+                          @if ($showProviderLine)
+                            <p class="home-featured-card__provider">{{ $name }}</p>
+                          @endif
+                          <h3 class="featured-promo-title">
+                            <a href="{{ $detailUrl }}" class="home-featured-card__title-link">{{ $title }}</a>
+                          </h3>
+                          <div class="home-featured-card__rating" aria-label="{{ $ratingLabel }} de 5 con {{ $reviewsCount }} opiniones">
+                            <span class="home-featured-card__rating-star" aria-hidden="true">★</span>
+                            <span class="home-featured-card__rating-score">{{ $ratingLabel }}</span>
+                            <span class="home-featured-card__rating-count">({{ $reviewsCount }})</span>
+                          </div>
+                          @if ($signals->isNotEmpty())
+                            <div class="home-featured-card__signals">
+                              @foreach ($signals as $signal)
+                                <span class="home-featured-card__signal">{{ $signal }}</span>
+                              @endforeach
+                            </div>
+                          @endif
+                          <div class="home-featured-card__price-row">
+                            <span class="home-featured-card__price-inline">
+                              <span class="home-featured-card__price-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                  <path d="M7 7.5h9.5a2.5 2.5 0 0 1 0 5H8.5a2.5 2.5 0 0 0 0 5H18"></path>
+                                  <path d="M12 5v14"></path>
+                                </svg>
+                              </span>
+                              <span class="home-featured-card__price-copy">
+                                <span class="home-featured-card__price-prefix">Desde</span>
+                                <span class="home-featured-card__price-amount">{{ $profile->base_price ? '$'.number_format((float) $profile->base_price, 0, ',', '.') : 'Cotizar' }}</span>
+                              </span>
+                            </span>
                           </div>
                         </div>
                       </article>

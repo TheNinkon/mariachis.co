@@ -1998,7 +1998,7 @@
                 </div>
               @elseif($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED)
                 <div class="alert alert-success mb-4">
-                  El pago de este anuncio ya fue aprobado. Si no necesitas cambiar plan, no hace falta volver a pagar.
+                  Este anuncio ya tiene un pago aprobado. Puedes dejarlo como está, renovarlo o subirlo de plan sin bajarlo del aire.
                 </div>
               @elseif($listing->isPaymentRejected())
                 <div class="alert alert-danger mb-4">
@@ -2036,8 +2036,14 @@
                       $activeTerm = $plan['terms'][$selectedTermMonths] ?? reset($plan['terms']);
                       $isCurrentSelection = $listing->selected_plan_code === $code
                         && (int) ($listing->plan_duration_months ?: 1) === (int) ($activeTerm['months'] ?? 1);
+                      $canRenewCurrentPlan = $listing->status === \App\Models\MariachiListing::STATUS_ACTIVE
+                        && $listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED
+                        && $listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED
+                        && $isCurrentSelection;
                       $buttonLabel = 'Pagar con Wompi';
-                      if ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection) {
+                      if ($canRenewCurrentPlan) {
+                        $buttonLabel = 'Renovar con Wompi';
+                      } elseif ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection) {
                         $buttonLabel = 'Plan aprobado';
                       } elseif ($listing->isPaymentPending()) {
                         $buttonLabel = $isCurrentSelection ? 'Continuar pago en Wompi' : 'Pago pendiente en otro plan';
@@ -2050,7 +2056,7 @@
                       $isDisabled = ! $listing->listing_completed
                         || (! $isCurrentSelection && $listing->isPaymentPending())
                         || ! $wompi['is_configured']
-                        || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection);
+                        || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $isCurrentSelection && ! $canRenewCurrentPlan);
                     @endphp
 
                     <div

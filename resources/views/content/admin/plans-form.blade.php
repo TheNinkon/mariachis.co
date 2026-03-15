@@ -85,6 +85,15 @@
       font-size: 1.1rem;
       color: #2f2b3d;
     }
+
+    .plan-entitlement-field.is-disabled {
+      opacity: 0.55;
+    }
+
+    .plan-entitlement-field.is-disabled .form-control {
+      background: rgba(75, 70, 92, 0.06);
+      cursor: not-allowed;
+    }
   </style>
 @endsection
 
@@ -93,6 +102,9 @@
     document.addEventListener('DOMContentLoaded', function () {
       const basePriceInput = document.getElementById('plan-base-price');
       const pricingCards = Array.from(document.querySelectorAll('[data-pricing-card]'));
+      const videosToggle = document.getElementById('entitlement_{{ \App\Support\Entitlements\EntitlementKey::CAN_ADD_VIDEO }}');
+      const videoLimitField = document.querySelector('[data-video-limit-field]');
+      const videoLimitInput = document.getElementById('entitlement_{{ \App\Support\Entitlements\EntitlementKey::MAX_VIDEOS_PER_LISTING }}');
       const formatter = new Intl.NumberFormat('es-CO');
 
       const updatePricingPreview = () => {
@@ -137,7 +149,24 @@
         });
       });
 
+      const syncVideoField = () => {
+        if (!videoLimitField || !videoLimitInput || !videosToggle) {
+          return;
+        }
+
+        const enabled = videosToggle.checked;
+        videoLimitField.classList.toggle('is-disabled', !enabled);
+        videoLimitInput.disabled = !enabled;
+
+        if (!enabled) {
+          videoLimitInput.value = '0';
+        }
+      };
+
+      videosToggle?.addEventListener('change', syncVideoField);
+
       updatePricingPreview();
+      syncVideoField();
     });
   </script>
 @endsection
@@ -148,6 +177,20 @@
     use App\Support\Entitlements\EntitlementKey;
 
     $displayEntitlementGroups = collect($entitlementGroups)->except('pricing')->all();
+    $groupNotes = [
+      'listings' => 'Define el flujo del producto: cuántos borradores simultáneos puede abrir el mariachi y cuántos anuncios puede mantener publicados. Usa 0 en publicados si ese paquete no tiene tope.',
+      'media' => 'Controla cuánta galería y video puede mostrar cada anuncio.',
+      'contact' => 'Decide qué canales de contacto se ven en la ficha pública del anuncio.',
+      'coverage' => 'Controla hasta dónde puede extender su cobertura geográfica cada anuncio.',
+      'filters' => 'Limita cuántos filtros y combinaciones puede usar para aparecer en búsquedas.',
+      'visibility' => 'Ajusta prioridad y posiciones destacadas dentro del marketplace.',
+      'extras' => 'Aquí solo viven señales comerciales del plan y métricas. La verificación del perfil se vende por separado.',
+    ];
+    $softUnlimitedKeys = [
+      EntitlementKey::MAX_PUBLISHED_LISTINGS,
+      EntitlementKey::MAX_OPEN_DRAFTS,
+    ];
+    $videoEnabled = (bool) old('entitlements.'.EntitlementKey::CAN_ADD_VIDEO, $entitlementValues[EntitlementKey::CAN_ADD_VIDEO] ?? false);
     $pricingCards = [
       [
         'title' => 'Opción 1',
@@ -225,8 +268,9 @@
             </div>
 
             <div class="mb-4">
-              <label class="form-label">Badge</label>
+              <label class="form-label">Insignia comercial del plan</label>
               <input class="form-control" name="badge_text" value="{{ old('badge_text', $plan->badge_text) }}" maxlength="80" placeholder="Ej: Pro, Top, Privado" />
+              <div class="form-text">Esta insignia es comercial. No marca perfiles verificados.</div>
             </div>
 
             <div class="row g-4">
@@ -338,15 +382,19 @@
 
         @foreach ($displayEntitlementGroups as $category => $definitions)
           <div class="card mb-6">
-            <div class="card-header">
-              <h5 class="mb-1">{{ $categoryLabels[$category] ?? Str::headline($category) }}</h5>
-              <p class="mb-0 plan-editor-note">Entitlements configurables por admin.</p>
-            </div>
-            <div class="card-body">
-              <div class="row g-4">
-                @foreach ($definitions as $key => $definition)
+          <div class="card-header">
+            <h5 class="mb-1">{{ $categoryLabels[$category] ?? Str::headline($category) }}</h5>
+            <p class="mb-0 plan-editor-note">{{ $groupNotes[$category] ?? 'Capacidades configurables para este paquete.' }}</p>
+          </div>
+          <div class="card-body">
+            <div class="row g-4">
+              @foreach ($definitions as $key => $definition)
                   @php
                     $value = old('entitlements.'.$key, $entitlementValues[$key] ?? $definition['default']);
+                    $help = $definition['description'];
+                    if (in_array($key, $softUnlimitedKeys, true)) {
+                      $help .= ' Usa 0 para dejarlo sin tope.';
+                    }
                   @endphp
 
                   @if ($definition['type'] === 'boolean')
@@ -355,21 +403,29 @@
                       <div class="form-check form-switch border rounded p-4 h-100">
                         <input class="form-check-input" type="checkbox" id="entitlement_{{ $key }}" name="entitlements[{{ $key }}]" value="1" {{ (bool) $value ? 'checked' : '' }} />
                         <label class="form-check-label fw-semibold" for="entitlement_{{ $key }}">{{ $definition['label'] }}</label>
-                        <div class="small text-muted mt-2">{{ $definition['description'] }}</div>
+                        <div class="small text-muted mt-2">{{ $help }}</div>
                       </div>
                     </div>
                   @else
                     <div class="col-md-6">
                       <label class="form-label" for="entitlement_{{ $key }}">{{ $definition['label'] }}</label>
-                      <input
-                        id="entitlement_{{ $key }}"
-                        type="{{ $definition['type'] === 'integer' ? 'number' : 'text' }}"
-                        min="{{ $definition['type'] === 'integer' ? '0' : '' }}"
-                        class="form-control"
-                        name="entitlements[{{ $key }}]"
-                        value="{{ $value }}"
-                      />
-                      <small class="text-muted d-block mt-1">{{ $definition['description'] }}</small>
+                      <div
+                        class="plan-entitlement-field {{ $key === EntitlementKey::MAX_VIDEOS_PER_LISTING && ! $videoEnabled ? 'is-disabled' : '' }}"
+                        @if($key === EntitlementKey::MAX_VIDEOS_PER_LISTING)
+                          data-video-limit-field
+                        @endif
+                      >
+                        <input
+                          id="entitlement_{{ $key }}"
+                          type="{{ $definition['type'] === 'integer' ? 'number' : 'text' }}"
+                          min="{{ $definition['type'] === 'integer' ? '0' : '' }}"
+                          class="form-control"
+                          name="entitlements[{{ $key }}]"
+                          value="{{ $value }}"
+                          @disabled($key === EntitlementKey::MAX_VIDEOS_PER_LISTING && ! $videoEnabled)
+                        />
+                      </div>
+                      <small class="text-muted d-block mt-1">{{ $help }}</small>
                     </div>
                   @endif
                 @endforeach

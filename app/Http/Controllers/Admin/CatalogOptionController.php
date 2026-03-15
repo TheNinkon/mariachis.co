@@ -7,6 +7,7 @@ use App\Models\BudgetRange;
 use App\Models\EventType;
 use App\Models\GroupSizeOption;
 use App\Models\ServiceType;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -129,6 +130,11 @@ class CatalogOptionController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
+            'is_visible_in_home' => $meta['supports_home_editorial'] ? ['nullable', 'boolean'] : ['nullable'],
+            'home_priority' => $meta['supports_home_editorial'] ? ['nullable', 'integer', 'min:0', 'max:9999'] : ['nullable'],
+            'seasonal_start_at' => $meta['supports_home_editorial'] ? ['nullable', 'date'] : ['nullable'],
+            'seasonal_end_at' => $meta['supports_home_editorial'] ? ['nullable', 'date', 'after_or_equal:seasonal_start_at'] : ['nullable'],
+            'min_active_listings_required' => $meta['supports_home_editorial'] ? ['nullable', 'integer', 'min:0', 'max:999999'] : ['nullable'],
         ]);
     }
 
@@ -166,6 +172,22 @@ class CatalogOptionController extends Controller
             'is_active' => $request->boolean('is_active', true),
             'is_featured' => $request->boolean('is_featured'),
         ]);
+
+        if ($meta['supports_home_editorial']) {
+            $item->fill([
+                'is_visible_in_home' => $request->boolean('is_visible_in_home'),
+                'home_priority' => (int) ($validated['home_priority'] ?? 999),
+                'seasonal_start_at' => filled($validated['seasonal_start_at'] ?? null)
+                    ? Carbon::parse((string) $validated['seasonal_start_at'])->startOfDay()
+                    : null,
+                'seasonal_end_at' => filled($validated['seasonal_end_at'] ?? null)
+                    ? Carbon::parse((string) $validated['seasonal_end_at'])->endOfDay()
+                    : null,
+                'min_active_listings_required' => filled($validated['min_active_listings_required'] ?? null)
+                    ? (int) $validated['min_active_listings_required']
+                    : null,
+            ]);
+        }
     }
 
     private function resolveUniqueSlug(string $table, string $baseSlug, ?int $ignoreId = null): string
@@ -234,6 +256,7 @@ class CatalogOptionController extends Controller
                 'table' => 'event_types',
                 'default_icon' => 'confetti',
                 'slug_fallback' => 'tipo-evento',
+                'supports_home_editorial' => true,
             ],
             'service-types' => [
                 'title' => 'Tipos de servicio',
@@ -243,6 +266,7 @@ class CatalogOptionController extends Controller
                 'table' => 'service_types',
                 'default_icon' => 'settings',
                 'slug_fallback' => 'tipo-servicio',
+                'supports_home_editorial' => false,
             ],
             'group-sizes' => [
                 'title' => 'Tamaños de grupo',
@@ -252,6 +276,7 @@ class CatalogOptionController extends Controller
                 'table' => 'group_size_options',
                 'default_icon' => 'users',
                 'slug_fallback' => 'tamano-grupo',
+                'supports_home_editorial' => false,
             ],
             'budget-ranges' => [
                 'title' => 'Presupuestos',
@@ -261,6 +286,7 @@ class CatalogOptionController extends Controller
                 'table' => 'budget_ranges',
                 'default_icon' => 'coins',
                 'slug_fallback' => 'presupuesto',
+                'supports_home_editorial' => false,
             ],
         ];
 

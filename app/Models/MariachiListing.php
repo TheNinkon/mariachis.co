@@ -341,19 +341,29 @@ class MariachiListing extends Model
 
     public function effectivePlanCode(): ?string
     {
+        return $this->effectivePlan()?->code;
+    }
+
+    public function effectivePlan(): ?Plan
+    {
         if ($this->hasApprovedSelectedPlan()) {
-            return (string) $this->selected_plan_code;
+            return Plan::query()
+                ->with('entitlements')
+                ->where('code', (string) $this->selected_plan_code)
+                ->first();
         }
 
         if (! $this->relationLoaded('mariachiProfile')) {
-            $this->load('mariachiProfile.activeSubscription.plan');
+            $this->load('mariachiProfile.activeSubscription.plan.entitlements');
         } elseif ($this->mariachiProfile && ! $this->mariachiProfile->relationLoaded('activeSubscription')) {
-            $this->mariachiProfile->load('activeSubscription.plan');
+            $this->mariachiProfile->load('activeSubscription.plan.entitlements');
         } elseif ($this->mariachiProfile?->activeSubscription && ! $this->mariachiProfile->activeSubscription->relationLoaded('plan')) {
-            $this->mariachiProfile->activeSubscription->load('plan');
+            $this->mariachiProfile->activeSubscription->load('plan.entitlements');
+        } elseif ($this->mariachiProfile?->activeSubscription?->plan && ! $this->mariachiProfile->activeSubscription->plan->relationLoaded('entitlements')) {
+            $this->mariachiProfile->activeSubscription->plan->load('entitlements');
         }
 
-        return $this->mariachiProfile?->activeSubscription?->plan?->code;
+        return $this->mariachiProfile?->activeSubscription?->plan;
     }
 
     public function hasApprovedSelectedPlan(): bool
@@ -383,24 +393,24 @@ class MariachiListing extends Model
 
     public function hasPremiumMarketplaceBadge(): bool
     {
-        $planCode = $this->effectivePlanCode();
+        $plan = $this->effectivePlan();
 
-        if (! filled($planCode)) {
+        if (! $plan) {
             return false;
         }
 
-        $configured = config('monetization.plans.'.$planCode.'.has_premium_badge');
-
-        if (is_bool($configured)) {
-            return $configured;
-        }
-
-        return in_array((string) $planCode, ['premium', 'vip'], true);
+        return (bool) $plan->entitlementValue('has_premium_badge', $plan->has_premium_badge);
     }
 
     public function marketplaceBadgeLabel(): ?string
     {
-        return $this->hasPremiumMarketplaceBadge() ? 'VIP' : null;
+        $plan = $this->effectivePlan();
+
+        if (! $plan || ! $this->hasPremiumMarketplaceBadge()) {
+            return null;
+        }
+
+        return filled($plan->badge_text) ? (string) $plan->badge_text : 'VIP';
     }
 
     public function reviewStatusLabel(): string

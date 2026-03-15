@@ -812,11 +812,15 @@ import Sortable from 'sortablejs';
     });
   };
 
-  const syncPaymentSheet = button => {
-    const price = Number(button.dataset.planPrice || 0);
+  const syncPaymentSheet = (button, checkout = {}) => {
+    const price = Number(checkout.amount_cop || button.dataset.planPrice || 0);
+    const termLabel = checkout.term_label || button.dataset.planTermLabel || '1 mes';
+    const termMonths = String(checkout.term_months || button.dataset.planTermMonths || '1');
+    const planCode = checkout.plan_code || button.dataset.planCode || '';
+    const planName = checkout.plan_name || button.dataset.planName || '';
 
     paymentPlanNameTargets.forEach(target => {
-      target.textContent = button.dataset.planName || '';
+      target.textContent = planName;
     });
 
     paymentPlanAmountTargets.forEach(target => {
@@ -824,15 +828,15 @@ import Sortable from 'sortablejs';
     });
 
     paymentPlanDurationTargets.forEach(target => {
-      target.textContent = button.dataset.planTermLabel || '1 mes';
+      target.textContent = termLabel;
     });
 
     paymentPlanCodeInputs.forEach(input => {
-      input.value = button.dataset.planCode || '';
+      input.value = planCode;
     });
 
     paymentPlanTermInputs.forEach(input => {
-      input.value = button.dataset.planTermMonths || '1';
+      input.value = termMonths;
     });
 
     paymentPlanPriceInputs.forEach(input => {
@@ -1946,7 +1950,7 @@ import Sortable from 'sortablejs';
             throw new Error(payload.message || 'No pudimos preparar el pago para este plan.');
           }
 
-          syncPaymentSheet(button);
+          syncPaymentSheet(button, payload.checkout || {});
           showFinalStep();
           wompiCheckoutForm.submit();
         } catch (error) {

@@ -225,36 +225,78 @@ class MariachiProfile extends Model
             });
     }
 
-    public function listingLimit(): int
+    public function publishedListingLimit(): int
     {
         $this->loadMissing('activeSubscription.plan.entitlements');
 
         $plan = $this->activeSubscription?->plan;
-        $subscriptionPlanLimit = 0;
+        $subscriptionPlanLimit = null;
 
         if ($plan) {
-            $subscriptionPlanLimit = (int) ($plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL) ?? $plan->listing_limit ?? 0);
+            $subscriptionPlanLimit = $plan->entitlementValue(
+                EntitlementKey::MAX_PUBLISHED_LISTINGS,
+                $plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL, $plan->listing_limit)
+            );
         }
 
-        if ($subscriptionPlanLimit > 0) {
-            return $subscriptionPlanLimit;
+        if ($subscriptionPlanLimit !== null) {
+            return max(0, (int) $subscriptionPlanLimit);
         }
 
         $explicitLimit = (int) ($this->subscription_listing_limit ?? 0);
-        if ($explicitLimit > 0) {
-            return $explicitLimit;
+        if ($explicitLimit >= 0) {
+            return max(0, $explicitLimit);
         }
 
-        return match ((string) $this->subscription_plan_code) {
-            'premium' => 6,
-            'pro', 'plus' => 3,
-            default => 1,
-        };
+        return 0;
+    }
+
+    public function listingLimit(): int
+    {
+        return $this->publishedListingLimit();
+    }
+
+    public function openDraftLimit(): int
+    {
+        $this->loadMissing('activeSubscription.plan.entitlements');
+
+        $plan = $this->activeSubscription?->plan;
+
+        if ($plan) {
+            return max(0, (int) ($plan->entitlementValue(
+                EntitlementKey::MAX_OPEN_DRAFTS,
+                EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)
+            ) ?? EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)));
+        }
+
+        return (int) EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS);
+    }
+
+    public function hasUnlimitedPublishedListings(): bool
+    {
+        return $this->publishedListingLimit() === 0;
     }
 
     public function canCreateMoreListings(): bool
     {
-        return $this->listings()->count() < $this->listingLimit();
+        $limit = $this->openDraftLimit();
+
+        if ($limit === 0) {
+            return true;
+        }
+
+        return $this->listings()->openDrafts()->count() < $limit;
+    }
+
+    public function canPublishMoreListings(): bool
+    {
+        $limit = $this->publishedListingLimit();
+
+        if ($limit === 0) {
+            return true;
+        }
+
+        return $this->activeListings()->count() < $limit;
     }
 
     public function resolveDefaultListing(): ?MariachiListing

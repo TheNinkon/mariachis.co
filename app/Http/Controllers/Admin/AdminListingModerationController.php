@@ -5,21 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ListingPayment;
 use App\Models\MariachiListing;
-use App\Models\Plan;
-use App\Services\PlanAssignmentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AdminListingModerationController extends Controller
 {
-    public function __construct(
-        private readonly PlanAssignmentService $planAssignmentService
-    ) {
-    }
-
     public function index(Request $request): View
     {
         $reviewStatus = (string) $request->query('review_status', 'all');
@@ -144,6 +136,8 @@ class AdminListingModerationController extends Controller
             'budgetRanges:id,name',
             'reviewedBy:id,name,first_name,last_name',
             'latestPayment.reviewedBy:id,name,first_name,last_name',
+            'payments.reviewedBy:id,name,first_name,last_name',
+            'payments.retryOf:id,checkout_reference,target_plan_code',
         ])->loadCount(['quoteConversations', 'reviews']);
 
         $latestPayment = $listing->latestPayment;
@@ -223,17 +217,16 @@ class AdminListingModerationController extends Controller
             'rejection_reason' => ['nullable', 'string', 'max:2000', 'required_if:action,reject'],
         ]);
 
-        $pendingPayment = $listing->payments()
+        $hasPendingPayment = $listing->payments()
             ->where('status', ListingPayment::STATUS_PENDING)
-            ->latest('id')
-            ->first();
+            ->exists();
 
-        if ($pendingPayment) {
-            if ($validated['action'] === 'approve') {
-                return $this->approvePendingPayment($request, $listing, $pendingPayment);
-            }
-
-            return $this->rejectPendingPayment($request, $listing, $pendingPayment, (string) $validated['rejection_reason']);
+        if ($hasPendingPayment) {
+            return redirect()
+                ->route('admin.listings.show', $listing)
+                ->withErrors([
+                    'payment' => 'Este anuncio tiene pagos pendientes. Resuélvelos desde la pestaña Pagos antes de moderar el contenido.',
+                ]);
         }
 
         $payload = [
@@ -243,61 +236,22 @@ class AdminListingModerationController extends Controller
         ];
 
         if ($validated['action'] === 'approve') {
-            $approvedPayment = $listing->payments()
-                ->where('status', ListingPayment::STATUS_APPROVED)
-                ->latest('id')
-                ->first();
-
-            if ($listing->payment_status === MariachiListing::PAYMENT_APPROVED && $approvedPayment) {
-                $profile = $listing->mariachiProfile;
-                abort_unless($profile, 404);
-
-                $plan = Plan::query()
-                    ->where('code', $approvedPayment->plan_code ?: $listing->selected_plan_code)
-                    ->first();
-
-                if (! $plan) {
-                    return redirect()
-                        ->route('admin.listings.show', $listing)
-                        ->withErrors([
-                            'payment' => 'No encontramos el plan asociado al cobro aprobado. Revisa la configuracion del catalogo de planes.',
-                        ]);
-                }
-
-                DB::transaction(function () use ($listing, $approvedPayment, $plan, $profile, $payload, $request): void {
-                    $durationMonths = max(1, (int) ($approvedPayment->duration_months ?: $listing->plan_duration_months ?: 1));
-
-                    $this->planAssignmentService->assignToProfile(
-                        $profile,
-                        $plan,
-                        $listing,
-                        'wompi_checkout_review',
-                        [
-                            'listing_payment_id' => $approvedPayment->id,
-                            'reviewed_by_user_id' => $request->user()->id,
-                            'method' => $approvedPayment->method,
-                            'duration_months' => $durationMonths,
-                            'provider_transaction_id' => $approvedPayment->provider_transaction_id,
-                        ],
-                        true,
-                        $durationMonths,
-                        (int) ($approvedPayment->amount_cop ?: ($plan->price_cop * $durationMonths))
-                    );
-
-                    $listing->update($payload + [
-                        'review_status' => MariachiListing::REVIEW_APPROVED,
-                        'rejection_reason' => null,
-                        'status' => MariachiListing::STATUS_ACTIVE,
-                        'is_active' => true,
-                        'deactivated_at' => null,
+            if ($listing->payment_status !== MariachiListing::PAYMENT_APPROVED) {
+                return redirect()
+                    ->route('admin.listings.show', $listing)
+                    ->withErrors([
+                        'payment' => 'El anuncio todavía no tiene un pago aprobado. Valida primero el cobro desde Pagos.',
                     ]);
-                });
-            } else {
-                $listing->update($payload + [
-                    'review_status' => MariachiListing::REVIEW_APPROVED,
-                    'rejection_reason' => null,
-                ]);
             }
+
+            $listing->update($payload + [
+                'review_status' => MariachiListing::REVIEW_APPROVED,
+                'rejection_reason' => null,
+                'status' => MariachiListing::STATUS_ACTIVE,
+                'is_active' => true,
+                'activated_at' => $listing->activated_at ?? now(),
+                'deactivated_at' => null,
+            ]);
 
             return redirect()
                 ->route('admin.listings.show', $listing)
@@ -312,106 +266,5 @@ class AdminListingModerationController extends Controller
         return redirect()
             ->route('admin.listings.show', $listing)
             ->with('status', 'Anuncio rechazado y devuelto al mariachi.');
-    }
-
-    private function approvePendingPayment(Request $request, MariachiListing $listing, ListingPayment $payment): RedirectResponse
-    {
-        $profile = $listing->mariachiProfile;
-        abort_unless($profile, 404);
-
-        $plan = Plan::query()->where('code', $payment->plan_code)->first();
-
-        if (! $plan) {
-            return redirect()
-                ->route('admin.listings.show', $listing)
-                ->withErrors([
-                    'payment' => 'No encontramos el plan asociado a este comprobante. Revisa la configuracion del catalogo de planes.',
-                ]);
-        }
-
-        $reviewerId = $request->user()->id;
-
-        DB::transaction(function () use ($listing, $payment, $profile, $plan, $reviewerId): void {
-            $durationMonths = max(1, (int) ($payment->duration_months ?: $listing->plan_duration_months ?: 1));
-            $activatedAt = $listing->activated_at ?? now();
-
-            $payment->update([
-                'status' => ListingPayment::STATUS_APPROVED,
-                'reviewed_by' => $reviewerId,
-                'reviewed_at' => now(),
-                'rejection_reason' => null,
-            ]);
-
-            $this->planAssignmentService->assignToProfile(
-                $profile,
-                $plan,
-                $listing,
-                'wompi_checkout',
-                [
-                    'listing_payment_id' => $payment->id,
-                    'reviewed_by_user_id' => $reviewerId,
-                    'method' => $payment->method,
-                    'duration_months' => $durationMonths,
-                ],
-                true,
-                $durationMonths,
-                (int) $payment->amount_cop
-            );
-
-            $listing->update([
-                'selected_plan_code' => $payment->plan_code,
-                'plan_duration_months' => $durationMonths,
-                'plan_selected_at' => $listing->plan_selected_at ?? $payment->created_at ?? now(),
-                'payment_status' => MariachiListing::PAYMENT_APPROVED,
-                'review_status' => MariachiListing::REVIEW_APPROVED,
-                'submitted_for_review_at' => $listing->submitted_for_review_at ?? $payment->created_at ?? now(),
-                'reviewed_at' => now(),
-                'reviewed_by_user_id' => $reviewerId,
-                'rejection_reason' => null,
-                'status' => MariachiListing::STATUS_ACTIVE,
-                'is_active' => true,
-                'activated_at' => $activatedAt,
-                'plan_expires_at' => $activatedAt->copy()->addMonthsNoOverflow($durationMonths),
-                'deactivated_at' => null,
-            ]);
-        });
-
-        return redirect()
-            ->route('admin.listings.show', $listing)
-            ->with('status', 'Pago aprobado. La suscripcion quedo activa y el anuncio ya puede publicarse.');
-    }
-
-    private function rejectPendingPayment(
-        Request $request,
-        MariachiListing $listing,
-        ListingPayment $payment,
-        string $reason
-    ): RedirectResponse {
-        $reviewerId = $request->user()->id;
-
-        DB::transaction(function () use ($listing, $payment, $reviewerId, $reason): void {
-            $payment->update([
-                'status' => ListingPayment::STATUS_REJECTED,
-                'reviewed_by' => $reviewerId,
-                'reviewed_at' => now(),
-                'rejection_reason' => $reason,
-            ]);
-
-            $listing->update([
-                'payment_status' => MariachiListing::PAYMENT_REJECTED,
-                'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
-                'is_active' => false,
-                'review_status' => MariachiListing::REVIEW_DRAFT,
-                'submitted_for_review_at' => null,
-                'reviewed_at' => null,
-                'reviewed_by_user_id' => null,
-                'rejection_reason' => null,
-                'deactivated_at' => now(),
-            ]);
-        });
-
-        return redirect()
-            ->route('admin.listings.show', $listing)
-            ->with('status', 'Pago rechazado. El mariachi puede volver a intentar con un nuevo comprobante.');
     }
 }

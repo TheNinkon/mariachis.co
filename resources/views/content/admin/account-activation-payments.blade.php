@@ -55,7 +55,7 @@
               <div>
                 <h6 class="mb-1">{{ $payment->user?->display_name ?: 'Usuario sin nombre' }}</h6>
                 <p class="mb-0 small text-muted">
-                  {{ $payment->user?->email ?: '-' }} · {{ $payment->user?->phone ?: '-' }} · Estado cuenta: <strong>{{ $payment->user?->status ?: '-' }}</strong>
+                  {{ $payment->user?->email ?: '-' }} · {{ $payment->user?->phone ?: '-' }} · Estado cuenta: <strong>{{ $payment->user?->statusLabel() ?: '-' }}</strong>
                 </p>
               </div>
               <div class="small text-muted text-end">

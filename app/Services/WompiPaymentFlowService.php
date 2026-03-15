@@ -22,7 +22,8 @@ class WompiPaymentFlowService
     public const TYPE_VERIFICATION = 'verification';
 
     public function __construct(
-        private readonly WompiService $wompi
+        private readonly WompiService $wompi,
+        private readonly ListingPaymentService $listingPaymentService
     ) {
     }
 
@@ -96,39 +97,27 @@ class WompiPaymentFlowService
     ): string {
         $payment = $listing->payments()
             ->where('status', ListingPayment::STATUS_PENDING)
-            ->where('plan_code', $planCode)
+            ->where('target_plan_code', $planCode)
             ->where('duration_months', $durationMonths)
-            ->where('amount_cop', $amountCop)
+            ->where(function ($query) use ($amountCop): void {
+                $query->where('final_amount_cop', $amountCop)
+                    ->orWhere(function ($legacyQuery) use ($amountCop): void {
+                        $legacyQuery->whereNull('final_amount_cop')
+                            ->where('amount_cop', $amountCop);
+                    });
+            })
             ->latest('id')
             ->first();
 
         if (! $payment) {
-            $payment = $listing->payments()->create([
-                'mariachi_profile_id' => $profile->id,
-                'plan_code' => $planCode,
-                'duration_months' => $durationMonths,
-                'amount_cop' => $amountCop,
-                'method' => ListingPayment::METHOD_WOMPI,
-                'proof_path' => null,
-                'status' => ListingPayment::STATUS_PENDING,
-            ]);
+            throw new InvalidArgumentException('Listing checkout requires a prepared pending payment.');
         }
 
-        $listing->update([
-            'selected_plan_code' => $planCode,
-            'plan_duration_months' => $durationMonths,
-            'plan_selected_at' => $listing->plan_selected_at ?? now(),
-            'payment_status' => MariachiListing::PAYMENT_PENDING,
-            'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
-            'is_active' => false,
-            'review_status' => MariachiListing::REVIEW_DRAFT,
-            'submitted_for_review_at' => null,
-            'reviewed_at' => null,
-            'reviewed_by_user_id' => null,
-            'rejection_reason' => null,
-            'deactivated_at' => now(),
-        ]);
+        return $this->checkoutUrlForListingPayment($payment, $profile);
+    }
 
+    public function checkoutUrlForListingPayment(ListingPayment $payment, MariachiProfile $profile): string
+    {
         return $this->checkoutUrl(self::TYPE_LISTING, $payment, $this->customerDataForProfile($profile));
     }
 
@@ -401,38 +390,26 @@ class WompiPaymentFlowService
         string $rejectionReason,
         $finalizedAt
     ): void {
-        /** @var ListingPayment $payment */
-        $payment = $paymentModel->loadMissing('listing');
-        $listing = $payment->listing;
-
-        if (! $listing) {
-            return;
-        }
-
         $approved = $this->wompi->isApprovedStatus($transactionStatus);
 
-        $payment->update([
+        /** @var ListingPayment $payment */
+        $payment = $paymentModel instanceof ListingPayment ? $paymentModel : ListingPayment::query()->findOrFail($paymentModel->getKey());
+
+        $attributes = [
             'method' => ListingPayment::METHOD_WOMPI,
-            'status' => $approved ? ListingPayment::STATUS_APPROVED : ListingPayment::STATUS_REJECTED,
             'provider_transaction_id' => $transactionId,
             'provider_transaction_status' => $transactionStatus,
             'provider_payload' => $providerPayload,
             'reviewed_at' => $finalizedAt,
-            'reviewed_by' => null,
-            'rejection_reason' => $approved ? null : $rejectionReason,
-        ]);
+        ];
 
-        $listing->update([
-            'payment_status' => $approved ? MariachiListing::PAYMENT_APPROVED : MariachiListing::PAYMENT_REJECTED,
-            'status' => $approved ? MariachiListing::STATUS_DRAFT : MariachiListing::STATUS_AWAITING_PAYMENT,
-            'is_active' => false,
-            'review_status' => MariachiListing::REVIEW_DRAFT,
-            'submitted_for_review_at' => null,
-            'reviewed_at' => null,
-            'reviewed_by_user_id' => null,
-            'rejection_reason' => null,
-            'deactivated_at' => $approved ? null : now(),
-        ]);
+        if ($approved) {
+            $this->listingPaymentService->approvePayment($payment, null, $attributes);
+
+            return;
+        }
+
+        $this->listingPaymentService->rejectPayment($payment, $rejectionReason, null, $attributes);
     }
 
     private function syncVerificationPayment(

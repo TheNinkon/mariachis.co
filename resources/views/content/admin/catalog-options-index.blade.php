@@ -32,6 +32,13 @@
               <th>Nombre</th>
               <th>Slug</th>
               <th>Orden</th>
+              @if($meta['supports_home_editorial'] ?? false)
+                <th>Home</th>
+                <th>Prioridad</th>
+                <th>Oferta mínima</th>
+                <th>Temporada</th>
+                <th>Clics</th>
+              @endif
               <th>Destacado</th>
               <th>Estado</th>
               <th>Acciones</th>
@@ -48,6 +55,24 @@
                 <td>{{ $item->name }}</td>
                 <td><code>{{ $item->slug }}</code></td>
                 <td>{{ $item->sort_order }}</td>
+                @if($meta['supports_home_editorial'] ?? false)
+                  <td>
+                    <span class="badge bg-label-{{ $item->is_visible_in_home ? 'success' : 'secondary' }}">
+                      {{ $item->is_visible_in_home ? 'Visible' : 'Oculta' }}
+                    </span>
+                  </td>
+                  <td>{{ $item->home_priority ?? '—' }}</td>
+                  <td>{{ $item->min_active_listings_required ?? '—' }}</td>
+                  <td>
+                    @if($item->seasonal_start_at || $item->seasonal_end_at)
+                      <div class="small">{{ optional($item->seasonal_start_at)->format('d/m/Y') ?: '—' }}</div>
+                      <div class="small text-muted">{{ optional($item->seasonal_end_at)->format('d/m/Y') ?: '—' }}</div>
+                    @else
+                      <span class="text-muted">Todo el año</span>
+                    @endif
+                  </td>
+                  <td>{{ number_format((int) ($item->home_clicks_count ?? 0), 0, ',', '.') }}</td>
+                @endif
                 <td>
                   <span class="badge bg-label-{{ $item->is_featured ? 'warning' : 'secondary' }}">
                     {{ $item->is_featured ? 'Sí' : 'No' }}

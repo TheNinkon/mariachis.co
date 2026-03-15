@@ -101,7 +101,7 @@
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
         <h5 class="mb-1">Paquetes y capacidades</h5>
-        <p class="mb-0 text-body-secondary">Define limites reales y features sin depender del nombre del plan.</p>
+        <p class="mb-0 text-body-secondary">Define vigencias, contacto, cobertura, borradores y señales comerciales del plan sin mezclarlo con la verificación del perfil.</p>
       </div>
       <div class="d-flex gap-2 flex-wrap">
         <a href="{{ route('admin.profile-verification-plans.index') }}" class="btn btn-outline-primary">Verificacion de perfil</a>
@@ -126,6 +126,10 @@
           @forelse ($plans as $plan)
             @php
               $entitlements = $plan->entitlements->mapWithKeys(fn ($entitlement): array => [$entitlement->key => $entitlement->value]);
+              $publishedLimit = (int) (($entitlements[EntitlementKey::MAX_PUBLISHED_LISTINGS] ?? null) ?? ($entitlements[EntitlementKey::MAX_LISTINGS_TOTAL] ?? $plan->listing_limit));
+              $openDraftLimit = (int) ($entitlements[EntitlementKey::MAX_OPEN_DRAFTS] ?? \App\Support\Entitlements\EntitlementKey::defaultFor(\App\Support\Entitlements\EntitlementKey::MAX_OPEN_DRAFTS));
+              $publishedLimitLabel = $publishedLimit === 0 ? 'Ilimitados' : $publishedLimit.' publicados';
+              $draftLimitLabel = $openDraftLimit === 0 ? 'Sin tope' : $openDraftLimit.' abiertos';
               $pricingSummary = collect([
                 [
                   'months' => (int) ($entitlements[EntitlementKey::LISTING_TERM_PRIMARY_MONTHS] ?? 0),
@@ -164,10 +168,10 @@
               </td>
               <td>
                 <div class="small">
-                  <div>{{ (int) ($entitlements['max_listings_total'] ?? $plan->listing_limit) }} anuncio(s)</div>
+                  <div>Borradores: {{ $draftLimitLabel }}</div>
+                  <div>Publicados: {{ $publishedLimitLabel }}</div>
                   <div>{{ (int) ($entitlements['max_photos_per_listing'] ?? $plan->max_photos_per_listing) }} foto(s)</div>
-                  <div>{{ (int) ($entitlements['max_videos_per_listing'] ?? $plan->max_videos_per_listing) }} video(s)</div>
-                  <div>{{ (int) ($entitlements['max_zones_covered'] ?? 0) }} zona(s)</div>
+                  <div>{{ ($entitlements['can_add_video'] ?? $plan->max_videos_per_listing > 0) ? (int) ($entitlements['max_videos_per_listing'] ?? $plan->max_videos_per_listing).' video(s)' : 'Sin videos' }}</div>
                 </div>
               </td>
               <td>
@@ -179,7 +183,7 @@
               <td>
                 <div class="small">
                   <div>Prioridad: {{ (int) ($entitlements['priority_level'] ?? $plan->priority_level) }}</div>
-                  <div>Badge: {{ ($entitlements['has_premium_badge'] ?? $plan->has_premium_badge) ? 'Si' : 'No' }}</div>
+                  <div>Insignia comercial: {{ ($entitlements['has_premium_badge'] ?? $plan->has_premium_badge) ? 'Si' : 'No' }}</div>
                   <div>Stats: {{ ($entitlements['has_advanced_stats'] ?? $plan->has_advanced_stats) ? 'Si' : 'No' }}</div>
                 </div>
               </td>

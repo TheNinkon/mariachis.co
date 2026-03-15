@@ -187,6 +187,16 @@ class User extends Authenticatable
         };
     }
 
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_ACTIVE => 'Activa',
+            self::STATUS_PENDING_ACTIVATION => 'Pendiente de activación',
+            self::STATUS_INACTIVE => 'Inactiva',
+            default => (string) $this->status,
+        };
+    }
+
     public function sendPasswordResetNotification($token): void
     {
         if ($this->isClient()) {

@@ -22,7 +22,7 @@ class MariachiDashboardController extends Controller
     {
         $user = auth()->user();
         $profile = $user->mariachiProfile?->loadMissing('stat', 'activeSubscription.plan.entitlements');
-        $openDraftLimit = MariachiListing::OPEN_DRAFT_LIMIT;
+        $openDraftLimit = $profile ? $this->entitlementsService->openDraftLimit($profile) : MariachiListing::OPEN_DRAFT_LIMIT;
 
         $listings = $profile
             ? $profile->listings()

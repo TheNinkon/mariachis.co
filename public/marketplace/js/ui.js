@@ -2887,10 +2887,14 @@
 
       shell.dataset.carouselReady = "true";
 
+      function getVisibleCards() {
+        const visibleCards = Array.from(track.querySelectorAll(".featured-promo-card:not(.hidden)"));
+
+        return visibleCards.length ? visibleCards : Array.from(track.querySelectorAll(".featured-promo-card"));
+      }
+
       function getStep() {
-        const firstVisible =
-          track.querySelector(".featured-promo-card:not(.hidden)") ||
-          track.querySelector(".featured-promo-card");
+        const firstVisible = getVisibleCards()[0] || null;
         if (!firstVisible) {
           return 300;
         }
@@ -2898,6 +2902,8 @@
       }
 
       function updateButtons() {
+        const visibleCards = getVisibleCards();
+        shell.classList.toggle("is-single", visibleCards.length <= 1);
         const maxScroll = Math.max(track.scrollWidth - track.clientWidth, 0);
         const current = track.scrollLeft;
         leftButton.disabled = current <= 3;

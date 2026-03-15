@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class HomeController extends Controller
@@ -34,6 +35,19 @@ class HomeController extends Controller
         'norte-centro-historico' => 'Norte Centro Histórico',
         'usaquen' => 'Usaquén',
     ];
+
+    public function redirectToEventCategory(EventType $eventType): RedirectResponse
+    {
+        if (! $eventType->is_active) {
+            abort(404);
+        }
+
+        $eventType->increment('home_clicks_count');
+
+        return redirect()->route('seo.landing.slug', [
+            'slug' => $eventType->slug ?: Str::slug($eventType->name),
+        ]);
+    }
 
     public function __invoke(
         Request $request,
@@ -53,6 +67,16 @@ class HomeController extends Controller
                 'serviceTypes:id,name',
                 'budgetRanges:id,name',
             ])
+            ->withCount([
+                'reviews as public_reviews_count' => function ($query): void {
+                    $query->publicVisible();
+                },
+            ])
+            ->withAvg([
+                'reviews as public_rating_avg' => function ($query): void {
+                    $query->publicVisible();
+                },
+            ], 'rating')
             ->published()
             ->latest('updated_at')
             ->get();
@@ -68,6 +92,27 @@ class HomeController extends Controller
             'name' => $city['city'],
             'slug' => Str::slug($city['city']),
         ]);
+
+        $homeEventTypes = EventType::query()
+            ->availableForHome()
+            ->withCount(['mariachiListings as active_home_listings_count' => function ($query): void {
+                $query->published();
+            }])
+            ->get(['id', 'name', 'slug', 'icon', 'home_priority', 'min_active_listings_required', 'home_clicks_count'])
+            ->filter(function (EventType $eventType): bool {
+                $minimum = (int) ($eventType->min_active_listings_required ?? 0);
+
+                return (int) $eventType->active_home_listings_count >= $minimum;
+            })
+            ->sortBy(function (EventType $eventType): string {
+                $priority = str_pad((string) ((int) ($eventType->home_priority ?? 999)), 4, '0', STR_PAD_LEFT);
+                $listingSignal = str_pad((string) max(0, 999999 - (int) ($eventType->active_home_listings_count ?? 0)), 6, '0', STR_PAD_LEFT);
+                $clickSignal = str_pad((string) max(0, 999999 - (int) ($eventType->home_clicks_count ?? 0)), 6, '0', STR_PAD_LEFT);
+
+                return $priority.'|'.$listingSignal.'|'.$clickSignal.'|'.mb_strtolower((string) $eventType->name);
+            })
+            ->take(6)
+            ->values();
 
         $popularEvents = EventType::query()
             ->where('is_active', true)
@@ -141,6 +186,7 @@ class HomeController extends Controller
             'featuredProfiles' => $featuredProfiles,
             'featuredTags' => $featuredTags,
             'cityShowcase' => $cityShowcase,
+            'homeEventTypes' => $homeEventTypes,
             'popularCities' => $popularCities,
             'popularEvents' => $popularEvents,
             'popularBudgetRanges' => $popularBudgetRanges,

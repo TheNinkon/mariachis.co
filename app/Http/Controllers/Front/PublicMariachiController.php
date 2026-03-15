@@ -173,6 +173,7 @@ class PublicMariachiController extends Controller
 
         $recentlyViewedListings = $this->recentlyViewedListings($request, $profile);
         $seoHelpfulLinks = $this->buildHelpfulSeoLinks($profile, $relatedProfiles, $citySlug);
+        $seoHelpfulLinkGroups = $this->buildHelpfulSeoLinkGroups($profile, $relatedProfiles, $citySlug);
 
         $viewKey = 'mariachi_listing_viewed_'.$profile->id;
         $lastSeen = (int) $request->session()->get($viewKey, 0);
@@ -211,6 +212,7 @@ class PublicMariachiController extends Controller
             'relatedProfiles' => $relatedProfiles,
             'recentlyViewedListings' => $recentlyViewedListings,
             'seoHelpfulLinks' => $seoHelpfulLinks,
+            'seoHelpfulLinkGroups' => $seoHelpfulLinkGroups,
             'mapEmbedUrl' => $this->buildMapEmbedUrl($profile),
             'whatsappUrl' => $normalizedWhatsApp
                 ? 'https://wa.me/'.$normalizedWhatsApp.'?text='.rawurlencode('Hola '.$name.', vi tu anuncio en mariachis.co y quiero cotizar mi evento.')
@@ -358,5 +360,71 @@ class PublicMariachiController extends Controller
             ->unique('url')
             ->take(20)
             ->values();
+    }
+
+    private function buildHelpfulSeoLinkGroups(MariachiListing $profile, Collection $relatedProfiles, string $citySlug): Collection
+    {
+        $cityLabel = $profile->city_name ?: 'Colombia';
+        $cityLink = route('seo.landing.slug', ['slug' => $citySlug]);
+
+        $locationLinks = collect([
+            [
+                'label' => 'Mariachis en '.$cityLabel,
+                'url' => $cityLink,
+            ],
+            filled($profile->zone_name) ? [
+                'label' => 'Mariachis en '.$profile->zone_name,
+                'url' => route('seo.landing.city-category', [
+                    'citySlug' => $citySlug,
+                    'scopeSlug' => Str::slug((string) $profile->zone_name),
+                ]),
+            ] : null,
+        ])
+            ->filter()
+            ->unique('url')
+            ->values();
+
+        $eventLinks = $profile->eventTypes
+            ->take(6)
+            ->map(fn ($eventType): array => [
+                'label' => $eventType->name,
+                'url' => route('seo.landing.city-category', [
+                    'citySlug' => $citySlug,
+                    'scopeSlug' => Str::slug($eventType->name),
+                ]),
+            ])
+            ->unique('url')
+            ->values();
+
+        $relatedLinks = $relatedProfiles
+            ->take(6)
+            ->map(function (MariachiListing $listing): array {
+                $name = $listing->business_name ?: $listing->user?->display_name ?: $listing->title;
+
+                return [
+                    'label' => (string) $name,
+                    'url' => route('mariachi.public.show', ['slug' => $listing->slug]),
+                ];
+            })
+            ->unique('url')
+            ->values();
+
+        return collect([
+            [
+                'key' => 'location',
+                'label' => 'Ubicación',
+                'items' => $locationLinks,
+            ],
+            [
+                'key' => 'event',
+                'label' => 'Tipo de evento',
+                'items' => $eventLinks,
+            ],
+            [
+                'key' => 'related',
+                'label' => 'Anuncios similares',
+                'items' => $relatedLinks,
+            ],
+        ])->filter(fn (array $group): bool => $group['items']->isNotEmpty())->values();
     }
 }

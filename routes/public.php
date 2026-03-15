@@ -72,6 +72,7 @@ Route::domain($publicHost)->group(function () use (
     Route::get('/', HomeController::class)->name('home');
     Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
     Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+    Route::get('/categorias/eventos/{eventType:slug}', [HomeController::class, 'redirectToEventCategory'])->name('home.event-category.redirect');
     Route::get('/terminos', [StaticPageController::class, 'show'])->defaults('pageKey', 'terms')->name('static.terms');
     Route::get('/privacidad', [StaticPageController::class, 'show'])->defaults('pageKey', 'privacy')->name('static.privacy');
     Route::get('/ayuda', [StaticPageController::class, 'show'])->defaults('pageKey', 'help')->name('static.help');

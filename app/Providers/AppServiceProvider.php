@@ -7,6 +7,7 @@ use App\Services\SocialLoginSettingsService;
 use App\Support\PortalHosts;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -30,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
         SocialLoginSettingsService $socialLoginSettings
     ): void
     {
+        Paginator::useBootstrapFive();
+
         Authenticate::redirectUsing(static function (Request $request): string {
             return route(PortalHosts::loginRouteNameForRequest($request));
         });

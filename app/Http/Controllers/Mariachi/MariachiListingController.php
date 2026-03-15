@@ -18,6 +18,7 @@ use App\Models\Plan;
 use App\Models\ServiceType;
 use App\Services\EntitlementsService;
 use App\Services\GoogleMapsSettingsService;
+use App\Services\ListingPaymentService;
 use App\Services\MediaProtectionService;
 use App\Services\PlanAssignmentService;
 use App\Services\SubscriptionCapabilityService;
@@ -25,6 +26,7 @@ use App\Services\WompiPaymentFlowService;
 use App\Services\WompiService;
 use App\Support\Entitlements\EntitlementKey;
 use App\Support\ListingDescriptionSanitizer;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +42,7 @@ class MariachiListingController extends Controller
         private readonly SubscriptionCapabilityService $capabilityService,
         private readonly EntitlementsService $entitlementsService,
         private readonly PlanAssignmentService $planAssignmentService,
+        private readonly ListingPaymentService $listingPaymentService,
         private readonly MediaProtectionService $mediaProtectionService,
         private readonly GoogleMapsSettingsService $googleMapsSettings,
         private readonly WompiPaymentFlowService $paymentFlows,
@@ -56,7 +59,7 @@ class MariachiListingController extends Controller
             ->latest('updated_at')
             ->get();
 
-        $openDraftLimit = MariachiListing::OPEN_DRAFT_LIMIT;
+        $openDraftLimit = $this->entitlementsService->openDraftLimit($profile);
         $openDraftsCount = $listings->filter(fn (MariachiListing $listing): bool => $listing->isOpenDraft())->count();
         $planSummary = $this->entitlementsService->summary($profile);
         $planIssues = $this->entitlementsService->profileAdjustmentIssues($profile);
@@ -79,7 +82,7 @@ class MariachiListingController extends Controller
             'listingIssues' => $listingIssues,
             'openDraftLimit' => $openDraftLimit,
             'openDraftsCount' => $openDraftsCount,
-            'canCreateListingDraft' => $openDraftsCount < $openDraftLimit,
+            'canCreateListingDraft' => $openDraftLimit === 0 || $openDraftsCount < $openDraftLimit,
             'activeCount' => $activeCount,
             'pendingReviewCount' => $pendingReviewCount,
             'awaitingPaymentCount' => $awaitingPaymentCount,
@@ -90,13 +93,14 @@ class MariachiListingController extends Controller
     public function create(): RedirectResponse
     {
         $profile = $this->providerProfile();
+        $openDraftLimit = $this->entitlementsService->openDraftLimit($profile);
         $openDraftsCount = $profile->listings()->openDrafts()->count();
 
-        if ($openDraftsCount >= MariachiListing::OPEN_DRAFT_LIMIT) {
+        if ($openDraftLimit > 0 && $openDraftsCount >= $openDraftLimit) {
             return redirect()
                 ->route('mariachi.listings.index')
                 ->withErrors([
-                    'open_drafts' => 'Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.',
+                    'open_drafts' => $this->openDraftLimitMessage($openDraftLimit),
                 ]);
         }
 
@@ -111,13 +115,14 @@ class MariachiListingController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $profile = $this->providerProfile();
+        $openDraftLimit = $this->entitlementsService->openDraftLimit($profile);
         $openDraftsCount = $profile->listings()->openDrafts()->count();
 
-        if ($openDraftsCount >= MariachiListing::OPEN_DRAFT_LIMIT) {
+        if ($openDraftLimit > 0 && $openDraftsCount >= $openDraftLimit) {
             return redirect()
                 ->route('mariachi.listings.index')
                 ->withErrors([
-                    'open_drafts' => 'Has alcanzado el maximo de 5 borradores abiertos. Publica o elimina uno para crear otro.',
+                    'open_drafts' => $this->openDraftLimitMessage($openDraftLimit),
                 ]);
         }
 
@@ -207,6 +212,7 @@ class MariachiListingController extends Controller
             $listing->payment_status === MariachiListing::PAYMENT_APPROVED
             && $listing->selected_plan_code === $planCode
             && (int) ($listing->plan_duration_months ?: 1) === (int) $selectedTerm['months']
+            && $listing->status !== MariachiListing::STATUS_ACTIVE
         ) {
             return $this->planSelectionResponse(
                 $request,
@@ -216,50 +222,36 @@ class MariachiListingController extends Controller
             );
         }
 
-        if ($listing->isPaymentPending()) {
-            $samePendingSelection = $listing->selected_plan_code === $planCode
-                && (int) ($listing->plan_duration_months ?: 1) === (int) $selectedTerm['months'];
-
-            if ($samePendingSelection) {
-                return $this->planSelectionResponse(
-                    $request,
-                    true,
-                    'Ya existe un pago Wompi pendiente para este plan. Continúa con el checkout para finalizarlo.',
-                    route('mariachi.listings.edit', ['listing' => $listing->id])
-                );
-            }
-
+        try {
+            $preview = $this->listingPaymentService->previewCheckout($listing, $planModel, $selectedTerm);
+        } catch (DomainException $exception) {
             return $this->planSelectionResponse(
                 $request,
                 false,
-                'Ya existe un pago Wompi pendiente para este anuncio. Espera a que termine o vuelve a abrir el mismo checkout.',
+                $exception->getMessage(),
                 route('mariachi.listings.edit', ['listing' => $listing->id]),
-                409
+                422
             );
         }
-
-        $listing->update([
-            'selected_plan_code' => $planCode,
-            'plan_duration_months' => (int) $selectedTerm['months'],
-            'plan_selected_at' => now(),
-            'payment_status' => MariachiListing::PAYMENT_NONE,
-            'status' => MariachiListing::STATUS_AWAITING_PAYMENT,
-            'is_active' => false,
-            'review_status' => MariachiListing::REVIEW_DRAFT,
-            'submitted_for_review_at' => null,
-            'reviewed_at' => null,
-            'reviewed_by_user_id' => null,
-            'rejection_reason' => null,
-            'deactivated_at' => now(),
-        ]);
-
-        $this->refreshListingProgress($listing->refresh());
 
         return $this->planSelectionResponse(
             $request,
             true,
-            'Plan seleccionado ('.$selectedPlan['name'].' · '.$selectedTerm['label'].'). Ahora serás redirigido a Wompi para completar el pago.',
-            route('mariachi.listings.edit', ['listing' => $listing->id])
+            (string) $preview['message'],
+            route('mariachi.listings.edit', ['listing' => $listing->id]),
+            200,
+            [
+                'checkout' => [
+                    'plan_code' => $planCode,
+                    'plan_name' => $selectedPlan['name'],
+                    'term_months' => (int) $selectedTerm['months'],
+                    'term_label' => (string) $selectedTerm['label'],
+                    'amount_cop' => (int) $preview['final_amount_cop'],
+                    'base_amount_cop' => (int) $preview['base_amount_cop'],
+                    'applied_credit_cop' => (int) $preview['applied_credit_cop'],
+                    'operation_type' => (string) $preview['operation_type'],
+                ],
+            ]
         );
     }
 
@@ -315,20 +307,24 @@ class MariachiListingController extends Controller
             ->first();
         abort_unless($planModel, 422);
 
-        if ((int) $validated['amount_cop'] !== (int) $selectedTerm['total_price_cop']) {
+        try {
+            $preview = $this->listingPaymentService->previewCheckout($listing, $planModel, $selectedTerm);
+        } catch (DomainException $exception) {
             return back()->withErrors([
-                'amount_cop' => 'El monto enviado no coincide con el valor configurado para este plan.',
+                'payment' => $exception->getMessage(),
             ]);
         }
 
+        if ((int) $validated['amount_cop'] !== (int) $preview['final_amount_cop']) {
+            return back()->withErrors([
+                'amount_cop' => 'El monto enviado no coincide con el valor final calculado para este pago.',
+            ]);
+        }
+
+        $payment = $this->listingPaymentService->prepareCheckout($listing, $profile, $planModel, $preview);
+
         return redirect()->away(
-            $this->paymentFlows->beginListingCheckout(
-                $listing,
-                $profile,
-                $planCode,
-                (int) $selectedTerm['months'],
-                (int) $selectedTerm['total_price_cop']
-            )
+            $this->paymentFlows->checkoutUrlForListingPayment($payment, $profile)
         );
     }
 
@@ -1183,7 +1179,9 @@ class MariachiListingController extends Controller
                 'is_public' => (bool) $plan->is_public,
                 'price_cop' => (int) $plan->price_cop,
                 'billing_cycle' => (string) ($plan->billing_cycle ?: 'monthly'),
-                'listing_limit' => (int) ($plan->entitlementValue('max_listings_total', $plan->listing_limit) ?? 1),
+                'max_published_listings' => (int) ($plan->entitlementValue(EntitlementKey::MAX_PUBLISHED_LISTINGS, $plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL, $plan->listing_limit)) ?? 0),
+                'max_open_drafts' => (int) ($plan->entitlementValue(EntitlementKey::MAX_OPEN_DRAFTS, EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)) ?? EntitlementKey::defaultFor(EntitlementKey::MAX_OPEN_DRAFTS)),
+                'listing_limit' => (int) ($plan->entitlementValue(EntitlementKey::MAX_PUBLISHED_LISTINGS, $plan->entitlementValue(EntitlementKey::MAX_LISTINGS_TOTAL, $plan->listing_limit)) ?? 0),
                 'included_cities' => (int) ($plan->entitlementValue('max_cities_covered', $plan->included_cities) ?? 1),
                 'max_zones_covered' => (int) ($plan->entitlementValue('max_zones_covered', max(5, $plan->included_cities * 5)) ?? 5),
                 'max_photos_per_listing' => (int) ($plan->entitlementValue('max_photos_per_listing', $plan->max_photos_per_listing) ?? 0),
@@ -1316,14 +1314,15 @@ class MariachiListingController extends Controller
         bool $ok,
         string $message,
         string $redirectTo,
-        int $status = 200
+        int $status = 200,
+        array $data = []
     ): RedirectResponse|JsonResponse {
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => $ok,
                 'message' => $message,
                 'redirect_to' => $redirectTo,
-            ], $status);
+            ] + $data, $status);
         }
 
         if ($ok) {
@@ -1667,6 +1666,14 @@ class MariachiListingController extends Controller
         }
 
         $this->planAssignmentService->assignToProfile($profile, $plan, null, 'auto_default');
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function openDraftLimitMessage(int $limit): string
+    {
+        return 'Has alcanzado el maximo de '.$limit.' borradores abiertos. Publica o elimina uno para crear otro.';
     }
 
     /**

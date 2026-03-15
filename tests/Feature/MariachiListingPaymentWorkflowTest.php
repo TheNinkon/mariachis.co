@@ -10,355 +10,292 @@ use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\Plan;
 use App\Models\ServiceType;
-use App\Models\Subscription;
 use App\Models\User;
-use App\Services\NequiPaymentSettingsService;
-use App\Services\SystemSettingService;
-use App\Support\Entitlements\EntitlementKey;
+use App\Services\PlanAssignmentService;
+use Carbon\Carbon;
+use Database\Seeders\PlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MariachiListingPaymentWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_mariachi_can_select_a_plan_and_submit_nequi_proof(): void
+    protected function setUp(): void
     {
-        Storage::fake('public');
-        $this->configureNequi();
+        parent::setUp();
 
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
+        $this->seed(PlanSeeder::class);
+        $this->configureWompi();
+    }
 
+    public function test_initial_purchase_creates_pending_payment_and_moves_listing_to_payment_stage(): void
+    {
+        $mariachi = $this->createMariachiUser();
         $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
+        $plan = Plan::query()->where('code', 'pro')->firstOrFail();
 
-        $this->actingAs($mariachi)
+        $preview = $this->actingAs($mariachi)
             ->postJson(route('mariachi.listings.plans.select', $listing), [
                 'plan_code' => $plan->code,
+                'term_months' => 1,
             ])
             ->assertOk()
-            ->assertJson([
-                'ok' => true,
-            ]);
-
-        $listing->refresh();
-
-        $this->assertSame($plan->code, $listing->selected_plan_code);
-        $this->assertSame(1, $listing->plan_duration_months);
-        $this->assertSame(MariachiListing::PAYMENT_NONE, $listing->payment_status);
-        $this->assertSame(MariachiListing::STATUS_AWAITING_PAYMENT, $listing->status);
-        $this->assertFalse($listing->is_active);
+            ->assertJsonPath('checkout.operation_type', ListingPayment::OPERATION_INITIAL)
+            ->assertJsonPath('checkout.amount_cop', 59900)
+            ->json();
 
         $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
                 'listing_id' => $listing->id,
                 'plan_code' => $plan->code,
-                'amount_cop' => $plan->price_cop,
-                'proof_image' => UploadedFile::fake()->image('proof.png'),
-                'reference_text' => 'NEQ-001',
+                'term_months' => 1,
+                'amount_cop' => $preview['checkout']['amount_cop'],
             ])
-            ->assertRedirect(route('mariachi.listings.edit', $listing));
+            ->assertRedirect();
 
         $listing->refresh();
-        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
+        $payment = $listing->payments()->latest('id')->firstOrFail();
 
-        $this->assertSame(MariachiListing::PAYMENT_PENDING, $listing->payment_status);
         $this->assertSame(MariachiListing::STATUS_AWAITING_PAYMENT, $listing->status);
+        $this->assertSame(MariachiListing::PAYMENT_PENDING, $listing->payment_status);
         $this->assertFalse($listing->is_active);
+        $this->assertSame('pro', $listing->selected_plan_code);
+        $this->assertSame(ListingPayment::OPERATION_INITIAL, $payment->operation_type);
+        $this->assertSame('pro', $payment->targetPlanCode());
+        $this->assertNull($payment->source_plan_code);
+        $this->assertSame(59900, $payment->chargedAmountCop());
         $this->assertSame(ListingPayment::STATUS_PENDING, $payment->status);
-        $this->assertSame($plan->code, $payment->plan_code);
-        $this->assertSame(1, $payment->duration_months);
-        Storage::disk('public')->assertExists($payment->proof_path);
-
-        $this->actingAs($mariachi)
-            ->get(route('mariachi.listings.edit', $listing))
-            ->assertOk()
-            ->assertSee('Planes disponibles')
-            ->assertSee('Ya enviaste un comprobante');
     }
 
-    public function test_mariachi_can_pay_an_annual_term_with_discounted_total(): void
+    public function test_active_listing_upgrade_keeps_listing_live_until_payment_is_approved(): void
     {
-        Storage::fake('public');
-        $this->configureNequi();
+        $mariachi = $this->createMariachiUser();
+        $admin = $this->createAdminUser();
+        $listing = $this->createActiveApprovedListing($mariachi, 'basic', now()->subDays(10), now()->addDays(20));
+        $targetPlan = Plan::query()->where('code', 'pro')->firstOrFail();
 
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
-        $annualAmount = $this->expectedPlanTermAmount($plan, 12);
-
-        $this->actingAs($mariachi)
+        $previewResponse = $this->actingAs($mariachi)
             ->postJson(route('mariachi.listings.plans.select', $listing), [
-                'plan_code' => $plan->code,
-                'term_months' => 12,
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
             ])
             ->assertOk()
-            ->assertJson([
-                'ok' => true,
-            ]);
+            ->assertJsonPath('checkout.operation_type', ListingPayment::OPERATION_UPGRADE)
+            ->json();
+
+        $this->assertGreaterThan(0, $previewResponse['checkout']['applied_credit_cop']);
+        $this->assertLessThan(59900, $previewResponse['checkout']['amount_cop']);
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
+                'amount_cop' => $previewResponse['checkout']['amount_cop'],
+            ])
+            ->assertRedirect();
 
         $listing->refresh();
+        $pendingPayment = $listing->payments()->latest('id')->firstOrFail();
 
-        $this->assertSame(12, $listing->plan_duration_months);
-
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
-                'listing_id' => $listing->id,
-                'plan_code' => $plan->code,
-                'term_months' => 12,
-                'amount_cop' => $annualAmount,
-                'proof_image' => UploadedFile::fake()->image('proof-annual.png'),
-                'reference_text' => 'NEQ-ANUAL',
-            ])
-            ->assertRedirect(route('mariachi.listings.edit', $listing));
-
-        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
-
-        $this->assertSame(12, $payment->duration_months);
-        $this->assertSame($annualAmount, $payment->amount_cop);
-    }
-
-    public function test_plan_specific_term_settings_can_be_changed_from_the_package(): void
-    {
-        Storage::fake('public');
-        $this->configureNequi();
-
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
-
-        $plan->entitlements()->updateOrCreate(
-            ['key' => EntitlementKey::LISTING_TERM_SECONDARY_MONTHS],
-            ['value' => 6, 'value_type' => 'integer', 'metadata' => null]
-        );
-        $plan->entitlements()->updateOrCreate(
-            ['key' => EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT],
-            ['value' => 15, 'value_type' => 'integer', 'metadata' => null]
-        );
-
-        $expectedAmount = (int) round(($plan->price_cop * 6) * 0.85);
-
-        $this->actingAs($mariachi)
-            ->postJson(route('mariachi.listings.plans.select', $listing), [
-                'plan_code' => $plan->code,
-                'term_months' => 6,
-            ])
-            ->assertOk()
-            ->assertJson([
-                'ok' => true,
-            ]);
-
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
-                'listing_id' => $listing->id,
-                'plan_code' => $plan->code,
-                'term_months' => 6,
-                'amount_cop' => $expectedAmount,
-                'proof_image' => UploadedFile::fake()->image('proof-semester.png'),
-                'reference_text' => 'NEQ-SEMESTRAL',
-            ])
-            ->assertRedirect(route('mariachi.listings.edit', $listing));
-
-        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
-
-        $this->assertSame(6, $payment->duration_months);
-        $this->assertSame($expectedAmount, $payment->amount_cop);
-    }
-
-    public function test_admin_can_approve_pending_payment_and_publish_the_listing(): void
-    {
-        Storage::fake('public');
-        $this->configureNequi();
-
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-        $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
-        $this->submitPendingPayment($mariachi, $listing, $plan);
-
-        $this->actingAs($admin)
-            ->patch(route('admin.listings.moderate', $listing), [
-                'action' => 'approve',
-            ])
-            ->assertRedirect(route('admin.listings.show', $listing));
-
-        $listing->refresh();
-        $payment = ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->firstOrFail();
-
-        $this->assertSame(MariachiListing::PAYMENT_APPROVED, $listing->payment_status);
+        $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
         $this->assertSame(MariachiListing::REVIEW_APPROVED, $listing->review_status);
-        $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
+        $this->assertSame(MariachiListing::PAYMENT_APPROVED, $listing->payment_status);
         $this->assertTrue($listing->is_active);
-        $this->assertTrue($listing->isApprovedForMarketplace());
-        $this->assertSame(ListingPayment::STATUS_APPROVED, $payment->status);
-        $this->assertSame($admin->id, $payment->reviewed_by);
-
-        $this->assertDatabaseHas('subscriptions', [
-            'mariachi_profile_id' => $listing->mariachi_profile_id,
-            'plan_id' => $plan->id,
-            'status' => Subscription::STATUS_ACTIVE,
-        ]);
-    }
-
-    public function test_listing_editor_uses_only_database_plans_and_shows_empty_state_when_none_exist(): void
-    {
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-
-        Plan::query()->delete();
-
-        $this->actingAs($mariachi)
-            ->get(route('mariachi.listings.edit', $listing))
-            ->assertOk()
-            ->assertSee('No hay planes configurados todavía para este anuncio.');
-    }
-
-    public function test_admin_can_reject_pending_payment_and_mariachi_can_retry(): void
-    {
-        Storage::fake('public');
-        $this->configureNequi();
-
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-        $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
-        $this->submitPendingPayment($mariachi, $listing, $plan);
+        $this->assertSame('basic', $listing->selected_plan_code);
+        $this->assertSame(ListingPayment::OPERATION_UPGRADE, $pendingPayment->operation_type);
+        $this->assertSame('basic', $pendingPayment->source_plan_code);
+        $this->assertSame('pro', $pendingPayment->targetPlanCode());
 
         $this->actingAs($admin)
-            ->patch(route('admin.listings.moderate', $listing), [
-                'action' => 'reject',
-                'rejection_reason' => 'El comprobante no coincide con el monto esperado.',
-            ])
-            ->assertRedirect(route('admin.listings.show', $listing));
-
-        $listing->refresh();
-
-        $this->assertSame(MariachiListing::PAYMENT_REJECTED, $listing->payment_status);
-        $this->assertSame(MariachiListing::STATUS_AWAITING_PAYMENT, $listing->status);
-        $this->assertFalse($listing->is_active);
-
-        $this->actingAs($mariachi)
-            ->postJson(route('mariachi.listings.plans.select', $listing), [
-                'plan_code' => $plan->code,
-            ])
-            ->assertOk();
-
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
-                'listing_id' => $listing->id,
-                'plan_code' => $plan->code,
-                'amount_cop' => $plan->price_cop,
-                'proof_image' => UploadedFile::fake()->image('proof-retry.png'),
-                'reference_text' => 'NEQ-002',
-            ])
-            ->assertRedirect(route('mariachi.listings.edit', $listing));
-
-        $listing->refresh();
-
-        $this->assertSame(MariachiListing::PAYMENT_PENDING, $listing->payment_status);
-        $this->assertSame(2, ListingPayment::query()->where('mariachi_listing_id', $listing->id)->count());
-        $this->assertSame(
-            ListingPayment::STATUS_PENDING,
-            ListingPayment::query()->where('mariachi_listing_id', $listing->id)->latest('id')->value('status')
-        );
-    }
-
-    public function test_mariachi_can_pause_and_resume_only_after_listing_is_published(): void
-    {
-        Storage::fake('public');
-        $this->configureNequi();
-
-        $mariachi = User::factory()->create([
-            'role' => User::ROLE_MARIACHI,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-        $admin = User::factory()->create([
-            'role' => User::ROLE_ADMIN,
-            'status' => User::STATUS_ACTIVE,
-        ]);
-
-        $listing = $this->createCompleteListing($mariachi);
-        $plan = Plan::query()->active()->public()->firstOrFail();
-
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.pause', $listing))
-            ->assertSessionHasErrors('listing');
-
-        $this->submitPendingPayment($mariachi, $listing, $plan);
-
-        $this->actingAs($admin)
-            ->patch(route('admin.listings.moderate', $listing), [
+            ->patch(route('admin.payments.update', $pendingPayment), [
                 'action' => 'approve',
             ])
             ->assertRedirect();
 
         $listing->refresh();
-        $subscription = Subscription::query()->where('mariachi_profile_id', $listing->mariachi_profile_id)->latest('id')->firstOrFail();
-        $subscriptionEndsAt = optional($subscription->ends_at)->toISOString();
-        $subscriptionRenewsAt = optional($subscription->renews_at)->toISOString();
+        $pendingPayment->refresh();
 
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.pause', $listing))
-            ->assertRedirect();
-
-        $listing->refresh();
-        $subscription->refresh();
-
-        $this->assertSame(MariachiListing::STATUS_PAUSED, $listing->status);
-        $this->assertFalse($listing->is_active);
-        $this->assertNotNull($listing->deactivated_at);
-        $this->assertSame($subscriptionEndsAt, optional($subscription->ends_at)->toISOString());
-        $this->assertSame($subscriptionRenewsAt, optional($subscription->renews_at)->toISOString());
-
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.resume', $listing))
-            ->assertRedirect();
-
-        $listing->refresh();
-        $subscription->refresh();
-
+        $this->assertSame(ListingPayment::STATUS_APPROVED, $pendingPayment->status);
         $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
+        $this->assertSame(MariachiListing::REVIEW_APPROVED, $listing->review_status);
+        $this->assertSame(MariachiListing::PAYMENT_APPROVED, $listing->payment_status);
         $this->assertTrue($listing->is_active);
-        $this->assertNull($listing->deactivated_at);
-        $this->assertSame($subscriptionEndsAt, optional($subscription->ends_at)->toISOString());
-        $this->assertSame($subscriptionRenewsAt, optional($subscription->renews_at)->toISOString());
+        $this->assertSame('pro', $listing->selected_plan_code);
+        $this->assertSame(1, $listing->plan_duration_months);
+        $this->assertNotNull($listing->plan_expires_at);
+        $this->assertTrue($listing->plan_expires_at->greaterThan(now()->addDays(25)));
     }
 
-    private function configureNequi(): void
+    public function test_rejected_upgrade_keeps_current_active_plan_intact(): void
     {
-        app(SystemSettingService::class)->putString(NequiPaymentSettingsService::KEY_PHONE, '3001234567');
-        app(SystemSettingService::class)->putString(NequiPaymentSettingsService::KEY_BENEFICIARY_NAME, 'Mariachis.co');
+        $mariachi = $this->createMariachiUser();
+        $admin = $this->createAdminUser();
+        $listing = $this->createActiveApprovedListing($mariachi, 'basic', now()->subDays(7), now()->addDays(23));
+        $targetPlan = Plan::query()->where('code', 'premium')->firstOrFail();
+
+        $previewResponse = $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
+            ])
+            ->assertOk()
+            ->assertJsonPath('checkout.operation_type', ListingPayment::OPERATION_UPGRADE)
+            ->json();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
+                'amount_cop' => $previewResponse['checkout']['amount_cop'],
+            ])
+            ->assertRedirect();
+
+        $payment = $listing->fresh()->payments()->latest('id')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.payments.update', $payment), [
+                'action' => 'reject',
+                'rejection_reason' => 'El cobro no coincide con la transacción esperada.',
+            ])
+            ->assertRedirect();
+
+        $listing->refresh();
+        $payment->refresh();
+
+        $this->assertSame(ListingPayment::STATUS_REJECTED, $payment->status);
+        $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
+        $this->assertSame(MariachiListing::REVIEW_APPROVED, $listing->review_status);
+        $this->assertSame(MariachiListing::PAYMENT_APPROVED, $listing->payment_status);
+        $this->assertTrue($listing->is_active);
+        $this->assertSame('basic', $listing->selected_plan_code);
+    }
+
+    public function test_retry_creates_a_new_payment_linked_to_the_rejected_attempt(): void
+    {
+        $mariachi = $this->createMariachiUser();
+        $admin = $this->createAdminUser();
+        $listing = $this->createCompleteListing($mariachi);
+        $plan = Plan::query()->where('code', 'pro')->firstOrFail();
+
+        $initialPreview = $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $plan->code,
+                'term_months' => 1,
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $plan->code,
+                'term_months' => 1,
+                'amount_cop' => $initialPreview['checkout']['amount_cop'],
+            ])
+            ->assertRedirect();
+
+        $firstPayment = $listing->fresh()->payments()->latest('id')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.payments.update', $firstPayment), [
+                'action' => 'reject',
+                'rejection_reason' => 'Prueba rechazada para habilitar reintento.',
+            ])
+            ->assertRedirect();
+
+        $retryPreview = $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $plan->code,
+                'term_months' => 1,
+            ])
+            ->assertOk()
+            ->assertJsonPath('checkout.operation_type', ListingPayment::OPERATION_RETRY)
+            ->json();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $plan->code,
+                'term_months' => 1,
+                'amount_cop' => $retryPreview['checkout']['amount_cop'],
+            ])
+            ->assertRedirect();
+
+        $listing->refresh();
+        $payments = $listing->payments()->latest('id')->get();
+        $retryPayment = $payments->first();
+
+        $this->assertCount(2, $payments);
+        $this->assertSame(ListingPayment::OPERATION_RETRY, $retryPayment->operation_type);
+        $this->assertSame($firstPayment->id, $retryPayment->retry_of_payment_id);
+        $this->assertSame(ListingPayment::STATUS_PENDING, $retryPayment->status);
+        $this->assertSame(MariachiListing::STATUS_AWAITING_PAYMENT, $listing->status);
+        $this->assertSame(MariachiListing::PAYMENT_PENDING, $listing->payment_status);
+    }
+
+    public function test_active_listing_does_not_fall_back_to_pending_when_starting_an_upgrade(): void
+    {
+        $mariachi = $this->createMariachiUser();
+        $listing = $this->createActiveApprovedListing($mariachi, 'basic', now()->subDays(5), now()->addDays(25));
+        $targetPlan = Plan::query()->where('code', 'premium')->firstOrFail();
+
+        $previewResponse = $this->actingAs($mariachi)
+            ->postJson(route('mariachi.listings.plans.select', $listing), [
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
+            ])
+            ->assertOk()
+            ->json();
+
+        $this->actingAs($mariachi)
+            ->post(route('mariachi.listings.payments.wompi.checkout', $listing), [
+                'listing_id' => $listing->id,
+                'plan_code' => $targetPlan->code,
+                'term_months' => 1,
+                'amount_cop' => $previewResponse['checkout']['amount_cop'],
+            ])
+            ->assertRedirect();
+
+        $listing->refresh();
+
+        $this->assertSame(MariachiListing::STATUS_ACTIVE, $listing->status);
+        $this->assertSame(MariachiListing::REVIEW_APPROVED, $listing->review_status);
+        $this->assertSame(MariachiListing::PAYMENT_APPROVED, $listing->payment_status);
+        $this->assertTrue($listing->is_active);
+        $this->assertSame('basic', $listing->selected_plan_code);
+    }
+
+    private function configureWompi(): void
+    {
+        config()->set('payments.wompi.environment', 'sandbox');
+        config()->set('payments.wompi.public_key', 'pub_test_123');
+        config()->set('payments.wompi.private_key', 'prv_test_123');
+        config()->set('payments.wompi.integrity_secret', 'test_integrity_123');
+        config()->set('payments.wompi.events_secret', 'test_events_123');
+        config()->set('payments.wompi.currency', 'COP');
+        config()->set('payments.wompi.checkout_url', 'https://checkout.wompi.co/p/');
+        config()->set('payments.wompi.sandbox_api_base_url', 'https://sandbox.wompi.co/v1');
+        config()->set('payments.wompi.production_api_base_url', 'https://production.wompi.co/v1');
+    }
+
+    private function createMariachiUser(): User
+    {
+        return User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+            'phone' => '+57 3100001234',
+        ]);
+    }
+
+    private function createAdminUser(): User
+    {
+        return User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
     }
 
     private function createCompleteListing(User $mariachi): MariachiListing
@@ -394,6 +331,8 @@ class MariachiListingPaymentWorkflowTest extends TestCase
             'review_status' => MariachiListing::REVIEW_DRAFT,
             'payment_status' => MariachiListing::PAYMENT_NONE,
             'is_active' => false,
+            'listing_completion' => 100,
+            'listing_completed' => true,
         ]);
 
         $listing->photos()->create([
@@ -443,45 +382,62 @@ class MariachiListingPaymentWorkflowTest extends TestCase
         return $listing;
     }
 
-    private function submitPendingPayment(User $mariachi, MariachiListing $listing, Plan $plan): void
-    {
-        $this->actingAs($mariachi)
-            ->postJson(route('mariachi.listings.plans.select', $listing), [
-                'plan_code' => $plan->code,
-            ])
-            ->assertOk();
+    private function createActiveApprovedListing(
+        User $mariachi,
+        string $planCode,
+        Carbon $activatedAt,
+        Carbon $expiresAt
+    ): MariachiListing {
+        $listing = $this->createCompleteListing($mariachi);
+        $profile = $listing->mariachiProfile;
+        $plan = Plan::query()->where('code', $planCode)->firstOrFail();
 
-        $this->actingAs($mariachi)
-            ->post(route('mariachi.listings.payments.nequi.store', $listing), [
-                'listing_id' => $listing->id,
-                'plan_code' => $plan->code,
-                'amount_cop' => $plan->price_cop,
-                'proof_image' => UploadedFile::fake()->image('proof.png'),
-                'reference_text' => 'NEQ-001',
-            ])
-            ->assertRedirect();
-    }
+        app(PlanAssignmentService::class)->assignToProfile(
+            $profile,
+            $plan,
+            $listing,
+            'seed_active_listing',
+            [],
+            true,
+            1,
+            (int) $plan->price_cop,
+            $activatedAt
+        );
 
-    private function expectedPlanTermAmount(Plan $plan, int $months): int
-    {
-        $monthlyPrice = (int) $plan->price_cop;
-        $discountPercent = collect([
-            [
-                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_MONTHS, 0) ?? 0),
-                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_PRIMARY_DISCOUNT_PERCENT, 0) ?? 0),
-            ],
-            [
-                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_MONTHS, 0) ?? 0),
-                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_SECONDARY_DISCOUNT_PERCENT, 0) ?? 0),
-            ],
-            [
-                'months' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_MONTHS, 0) ?? 0),
-                'discount' => (int) ($plan->entitlementValue(EntitlementKey::LISTING_TERM_TERTIARY_DISCOUNT_PERCENT, 0) ?? 0),
-            ],
-        ])->firstWhere('months', $months)['discount'] ?? 0;
+        $listing->update([
+            'selected_plan_code' => $planCode,
+            'plan_duration_months' => 1,
+            'plan_selected_at' => $activatedAt,
+            'status' => MariachiListing::STATUS_ACTIVE,
+            'review_status' => MariachiListing::REVIEW_APPROVED,
+            'payment_status' => MariachiListing::PAYMENT_APPROVED,
+            'is_active' => true,
+            'activated_at' => $activatedAt,
+            'plan_expires_at' => $expiresAt,
+            'submitted_for_review_at' => $activatedAt,
+            'reviewed_at' => $activatedAt,
+            'deactivated_at' => null,
+        ]);
 
-        $subtotal = $monthlyPrice * $months;
+        $listing->payments()->create([
+            'mariachi_profile_id' => $profile->id,
+            'plan_code' => $planCode,
+            'duration_months' => 1,
+            'amount_cop' => (int) $plan->price_cop,
+            'method' => ListingPayment::METHOD_WOMPI,
+            'checkout_reference' => 'SEED-'.$listing->id.'-'.strtoupper($planCode),
+            'status' => ListingPayment::STATUS_APPROVED,
+            'operation_type' => ListingPayment::OPERATION_INITIAL,
+            'source_plan_code' => null,
+            'target_plan_code' => $planCode,
+            'subtotal_amount_cop' => (int) $plan->price_cop,
+            'discount_amount_cop' => 0,
+            'base_amount_cop' => (int) $plan->price_cop,
+            'applied_credit_cop' => 0,
+            'final_amount_cop' => (int) $plan->price_cop,
+            'reviewed_at' => $activatedAt,
+        ]);
 
-        return (int) round($subtotal - ($subtotal * ($discountPercent / 100)));
+        return $listing->fresh();
     }
 }

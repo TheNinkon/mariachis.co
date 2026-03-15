@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,12 @@ class EventType extends Model
         'sort_order',
         'is_featured',
         'is_active',
+        'is_visible_in_home',
+        'home_priority',
+        'seasonal_start_at',
+        'seasonal_end_at',
+        'min_active_listings_required',
+        'home_clicks_count',
     ];
 
     protected function casts(): array
@@ -27,6 +34,12 @@ class EventType extends Model
             'sort_order' => 'integer',
             'is_featured' => 'boolean',
             'is_active' => 'boolean',
+            'is_visible_in_home' => 'boolean',
+            'home_priority' => 'integer',
+            'seasonal_start_at' => 'datetime',
+            'seasonal_end_at' => 'datetime',
+            'min_active_listings_required' => 'integer',
+            'home_clicks_count' => 'integer',
         ];
     }
 
@@ -50,6 +63,41 @@ class EventType extends Model
         return $query->where('is_active', true);
     }
 
+    public function scopeVisibleInHome(Builder $query): Builder
+    {
+        return $query->where('is_visible_in_home', true);
+    }
+
+    public function scopeAvailableForHome(Builder $query, CarbonInterface|string|null $moment = null): Builder
+    {
+        $currentMoment = $moment instanceof CarbonInterface
+            ? $moment
+            : now();
+
+        return $query
+            ->active()
+            ->visibleInHome()
+            ->where(function (Builder $builder) use ($currentMoment): void {
+                $builder->where(function (Builder $alwaysVisible): void {
+                    $alwaysVisible
+                        ->whereNull('seasonal_start_at')
+                        ->whereNull('seasonal_end_at');
+                })->orWhere(function (Builder $seasonal) use ($currentMoment): void {
+                    $seasonal
+                        ->where(function (Builder $startQuery) use ($currentMoment): void {
+                            $startQuery
+                                ->whereNull('seasonal_start_at')
+                                ->orWhere('seasonal_start_at', '<=', $currentMoment);
+                        })
+                        ->where(function (Builder $endQuery) use ($currentMoment): void {
+                            $endQuery
+                                ->whereNull('seasonal_end_at')
+                                ->orWhere('seasonal_end_at', '>=', $currentMoment);
+                        });
+                });
+            });
+    }
+
     public function scopeOrdered(Builder $query): Builder
     {
         if (Schema::hasColumn($this->getTable(), 'sort_order')) {
@@ -57,5 +105,10 @@ class EventType extends Model
         }
 
         return $query->orderBy('name');
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
     }
 }

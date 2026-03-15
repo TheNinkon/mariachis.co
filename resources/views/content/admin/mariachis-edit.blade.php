@@ -7,6 +7,8 @@
     use Illuminate\Support\Facades\Route;
 
     $entitlements = $planSummary['entitlements'] ?? [];
+    $publishedLimit = (int) (($entitlements['max_published_listings'] ?? null) ?? ($entitlements['max_listings_total'] ?? 0));
+    $openDraftLimit = (int) ($entitlements['max_open_drafts'] ?? \App\Support\Entitlements\EntitlementKey::defaultFor(\App\Support\Entitlements\EntitlementKey::MAX_OPEN_DRAFTS));
   @endphp
 
   @if (session('status'))
@@ -137,9 +139,10 @@
           </div>
 
           <ul class="list-unstyled mb-4">
-            <li class="mb-2"><span class="fw-semibold">Anuncios:</span> {{ (int) ($entitlements['max_listings_total'] ?? 0) }}</li>
+            <li class="mb-2"><span class="fw-semibold">Borradores maximos:</span> {{ $openDraftLimit === 0 ? 'Sin tope' : $openDraftLimit }}</li>
+            <li class="mb-2"><span class="fw-semibold">Publicados permitidos:</span> {{ $publishedLimit === 0 ? 'Ilimitados' : $publishedLimit }}</li>
             <li class="mb-2"><span class="fw-semibold">Fotos:</span> {{ (int) ($entitlements['max_photos_per_listing'] ?? 0) }}</li>
-            <li class="mb-2"><span class="fw-semibold">Videos:</span> {{ (int) ($entitlements['max_videos_per_listing'] ?? 0) }}</li>
+            <li class="mb-2"><span class="fw-semibold">Videos:</span> {{ !empty($entitlements['can_add_video']) ? (int) ($entitlements['max_videos_per_listing'] ?? 0) : 'No incluidos' }}</li>
             <li class="mb-2"><span class="fw-semibold">Ciudades:</span> {{ (int) ($entitlements['max_cities_covered'] ?? 0) }}</li>
             <li class="mb-2"><span class="fw-semibold">Zonas:</span> {{ (int) ($entitlements['max_zones_covered'] ?? 0) }}</li>
             <li class="mb-2"><span class="fw-semibold">WhatsApp visible:</span> {{ !empty($entitlements['can_show_whatsapp']) ? 'Si' : 'No' }}</li>

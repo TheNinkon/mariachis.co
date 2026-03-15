@@ -6,6 +6,7 @@ use App\Models\MariachiListing;
 use App\Models\MariachiProfile;
 use App\Models\Plan;
 use App\Models\Subscription;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 class PlanAssignmentService
@@ -18,11 +19,14 @@ class PlanAssignmentService
         array $metadata = [],
         bool $publishListing = false,
         int $durationMonths = 1,
-        ?int $baseAmountCop = null
+        ?int $baseAmountCop = null,
+        ?CarbonInterface $effectiveStartAt = null
     ): Subscription {
-        return DB::transaction(function () use ($profile, $plan, $listing, $source, $metadata, $publishListing, $durationMonths, $baseAmountCop): Subscription {
+        return DB::transaction(function () use ($profile, $plan, $listing, $source, $metadata, $publishListing, $durationMonths, $baseAmountCop, $effectiveStartAt): Subscription {
             $normalizedDuration = max(1, $durationMonths);
             $resolvedBaseAmount = $baseAmountCop ?? ((int) $plan->price_cop * $normalizedDuration);
+            $startsAt = $effectiveStartAt ? $effectiveStartAt->copy() : now();
+            $periodEndsAt = $startsAt->copy()->addMonthsNoOverflow($normalizedDuration);
 
             $profile->subscriptions()
                 ->where('status', Subscription::STATUS_ACTIVE)
@@ -35,14 +39,17 @@ class PlanAssignmentService
             $subscription = $profile->subscriptions()->create([
                 'plan_id' => $plan->id,
                 'status' => Subscription::STATUS_ACTIVE,
-                'starts_at' => now(),
-                'renews_at' => now()->addMonthsNoOverflow($normalizedDuration),
+                'starts_at' => $startsAt,
+                'renews_at' => $periodEndsAt,
+                'ends_at' => $periodEndsAt,
                 'base_amount_cop' => $resolvedBaseAmount,
                 'extra_city_amount_cop' => (int) config('monetization.additional_city_price_cop', 9900),
                 'metadata' => array_merge([
                     'source' => $source,
                     'currency' => 'COP',
                     'duration_months' => $normalizedDuration,
+                    'period_starts_at' => $startsAt->toIso8601String(),
+                    'period_ends_at' => $periodEndsAt->toIso8601String(),
                 ], $metadata),
             ]);
 
@@ -60,8 +67,8 @@ class PlanAssignmentService
                     'plan_selected_at' => now(),
                     'status' => MariachiListing::STATUS_ACTIVE,
                     'is_active' => true,
-                    'activated_at' => $listing->activated_at ?? now(),
-                    'plan_expires_at' => ($listing->activated_at ?? now())->copy()->addMonthsNoOverflow($normalizedDuration),
+                    'activated_at' => $listing->activated_at ?? $startsAt,
+                    'plan_expires_at' => $periodEndsAt,
                     'deactivated_at' => null,
                 ]);
             }

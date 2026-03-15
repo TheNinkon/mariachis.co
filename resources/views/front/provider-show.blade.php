@@ -107,6 +107,13 @@
       min-width: 0;
     }
 
+    .provider-profile-heading {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+    }
+
     .provider-profile-header__copy h1 {
       margin: 0;
       font-size: clamp(2rem, 2.8vw, 2.8rem);
@@ -114,6 +121,27 @@
       letter-spacing: -0.05em;
       font-weight: 800;
       color: #111827;
+    }
+
+    .provider-profile-verified-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.08);
+      padding: 0.48rem 0.78rem;
+      color: #0f766e;
+      font-size: 0.8rem;
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.42);
+    }
+
+    .provider-profile-verified-badge svg {
+      width: 0.92rem;
+      height: 0.92rem;
+      flex-shrink: 0;
     }
 
     .provider-profile-handle {
@@ -452,15 +480,30 @@
     .provider-profile-status-badge {
       display: inline-flex;
       align-items: center;
+      gap: 0.38rem;
       border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
       padding: 0.36rem 0.72rem;
-      background: rgba(15, 118, 110, 0.08);
-      color: #0f766e;
+      background: #f8fafc;
+      color: #475569;
       font-size: 0.78rem;
       font-weight: 800;
     }
 
+    .provider-profile-status-badge svg {
+      width: 0.9rem;
+      height: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .provider-profile-status-badge--verified {
+      border-color: rgba(15, 118, 110, 0.18);
+      background: rgba(15, 118, 110, 0.08);
+      color: #0f766e;
+    }
+
     .provider-profile-status-badge--vip {
+      border-color: rgba(249, 115, 22, 0.16);
       background: rgba(249, 115, 22, 0.12);
       color: #c2410c;
     }
@@ -617,7 +660,18 @@
             </div>
 
             <div class="provider-profile-header__copy">
-              <h1>{{ $profileName }}</h1>
+              <div class="provider-profile-heading">
+                <h1>{{ $profileName }}</h1>
+                @if($profile->hasActiveVerification())
+                  <span class="provider-profile-verified-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6l.75 2.25 2.25.75v5.16c0 3.124-1.697 6-4.43 7.502L12 20.25l-1.57-.828A8.486 8.486 0 0 1 6 11.91V6.75L8.25 6 9 3.75Z" />
+                    </svg>
+                    <span>Perfil verificado</span>
+                  </span>
+                @endif
+              </div>
               <a href="{{ $canonicalUrl }}" class="provider-profile-handle">
                 {{ $publicProfileLabel }}
               </a>
@@ -741,7 +795,15 @@
           <div class="provider-profile-card__footer">
             <div class="provider-profile-card__topline">
               <p class="mb-0"><span class="font-extrabold text-slate-900">Estado:</span> {{ $verificationUiLabel }}</p>
-              <span class="provider-profile-status-badge">{{ $profile->hasActiveVerification() ? 'Destacado' : 'Publicado' }}</span>
+              <span class="provider-profile-status-badge {{ $profile->hasActiveVerification() ? 'provider-profile-status-badge--verified' : '' }}">
+                @if($profile->hasActiveVerification())
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 3.75h6l.75 2.25 2.25.75v5.16c0 3.124-1.697 6-4.43 7.502L12 20.25l-1.57-.828A8.486 8.486 0 0 1 6 11.91V6.75L8.25 6 9 3.75Z" />
+                  </svg>
+                @endif
+                <span>{{ $profile->hasActiveVerification() ? 'Verificado' : 'Publicado' }}</span>
+              </span>
             </div>
 
             <div class="provider-profile-card__progressline">

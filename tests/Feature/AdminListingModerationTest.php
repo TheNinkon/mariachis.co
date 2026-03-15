@@ -4,14 +4,24 @@ namespace Tests\Feature;
 
 use App\Models\MariachiListing;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AdminListingModerationTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_admin_can_open_listing_moderation_pages_and_approve_a_listing(): void
     {
-        $admin = User::query()->where('role', User::ROLE_ADMIN)->firstOrFail();
-        $mariachi = User::query()->where('role', User::ROLE_MARIACHI)->firstOrFail();
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $mariachi = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_ACTIVE,
+            'phone' => '+57 3000000000',
+        ]);
 
         $profile = $mariachi->mariachiProfile()->firstOrCreate([], [
             'city_name' => 'Pendiente',
@@ -41,6 +51,7 @@ class AdminListingModerationTest extends TestCase
             'listing_completed' => true,
             'status' => MariachiListing::STATUS_ACTIVE,
             'review_status' => MariachiListing::REVIEW_PENDING,
+            'payment_status' => MariachiListing::PAYMENT_APPROVED,
             'is_active' => true,
             'selected_plan_code' => 'basic',
         ]);

@@ -184,7 +184,9 @@
     $providerUser = $listing->mariachiProfile?->user;
     $coverPhoto = $listing->photos->first();
     $latestPayment = $listing->latestPayment;
-    $pendingPayment = $latestPayment?->status === \App\Models\ListingPayment::STATUS_PENDING ? $latestPayment : null;
+    $paymentHistory = $listing->payments->sortByDesc('id')->values();
+    $pendingPayment = $paymentHistory->firstWhere('status', \App\Models\ListingPayment::STATUS_PENDING);
+    $pendingPaymentCount = $paymentHistory->where('status', \App\Models\ListingPayment::STATUS_PENDING)->count();
     $renderedFaqs = $listing->renderedFaqRows(true);
     $listingInitials = collect(preg_split('/\s+/', trim($listing->title ?: $providerName)))
       ->filter()
@@ -302,6 +304,9 @@
       </li>
       <li class="nav-item">
         <a class="nav-link" href="#faqs" data-section-target="faqs"><i class="icon-base ti tabler-help-circle"></i>FAQs</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#payments" data-section-target="payments"><i class="icon-base ti tabler-credit-card"></i>Pagos</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" href="#activity" data-section-target="activity"><i class="icon-base ti tabler-activity"></i>Actividad y logs</a>
@@ -537,6 +542,141 @@
         </div>
       </div>
 
+      <div class="card mb-6 admin-listing-section d-none" id="payments" data-admin-listing-section="payments" hidden>
+        <div class="card-header d-flex flex-wrap justify-content-between gap-3 align-items-center">
+          <div>
+            <h5 class="card-title m-0">Historial de pagos</h5>
+            <small class="text-body-secondary">Fuente financiera del anuncio. Aquí quedan compra inicial, upgrades, renovaciones y reintentos.</small>
+          </div>
+          <a href="{{ route('admin.payments.index', ['search' => $listing->slug ?: $listing->id]) }}" class="btn btn-outline-primary btn-sm">Abrir módulo Pagos</a>
+        </div>
+        <div class="card-body">
+          @if ($paymentHistory->isEmpty())
+            <p class="mb-0 text-body-secondary">Todavía no hay pagos registrados para este anuncio.</p>
+          @else
+            <div class="row g-3 mb-4">
+              <div class="col-md-3">
+                <div class="border rounded p-3 h-100">
+                  <small class="text-body-secondary d-block mb-1">Total de intentos</small>
+                  <div class="h5 mb-0">{{ $paymentHistory->count() }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-3 h-100">
+                  <small class="text-body-secondary d-block mb-1">Pendientes</small>
+                  <div class="h5 mb-0">{{ $pendingPaymentCount }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-3 h-100">
+                  <small class="text-body-secondary d-block mb-1">Crédito aplicado</small>
+                  <div class="h5 mb-0">${{ number_format((int) $paymentHistory->sum('applied_credit_cop'), 0, ',', '.') }}</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-3 h-100">
+                  <small class="text-body-secondary d-block mb-1">Cobrado final</small>
+                  <div class="h5 mb-0">${{ number_format((int) $paymentHistory->sum(fn ($payment) => $payment->chargedAmountCop()), 0, ',', '.') }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Operación</th>
+                    <th>Planes</th>
+                    <th>Monto</th>
+                    <th>Checkout</th>
+                    <th>Estado</th>
+                    <th>Revisión</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach ($paymentHistory as $payment)
+                    @php
+                      $statusClass = match ($payment->status) {
+                        \App\Models\ListingPayment::STATUS_APPROVED => 'success',
+                        \App\Models\ListingPayment::STATUS_REJECTED => 'danger',
+                        default => 'warning',
+                      };
+                    @endphp
+                    <tr>
+                      <td>#{{ $payment->id }}</td>
+                      <td>
+                        <div class="fw-semibold">{{ $payment->operationLabel() }}</div>
+                        <small class="text-body-secondary">{{ $payment->created_at?->format('d/m/Y H:i') ?: '-' }}</small>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ \Illuminate\Support\Str::headline($payment->targetPlanCode()) }}</div>
+                        <small class="text-body-secondary">
+                          @if ($payment->source_plan_code)
+                            Desde {{ \Illuminate\Support\Str::headline($payment->source_plan_code) }}
+                          @else
+                            Sin plan origen
+                          @endif
+                          · {{ $payment->duration_months }} mes(es)
+                        </small>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">${{ number_format($payment->chargedAmountCop(), 0, ',', '.') }} COP</div>
+                        <small class="text-body-secondary">
+                          Base ${{ number_format((int) ($payment->base_amount_cop ?: $payment->amount_cop), 0, ',', '.') }}
+                          · Crédito ${{ number_format((int) ($payment->applied_credit_cop ?: 0), 0, ',', '.') }}
+                        </small>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ $payment->checkout_reference ?: $payment->reference_text ?: '-' }}</div>
+                        <small class="text-body-secondary">{{ $payment->provider_transaction_id ?: 'Sin transacción final' }}</small>
+                      </td>
+                      <td>
+                        <span class="badge bg-label-{{ $statusClass }}">{{ $payment->statusLabel() }}</span>
+                        @if ($payment->provider_transaction_status)
+                          <div class="small text-body-secondary mt-1">{{ $payment->provider_transaction_status }}</div>
+                        @endif
+                      </td>
+                      <td>
+                        <div>{{ $payment->reviewed_at?->format('d/m/Y H:i') ?: 'Sin revisar' }}</div>
+                        <small class="text-body-secondary">{{ $payment->reviewedBy?->display_name ?: 'Sin revisor' }}</small>
+                      </td>
+                      <td class="text-end">
+                        @if ($payment->isPending())
+                          <div class="d-flex flex-column gap-2">
+                            <form action="{{ route('admin.payments.update', $payment) }}" method="POST">
+                              @csrf
+                              @method('PATCH')
+                              <input type="hidden" name="action" value="approve" />
+                              <button type="submit" class="btn btn-sm btn-success">Aprobar pago</button>
+                            </form>
+                            <form action="{{ route('admin.payments.update', $payment) }}" method="POST">
+                              @csrf
+                              @method('PATCH')
+                              <input type="hidden" name="action" value="reject" />
+                              <textarea
+                                name="rejection_reason"
+                                rows="2"
+                                class="form-control form-control-sm"
+                                placeholder="Motivo del rechazo"
+                                required></textarea>
+                              <button type="submit" class="btn btn-sm btn-outline-danger mt-2">Rechazar</button>
+                            </form>
+                          </div>
+                        @elseif ($payment->rejection_reason)
+                          <div class="small text-danger">{{ $payment->rejection_reason }}</div>
+                        @endif
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          @endif
+        </div>
+      </div>
+
       <div class="card mb-6 admin-listing-section d-none" id="activity" data-admin-listing-section="activity" hidden>
         <div class="card-header">
           <h5 class="card-title m-0">Actividad y logs del anuncio</h5>
@@ -645,7 +785,7 @@
 
       <div class="card mb-6">
         <div class="card-header d-flex justify-content-between">
-          <h5 class="card-title m-0">Pago (Wompi)</h5>
+          <h5 class="card-title m-0">Resumen de pago</h5>
           <span class="badge bg-label-{{ $paymentMeta['class'] }}">{{ $paymentMeta['label'] }}</span>
         </div>
         <div class="card-body">
@@ -706,28 +846,9 @@
               </div>
             @endif
 
-            @if ($pendingPayment)
-              <div class="d-grid gap-3">
-                <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
-                  @csrf
-                  @method('PATCH')
-                  <input type="hidden" name="action" value="approve" />
-                  <button type="submit" class="btn btn-success w-100">Aprobar pago y publicar</button>
-                </form>
-
-                <form action="{{ route('admin.listings.moderate', $listing) }}" method="POST">
-                  @csrf
-                  @method('PATCH')
-                  <input type="hidden" name="action" value="reject" />
-                  <label class="form-label mb-1">Rechazar pago con motivo</label>
-                  <textarea
-                    name="rejection_reason"
-                    rows="4"
-                    class="form-control"
-                    placeholder="Explica por que el comprobante no es valido"
-                    required>{{ old('rejection_reason', $latestPayment->status === 'rejected' ? $latestPayment->rejection_reason : '') }}</textarea>
-                  <button type="submit" class="btn btn-outline-danger w-100 mt-2">Rechazar pago</button>
-                </form>
+            @if ($pendingPaymentCount > 0)
+              <div class="alert alert-warning py-2 px-3 mb-0">
+                Hay {{ $pendingPaymentCount }} pago(s) pendiente(s). Valídalos en la pestaña <strong>Pagos</strong> antes de moderar el anuncio.
               </div>
             @endif
           @else
@@ -764,9 +885,9 @@
             </div>
           @endif
 
-          @if ($pendingPayment)
+          @if ($pendingPaymentCount > 0)
             <div class="alert alert-warning mb-0">
-              Primero valida el comprobante en el bloque de pago. Esa accion es la que activa beneficios y publicación.
+              Primero resuelve los pagos pendientes desde la pestaña Pagos. La moderación editorial ya no aprueba ni rechaza cobros.
             </div>
           @else
             <div class="d-grid gap-3">

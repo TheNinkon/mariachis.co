@@ -52,11 +52,15 @@
       <div class="card h-100">
         <div class="card-body">
           <h6 class="mb-1">Borradores abiertos</h6>
-          <h3 class="mb-1">{{ $openDraftsCount }} / {{ $openDraftLimit }}</h3>
+          <h3 class="mb-1">{{ $openDraftLimit === 0 ? $openDraftsCount : $openDraftsCount.' / '.$openDraftLimit }}</h3>
           <p class="mb-2 text-muted">Activos: {{ (int) ($listingTotals['active'] ?? 0) }} · En revisión: {{ number_format((int) $listings->where('review_status', \App\Models\MariachiListing::REVIEW_PENDING)->count()) }}</p>
-          <div class="progress" style="height: 8px;">
-            <div class="progress-bar" role="progressbar" style="width: {{ $usagePercent }}%;"></div>
-          </div>
+          @if($openDraftLimit > 0)
+            <div class="progress" style="height: 8px;">
+              <div class="progress-bar" role="progressbar" style="width: {{ $usagePercent }}%;"></div>
+            </div>
+          @else
+            <small class="text-muted">Sin tope para borradores en tu paquete actual.</small>
+          @endif
         </div>
       </div>
     </div>

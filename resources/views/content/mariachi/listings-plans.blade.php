@@ -26,7 +26,9 @@
       const triggerButtons = Array.from(document.querySelectorAll('[data-open-payment-sheet]'));
       const planNameTargets = Array.from(document.querySelectorAll('[data-payment-plan-name]'));
       const planAmountTargets = Array.from(document.querySelectorAll('[data-payment-plan-amount]'));
+      const planDurationTargets = Array.from(document.querySelectorAll('[data-payment-plan-duration]'));
       const planCodeInputs = Array.from(document.querySelectorAll('[data-payment-plan-code]'));
+      const termInputs = Array.from(document.querySelectorAll('[data-payment-plan-term-months]'));
       const amountInputs = Array.from(document.querySelectorAll('[data-payment-plan-price]'));
       const checkoutForm = document.getElementById('wompiCheckoutForm');
       const errorBox = document.querySelector('[data-plan-selection-error]');
@@ -38,10 +40,12 @@
 
       const formatter = new Intl.NumberFormat('es-CO');
 
-      const syncSheet = button => {
-        const name = button.dataset.planName || '';
-        const code = button.dataset.planCode || '';
-        const price = Number(button.dataset.planPrice || 0);
+      const syncSheet = (button, checkout = {}) => {
+        const name = checkout.plan_name || button.dataset.planName || '';
+        const code = checkout.plan_code || button.dataset.planCode || '';
+        const price = Number(checkout.amount_cop || button.dataset.planPrice || 0);
+        const termMonths = Number(checkout.term_months || button.dataset.planTermMonths || 1);
+        const termLabel = checkout.term_label || button.dataset.planTermLabel || '1 mes';
 
         planNameTargets.forEach(node => {
           node.textContent = name;
@@ -51,8 +55,16 @@
           node.textContent = `$${formatter.format(price)} COP`;
         });
 
+        planDurationTargets.forEach(node => {
+          node.textContent = termLabel;
+        });
+
         planCodeInputs.forEach(input => {
           input.value = code;
+        });
+
+        termInputs.forEach(input => {
+          input.value = String(termMonths);
         });
 
         amountInputs.forEach(input => {
@@ -95,7 +107,7 @@
               throw new Error(payload.message || 'No pudimos preparar el pago para este plan.');
             }
 
-            syncSheet(button);
+            syncSheet(button, payload.checkout || {});
             checkoutForm?.submit();
           } catch (error) {
             if (errorBox) {
@@ -118,6 +130,7 @@
   @php
     $selectedPlan = $listing->selected_plan_code ? ($plans[$listing->selected_plan_code] ?? null) : null;
     $defaultPlan = $selectedPlan ?: (count($plans) ? reset($plans) : null);
+    $defaultPlanTerm = $defaultPlan ? ($defaultPlan['terms'][$defaultPlan['default_term_months']] ?? reset($defaultPlan['terms'])) : null;
     $latestPayment = $listing->latestPayment;
     $paymentMap = [
       \App\Models\MariachiListing::PAYMENT_NONE => ['label' => 'Sin pago', 'class' => 'secondary'],
@@ -183,7 +196,7 @@
     </div>
   @elseif($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED)
     <div class="alert alert-success">
-      <strong>Pago aprobado.</strong> Ya puedes volver al editor y enviar el anuncio a revisión.
+      <strong>Pago aprobado.</strong> Si el anuncio ya está activo, también puedes renovar o subir de plan sin bajarlo del aire.
     </div>
   @elseif($listing->isPaymentRejected())
     <div class="alert alert-danger">
@@ -197,9 +210,16 @@
       <div class="row g-4">
         @foreach($plans as $code => $plan)
           @php
+            $defaultTerm = $plan['terms'][$plan['default_term_months']] ?? reset($plan['terms']);
             $isCurrentSelection = $listing->selected_plan_code === $code;
+            $canRenewCurrentPlan = $listing->status === \App\Models\MariachiListing::STATUS_ACTIVE
+              && $listing->review_status === \App\Models\MariachiListing::REVIEW_APPROVED
+              && $listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED
+              && $isCurrentSelection;
             $buttonLabel = 'Pagar con Wompi';
-            if ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $code) {
+            if ($canRenewCurrentPlan) {
+              $buttonLabel = 'Renovar con Wompi';
+            } elseif ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $code) {
               $buttonLabel = 'Plan aprobado';
             } elseif ($listing->isPaymentPending()) {
               $buttonLabel = $isCurrentSelection ? 'Continuar pago en Wompi' : 'Pago pendiente en otro plan';
@@ -212,7 +232,7 @@
             $isDisabled = ! $listing->listing_completed
               || (! $isCurrentSelection && $listing->isPaymentPending())
               || ! $wompi['is_configured']
-              || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $code);
+              || ($listing->payment_status === \App\Models\MariachiListing::PAYMENT_APPROVED && $listing->selected_plan_code === $code && ! $canRenewCurrentPlan);
           @endphp
 
           <div class="col-md-6 col-xl-4">
@@ -231,10 +251,15 @@
                 </div>
 
                 <p class="text-muted mb-2">{{ $plan['description'] }}</p>
-                <p class="mb-3"><strong>${{ number_format((int) $plan['price_cop'], 0, ',', '.') }} COP / mes</strong></p>
+                <p class="mb-3">
+                  <strong>${{ number_format((int) ($defaultTerm['total_price_cop'] ?? $plan['price_cop']), 0, ',', '.') }} COP</strong>
+                  <small class="text-muted d-block">Total {{ $defaultTerm['label'] ?? '1 mes' }}</small>
+                </p>
 
                 <ul class="small text-muted mb-4 ps-3">
                   <li>Este plan aplica solo a este anuncio</li>
+                  <li>Borradores abiertos: {{ (int) ($plan['max_open_drafts'] ?? 0) === 0 ? 'sin tope' : ($plan['max_open_drafts'].' max.') }}</li>
+                  <li>Publicados simultaneos: {{ (int) ($plan['max_published_listings'] ?? 0) === 0 ? 'ilimitados' : $plan['max_published_listings'] }}</li>
                   <li>Hasta {{ $plan['included_cities'] }} ciudad(es)</li>
                   <li>Hasta {{ $plan['max_zones_covered'] }} zona(s)</li>
                   <li>{{ $plan['max_photos_per_listing'] }} foto(s) por anuncio</li>
@@ -250,7 +275,9 @@
                   data-select-url="{{ route('mariachi.listings.plans.select', ['listing' => $listing->id]) }}"
                   data-plan-code="{{ $code }}"
                   data-plan-name="{{ $plan['name'] }}"
-                  data-plan-price="{{ (int) $plan['price_cop'] }}"
+                  data-plan-price="{{ (int) ($defaultTerm['total_price_cop'] ?? $plan['price_cop']) }}"
+                  data-plan-term-months="{{ (int) ($defaultTerm['months'] ?? 1) }}"
+                  data-plan-term-label="{{ $defaultTerm['label'] ?? '1 mes' }}"
                   @disabled($isDisabled)>
                   {{ $buttonLabel }}
                 </button>
@@ -309,6 +336,7 @@
     @csrf
     <input type="hidden" name="listing_id" value="{{ $listing->id }}" />
     <input type="hidden" name="plan_code" value="{{ $defaultPlan['code'] ?? array_key_first($plans) }}" data-payment-plan-code />
-    <input type="hidden" name="amount_cop" value="{{ (int) ($defaultPlan['price_cop'] ?? 0) }}" data-payment-plan-price />
+    <input type="hidden" name="term_months" value="{{ (int) ($defaultPlanTerm['months'] ?? 1) }}" data-payment-plan-term-months />
+    <input type="hidden" name="amount_cop" value="{{ (int) ($defaultPlanTerm['total_price_cop'] ?? 0) }}" data-payment-plan-price />
   </form>
 @endsection

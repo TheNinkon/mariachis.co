@@ -768,7 +768,7 @@ $canSubmitActivation = $isActivationStep
                         <h6 class="mb-3">Resumen</h6>
                         <dl class="row mb-0 small">
                           <dt class="col-6 text-muted">Cuenta</dt>
-                          <dd class="col-6 text-end">{{ $activationUser->status }}</dd>
+                          <dd class="col-6 text-end">{{ $activationUser->statusLabel() }}</dd>
 
                           <dt class="col-6 text-muted">Ultimo pago</dt>
                           <dd class="col-6 text-end">{{ $activationPayment?->statusLabel() ?: 'Sin registro' }}</dd>

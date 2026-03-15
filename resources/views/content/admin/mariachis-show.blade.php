@@ -60,8 +60,12 @@
     $quotesTotal = (int) ($profile->quote_conversations_count ?? 0);
     $reviewsTotal = (int) ($profile->reviews_count ?? 0);
     $activeListings = (int) ($profile->active_listings_count ?? 0);
-    $listingLimit = $profile->listingLimit();
-    $listingUsagePercent = $listingLimit > 0 ? max(5, min(100, (int) round(($activeListings / $listingLimit) * 100))) : 0;
+    $openDraftLimit = $profile->openDraftLimit();
+    $publishedLimit = $profile->publishedListingLimit();
+    $openDraftsCount = $profile->listings()->openDrafts()->count();
+    $listingUsagePercent = $publishedLimit > 0 ? max(5, min(100, (int) round(($activeListings / $publishedLimit) * 100))) : 0;
+    $publishedLimitLabel = $publishedLimit === 0 ? 'Ilimitados' : $publishedLimit.' en simultaneo';
+    $openDraftLimitLabel = $openDraftLimit === 0 ? 'Sin tope' : $openDraftLimit.' abiertos';
   @endphp
 
   @if (session('status'))
@@ -190,7 +194,8 @@
             </div>
           </div>
           <ul class="list-unstyled g-2 my-6">
-            <li class="mb-2 d-flex align-items-center"><i class="icon-base ti tabler-circle-filled icon-10px text-secondary me-2"></i><span>{{ $listingLimit }} anuncio(s) permitidos</span></li>
+            <li class="mb-2 d-flex align-items-center"><i class="icon-base ti tabler-circle-filled icon-10px text-secondary me-2"></i><span>Borradores: {{ $openDraftLimitLabel }}</span></li>
+            <li class="mb-2 d-flex align-items-center"><i class="icon-base ti tabler-circle-filled icon-10px text-secondary me-2"></i><span>Publicados: {{ $publishedLimitLabel }}</span></li>
             <li class="mb-2 d-flex align-items-center"><i class="icon-base ti tabler-circle-filled icon-10px text-secondary me-2"></i><span>{{ (int) ($planEntitlements['max_cities_covered'] ?? $plan?->included_cities ?? 1) }} ciudad(es) incluidas</span></li>
             <li class="mb-2 d-flex align-items-center"><i class="icon-base ti tabler-circle-filled icon-10px text-secondary me-2"></i><span>{{ (int) ($planEntitlements['max_photos_per_listing'] ?? $plan?->max_photos_per_listing ?? 0) }} fotos por anuncio</span></li>
           </ul>
@@ -201,7 +206,15 @@
           <div class="progress mb-1 bg-label-primary" style="height: 6px;">
             <div class="progress-bar" role="progressbar" style="width: {{ $profileCompletion }}%;" aria-valuenow="{{ $profileCompletion }}" aria-valuemin="0" aria-valuemax="100"></div>
           </div>
-          <small>{{ $activeListings }} de {{ $listingLimit }} anuncios activos</small>
+          <small>
+            Activos: {{ $activeListings }}
+            @if ($publishedLimit > 0)
+              de {{ $publishedLimit }}
+            @else
+              · Publicacion sin tope
+            @endif
+            · Borradores abiertos: {{ $openDraftsCount }}
+          </small>
           <div class="d-grid w-100 mt-6">
             <a href="{{ route('admin.mariachis.edit', $mariachi) }}" class="btn btn-primary">Editar perfil</a>
           </div>
@@ -231,6 +244,9 @@
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#reviews" data-section-target="reviews"><i class="icon-base ti tabler-star icon-sm me-1_5"></i>Opiniones</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#payments" data-section-target="payments"><i class="icon-base ti tabler-credit-card icon-sm me-1_5"></i>Pagos</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#activity" data-section-target="activity"><i class="icon-base ti tabler-bell icon-sm me-1_5"></i>Actividad</a>
@@ -272,7 +288,7 @@
             <div class="col-md-6 col-xl-3">
               <div class="border rounded p-4 h-100">
                 <small class="text-body-secondary d-block mb-1">Uso del plan</small>
-                <h4 class="mb-0">{{ $activeListings }}/{{ $listingLimit }}</h4>
+                <h4 class="mb-0">{{ $publishedLimit > 0 ? $activeListings.'/'.$publishedLimit : $activeListings }}</h4>
               </div>
             </div>
           </div>
@@ -425,6 +441,131 @@
               @endforeach
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div class="card mb-6 d-none" id="payments" data-admin-profile-section="payments" hidden>
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <h5 class="mb-1">Pagos del perfil</h5>
+            <p class="mb-0 text-body-secondary">Activacion de cuenta y verificacion del perfil. Los pagos de anuncios siguen viviendo dentro de cada anuncio.</p>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="{{ route('admin.payments.index', ['search' => $mariachi->email]) }}" class="btn btn-outline-primary btn-sm">Abrir módulo Pagos</a>
+            <a href="{{ route('admin.profile-verifications.index') }}" class="btn btn-outline-secondary btn-sm">Abrir verificaciones</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-4 mb-6">
+            <div class="col-md-6 col-xl-3">
+              <div class="border rounded p-4 h-100">
+                <small class="text-body-secondary d-block mb-1">Movimientos</small>
+                <h4 class="mb-0">{{ number_format((int) ($profilePaymentSummary['total'] ?? 0)) }}</h4>
+              </div>
+            </div>
+            <div class="col-md-6 col-xl-3">
+              <div class="border rounded p-4 h-100">
+                <small class="text-body-secondary d-block mb-1">Activacion</small>
+                <h4 class="mb-0">{{ number_format((int) ($profilePaymentSummary['activation_count'] ?? 0)) }}</h4>
+              </div>
+            </div>
+            <div class="col-md-6 col-xl-3">
+              <div class="border rounded p-4 h-100">
+                <small class="text-body-secondary d-block mb-1">Verificacion</small>
+                <h4 class="mb-0">{{ number_format((int) ($profilePaymentSummary['verification_count'] ?? 0)) }}</h4>
+              </div>
+            </div>
+            <div class="col-md-6 col-xl-3">
+              <div class="border rounded p-4 h-100">
+                <small class="text-body-secondary d-block mb-1">Pendientes</small>
+                <h4 class="mb-0">{{ number_format((int) ($profilePaymentSummary['pending_count'] ?? 0)) }}</h4>
+              </div>
+            </div>
+          </div>
+
+          @if ($profilePayments->isEmpty())
+            <p class="mb-0 text-body-secondary">Todavía no hay pagos registrados para este perfil.</p>
+          @else
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Tipo</th>
+                    <th>Plan / detalle</th>
+                    <th>Checkout</th>
+                    <th>Estado</th>
+                    <th>Revision</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach ($profilePayments as $payment)
+                    <tr>
+                      <td>#{{ $payment->id }}</td>
+                      <td>
+                        <span class="badge bg-label-{{ $payment->source_badge_class }}">{{ $payment->source_label }}</span>
+                        <div class="fw-semibold mt-2">{{ $payment->operation_label }}</div>
+                        <small class="text-body-secondary">{{ $payment->created_at?->format('d/m/Y H:i') ?: '-' }}</small>
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ $payment->operation_detail }}</div>
+                        <small class="text-body-secondary">{{ $payment->subject_meta }}</small>
+                        <div class="small mt-1">${{ number_format((int) $payment->amount_cop, 0, ',', '.') }} COP</div>
+                        @if ($payment->period_label)
+                          <div class="small text-body-secondary mt-1">{{ $payment->period_label }}</div>
+                        @endif
+                      </td>
+                      <td>
+                        <div class="fw-semibold">{{ $payment->checkout_reference }}</div>
+                        <small class="text-body-secondary">{{ $payment->provider_transaction_id }}</small>
+                      </td>
+                      <td>
+                        <span class="badge bg-label-{{ $payment->status_class }}">{{ $payment->status_label }}</span>
+                        @if ($payment->provider_transaction_status)
+                          <div class="small text-body-secondary mt-1">{{ $payment->provider_transaction_status }}</div>
+                        @endif
+                      </td>
+                      <td>
+                        <div>{{ $payment->reviewed_at?->format('d/m/Y H:i') ?: 'Sin revisar' }}</div>
+                        <small class="text-body-secondary">{{ $payment->reviewed_by_name }}</small>
+                        <div class="small text-body-secondary mt-1">{{ $payment->review_meta }}</div>
+                        @if ($payment->rejection_reason)
+                          <div class="small text-danger mt-1">{{ $payment->rejection_reason }}</div>
+                        @endif
+                      </td>
+                      <td class="text-end">
+                        @if ($payment->approve_url && $payment->reject_url)
+                          <div class="d-flex flex-column gap-2">
+                            <form action="{{ $payment->approve_url }}" method="POST">
+                              @csrf
+                              @method('PATCH')
+                              <input type="hidden" name="action" value="approve" />
+                              <button type="submit" class="btn btn-sm btn-success">Aprobar</button>
+                            </form>
+                            <form action="{{ $payment->reject_url }}" method="POST">
+                              @csrf
+                              @method('PATCH')
+                              <input type="hidden" name="action" value="reject" />
+                              <textarea
+                                name="rejection_reason"
+                                rows="2"
+                                class="form-control form-control-sm"
+                                placeholder="Motivo del rechazo"
+                                required></textarea>
+                              <button type="submit" class="btn btn-sm btn-outline-danger mt-2">Rechazar</button>
+                            </form>
+                          </div>
+                        @else
+                          <span class="small text-body-secondary">{{ $payment->empty_state }}</span>
+                        @endif
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          @endif
         </div>
       </div>
 

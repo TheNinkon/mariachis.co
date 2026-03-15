@@ -47,7 +47,7 @@ class MariachiActivationRegistrationTest extends TestCase
         $this->assertMatchesRegularExpression('/^m-[a-z0-9]{8}$/', (string) $profile->slug);
     }
 
-    public function test_pending_activation_user_cannot_login_until_payment_is_approved(): void
+    public function test_pending_activation_user_is_redirected_back_to_activation_when_login_is_valid(): void
     {
         $user = User::factory()->create([
             'role' => User::ROLE_MARIACHI,
@@ -56,15 +56,16 @@ class MariachiActivationRegistrationTest extends TestCase
             'activation_token' => str_repeat('a', 64),
         ]);
 
-        $this->from(route('mariachi.login'))
+        $this
             ->post(route('mariachi.login.attempt'), [
                 'email' => $user->email,
                 'password' => 'Password123!',
             ])
-            ->assertRedirect(route('mariachi.login'))
-            ->assertSessionHasErrors([
-                'email' => 'Tu cuenta requiere activacion (pago pendiente).',
-            ]);
+            ->assertRedirect(route('mariachi.activation.show', [
+                'user' => $user->id,
+                'token' => $user->activation_token,
+            ]))
+            ->assertSessionHas('status', 'Tu cuenta todavía está pendiente de activación. Retoma el pago para habilitar el acceso al panel partner.');
 
         $this->assertGuest();
     }
@@ -145,6 +146,98 @@ class MariachiActivationRegistrationTest extends TestCase
         $this->assertSame('APPROVED', $payment->provider_transaction_status);
         $this->assertSame(User::STATUS_ACTIVE, $user->status);
         $this->assertNotNull($user->activation_paid_at);
+    }
+
+    public function test_approved_activation_redirect_sends_the_user_straight_to_login_with_email_prefilled(): void
+    {
+        $this->configureWompi();
+
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_PENDING_ACTIVATION,
+            'activation_token' => str_repeat('d', 64),
+            'email' => 'redirect.activation@example.com',
+        ]);
+
+        $this->ensureActivationPlan();
+
+        $this->post(route('mariachi.activation.payments.wompi.checkout', [
+            'user' => $user->id,
+            'token' => $user->activation_token,
+        ]))->assertStatus(302);
+
+        $payment = AccountActivationPayment::query()->firstOrFail();
+
+        $payload = $this->wompiEventPayload([
+            'id' => 'wompi-tx-activation-redirect',
+            'status' => 'APPROVED',
+            'reference' => $payment->checkout_reference,
+            'amount_in_cents' => $payment->amount_cop * 100,
+            'currency' => 'COP',
+            'status_message' => 'Payment approved',
+        ]);
+
+        $this->postJson(route('mariachi.wompi.webhook'), $payload)->assertOk();
+
+        $this->get(route('mariachi.wompi.redirect', [
+            'type' => 'activation',
+            'reference' => $payment->checkout_reference,
+        ]))
+            ->assertRedirect(route('mariachi.login'))
+            ->assertSessionHas('status')
+            ->assertSessionHas('_old_input.email', 'redirect.activation@example.com');
+    }
+
+    public function test_global_admin_payments_index_includes_activation_payments(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'status' => User::STATUS_ACTIVE,
+        ]);
+
+        $user = User::factory()->create([
+            'role' => User::ROLE_MARIACHI,
+            'status' => User::STATUS_PENDING_ACTIVATION,
+            'email' => 'activation.admin.search@example.com',
+        ]);
+
+        MariachiProfile::query()->create([
+            'user_id' => $user->id,
+            'business_name' => 'Mariachi Admin Search',
+            'city_name' => 'Bogota',
+            'profile_completed' => false,
+            'profile_completion' => 0,
+            'stage_status' => 'provider_incomplete',
+            'verification_status' => 'unverified',
+            'subscription_plan_code' => 'basic',
+            'subscription_listing_limit' => 1,
+            'subscription_active' => false,
+        ]);
+
+        $plan = $this->ensureActivationPlan();
+
+        AccountActivationPayment::query()->create([
+            'user_id' => $user->id,
+            'account_activation_plan_id' => $plan->id,
+            'amount_cop' => $plan->amount_cop,
+            'method' => AccountActivationPayment::METHOD_WOMPI,
+            'checkout_reference' => 'ACT-SEARCH-001',
+            'provider_transaction_id' => '12053726-1773515229-62926',
+            'provider_transaction_status' => 'APPROVED',
+            'status' => AccountActivationPayment::STATUS_APPROVED,
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.payments.index', [
+                'status' => 'all',
+                'operation' => 'all',
+                'search' => '12053726-1773515229-62926',
+            ]))
+            ->assertOk()
+            ->assertSee('Activación', false)
+            ->assertSee('activation.admin.search@example.com', false)
+            ->assertSee('12053726-1773515229-62926', false);
     }
 
     public function test_admin_can_manage_activation_plan_from_packages_section(): void

@@ -179,7 +179,7 @@ class AdminPlanController extends Controller
             'is_public' => $request->boolean('is_public', true),
             'is_active' => $request->boolean('is_active', true),
             'sort_order' => (int) $sortOrder,
-            'listing_limit' => (int) $entitlements[EntitlementKey::MAX_LISTINGS_TOTAL],
+            'listing_limit' => (int) $entitlements[EntitlementKey::MAX_PUBLISHED_LISTINGS],
             'included_cities' => (int) $entitlements[EntitlementKey::MAX_CITIES_COVERED],
             'max_photos_per_listing' => (int) $entitlements[EntitlementKey::MAX_PHOTOS_PER_LISTING],
             'max_videos_per_listing' => (bool) $entitlements[EntitlementKey::CAN_ADD_VIDEO]
@@ -188,7 +188,7 @@ class AdminPlanController extends Controller
             'show_whatsapp' => (bool) $entitlements[EntitlementKey::CAN_SHOW_WHATSAPP],
             'show_phone' => (bool) $entitlements[EntitlementKey::CAN_SHOW_PHONE],
             'priority_level' => (int) $entitlements[EntitlementKey::PRIORITY_LEVEL],
-            'allows_verification' => (bool) $entitlements[EntitlementKey::CAN_REQUEST_VERIFICATION],
+            'allows_verification' => false,
             'allows_featured_city' => (bool) $entitlements[EntitlementKey::CAN_FEATURED_CITY],
             'allows_featured_home' => (bool) $entitlements[EntitlementKey::CAN_FEATURED_HOME],
             'has_premium_badge' => (bool) $entitlements[EntitlementKey::HAS_PREMIUM_BADGE],
@@ -231,6 +231,9 @@ class AdminPlanController extends Controller
         if (! $values[EntitlementKey::CAN_ADD_VIDEO]) {
             $values[EntitlementKey::MAX_VIDEOS_PER_LISTING] = 0;
         }
+
+        $values[EntitlementKey::CAN_REQUEST_VERIFICATION] = false;
+        $values[EntitlementKey::MAX_LISTINGS_TOTAL] = $values[EntitlementKey::MAX_PUBLISHED_LISTINGS];
 
         return $values;
     }

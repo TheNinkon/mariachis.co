@@ -51,6 +51,7 @@ class MenuServiceProvider extends ServiceProvider
           ['url' => $routeUrl('admin.dashboard', [], '/admin/dashboard'), 'name' => 'Dashboard Admin', 'icon' => 'menu-icon icon-base ti tabler-layout-dashboard', 'slug' => 'admin.dashboard'],
           ['url' => $routeUrl('admin.mariachis.index', [], '/admin/mariachis'), 'name' => 'Mariachis', 'icon' => 'menu-icon icon-base ti tabler-list-details', 'slug' => 'admin.mariachis.index'],
           ['url' => $routeUrl('admin.listings.index', [], '/admin/anuncios'), 'name' => 'Anuncios', 'icon' => 'menu-icon icon-base ti tabler-speakerphone', 'slug' => 'admin.listings'],
+          ['url' => $routeUrl('admin.payments.index', [], '/admin/pagos'), 'name' => 'Pagos', 'icon' => 'menu-icon icon-base ti tabler-credit-card', 'slug' => 'admin.payments.index'],
           [
             'name' => 'Paquetes',
             'icon' => 'menu-icon icon-base ti tabler-package',
